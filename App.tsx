@@ -9,7 +9,9 @@ import {
   Key,
   X,
   HelpCircle,
-  CalendarDays
+  CalendarDays,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { Recruit, User } from './types';
 import { INITIAL_RECRUITS } from './constants';
@@ -17,6 +19,7 @@ import Dashboard from './views/Dashboard';
 import RecruitManagement from './views/RecruitManagement';
 import Login from './views/Login';
 import YearSelection from './views/YearSelection';
+import { api } from './api';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,10 +29,9 @@ function App() {
   // State to control which sub-tab of RecruitManagement is active
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
 
-  const [recruits, setRecruits] = useState<Recruit[]>(() => {
-    const saved = localStorage.getItem('military_recruits');
-    return saved ? JSON.parse(saved) : INITIAL_RECRUITS;
-  });
+  const [recruits, setRecruits] = useState<Recruit[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   // Desktop sidebar state (collapsed/expanded)
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -44,9 +46,27 @@ function App() {
   // Support Modal State
   const [showSupportModal, setShowSupportModal] = useState(false);
 
+  // FETCH DATA FROM SERVER
   useEffect(() => {
-    localStorage.setItem('military_recruits', JSON.stringify(recruits));
-  }, [recruits]);
+    const fetchData = async () => {
+      if (user && sessionYear) {
+        setIsLoading(true);
+        const data = await api.getRecruits();
+        
+        if (data !== null) {
+            // Kết nối thành công (có thể là mảng rỗng hoặc có dữ liệu)
+            setRecruits(data);
+            setIsOnline(true);
+        } else {
+            // Lỗi kết nối (null) -> Offline
+            setRecruits([]); 
+            setIsOnline(false);
+        }
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [user, sessionYear]);
 
   // Close mobile menu when navigating
   const handleNavigate = (tabId: string) => {
@@ -55,19 +75,51 @@ function App() {
       setIsMobileMenuOpen(false);
   };
 
-  const handleUpdateRecruit = (updatedRecruit: Recruit) => {
+  const handleUpdateRecruit = async (updatedRecruit: Recruit) => {
+    // Optimistic Update (Cập nhật giao diện trước cho mượt)
+    const oldRecruits = [...recruits];
+    const exists = recruits.find(r => r.id === updatedRecruit.id);
+    
+    // Update Local State
     setRecruits(prev => {
-      const exists = prev.find(r => r.id === updatedRecruit.id);
       if (exists) {
         return prev.map(r => r.id === updatedRecruit.id ? updatedRecruit : r);
       }
       return [...prev, updatedRecruit];
     });
+
+    // Call API
+    let result;
+    if (exists) {
+        result = await api.updateRecruit(updatedRecruit);
+    } else {
+        result = await api.createRecruit(updatedRecruit);
+    }
+
+    // Rollback if error
+    if (!result) {
+        alert("Lỗi kết nối Server! Không lưu được dữ liệu.");
+        setRecruits(oldRecruits);
+        setIsOnline(false);
+    } else {
+        setIsOnline(true);
+    }
   };
 
-  const handleDeleteRecruit = (id: string) => {
+  const handleDeleteRecruit = async (id: string) => {
     if(window.confirm('Đồng chí chắc chắn muốn xóa hồ sơ này?')) {
+        const oldRecruits = [...recruits];
+        // Optimistic delete
         setRecruits(prev => prev.filter(r => r.id !== id));
+        
+        const success = await api.deleteRecruit(id);
+        if (!success) {
+            alert("Lỗi kết nối Server! Không xóa được dữ liệu.");
+            setRecruits(oldRecruits);
+            setIsOnline(false);
+        } else {
+            setIsOnline(true);
+        }
     }
   };
 
@@ -81,7 +133,7 @@ function App() {
     e.preventDefault();
     if (newPassword.length < 1) return;
 
-    // Update in LocalStorage
+    // Update in LocalStorage (Auth is still local for this version)
     const savedUsers = JSON.parse(localStorage.getItem('military_users') || '[]');
     const updatedUsers = savedUsers.map((u: User) => {
         if (u.username === user?.username) {
@@ -198,7 +250,7 @@ function App() {
                 <LogOut size={20} className="shrink-0" />
                 {(isSidebarOpen || isMobileMenuOpen) && <span className="font-medium">Đăng xuất</span>}
              </button>
-             {(isSidebarOpen || isMobileMenuOpen) && <div className="mt-4 text-xs text-military-400 text-center">Phiên bản 2.2</div>}
+             {(isSidebarOpen || isMobileMenuOpen) && <div className="mt-4 text-xs text-military-400 text-center">Phiên bản 2.2 Online</div>}
       </div>
     </>
   );
@@ -238,12 +290,22 @@ function App() {
              >
                 <Menu size={24} />
              </button>
-             <h1 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-tight truncate max-w-[200px] md:max-w-none">
-                {activeTab === 'dashboard' ? `Quy trình tuyển quân ${sessionYear}` : `Quản lý công dân nhập ngũ ${sessionYear}`}
+             <h1 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-tight truncate max-w-[200px] md:max-w-none flex flex-col">
+                <span>{activeTab === 'dashboard' ? `Quy trình tuyển quân ${sessionYear}` : `Quản lý công dân nhập ngũ ${sessionYear}`}</span>
+                {isLoading && <span className="text-[10px] text-gray-400 normal-case font-normal animate-pulse">Đang đồng bộ dữ liệu...</span>}
              </h1>
           </div>
           
           <div className="flex items-center gap-4">
+             {/* Server Status Indicator */}
+             <div className="hidden md:flex items-center gap-1 text-xs font-bold px-2 py-1 rounded border border-gray-200">
+                 {isOnline ? (
+                     <><Wifi size={14} className="text-green-600"/> <span className="text-green-700">Online</span></>
+                 ) : (
+                     <><WifiOff size={14} className="text-red-600"/> <span className="text-red-700">Offline</span></>
+                 )}
+             </div>
+
              {/* Re-select year button */}
              <button 
                 onClick={() => setSessionYear(null)}

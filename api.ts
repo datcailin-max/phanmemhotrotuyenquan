@@ -10,14 +10,15 @@ const API_URL = isLocal ? `http://${hostname}:5000/api` : '/api';
 
 export const api = {
   // Lấy toàn bộ danh sách
-  getRecruits: async (): Promise<Recruit[]> => {
+  // Trả về null nếu lỗi kết nối để App biết đường hiển thị Offline
+  getRecruits: async (): Promise<Recruit[] | null> => {
     try {
       const response = await fetch(`${API_URL}/recruits`);
       if (!response.ok) throw new Error('Failed to fetch recruits');
       return await response.json();
     } catch (error) {
       console.error("API Error:", error);
-      return [];
+      return null;
     }
   },
 
