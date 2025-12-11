@@ -23,9 +23,32 @@ app.use(express.static(path.join(__dirname, '../dist')));
 // Ưu tiên lấy từ biến môi trường MONGODB_URI (Cloud), nếu không có thì dùng local
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/tuyenquan_db';
 
+// LOG DEBUG: In ra chuỗi kết nối (đã che mật khẩu) để kiểm tra lỗi cú pháp
+try {
+  const maskedURI = MONGODB_URI.replace(/:([^:@]+)@/, ':****@');
+  console.log(`🌐 Đang nỗ lực kết nối tới Database: ${maskedURI}`);
+} catch (e) {
+  console.log('🌐 Đang nỗ lực kết nối tới Database (Không thể parse URI)');
+}
+
 mongoose.connect(MONGODB_URI)
   .then(() => console.log(`✅ Đã kết nối cơ sở dữ liệu: ${process.env.MONGODB_URI ? 'MongoDB Cloud' : 'Localhost'}`))
-  .catch(err => console.error('❌ Lỗi kết nối MongoDB:', err));
+  .catch(err => {
+    console.error('❌ Lỗi kết nối MongoDB:', err.message);
+    
+    // Kiểm tra lỗi IP Whitelist
+    if (err.name === 'MongooseServerSelectionError') {
+        console.error('🚨 QUAN TRỌNG: Server Render bị MongoDB chặn IP!');
+        console.error('👉 KHẮC PHỤC NGAY:');
+        console.error('   1. Vào trang quản trị MongoDB Atlas (cloud.mongodb.com)');
+        console.error('   2. Chọn mục "Network Access" ở cột bên trái');
+        console.error('   3. Bấm nút xanh "Add IP Address"');
+        console.error('   4. Chọn "Allow Access from Anywhere" (0.0.0.0/0)');
+        console.error('   5. Bấm "Confirm" và đợi 1-2 phút rồi Restart lại Render.');
+    } else {
+        console.error('⚠️ GỢI Ý: Kiểm tra lại User/Password trong biến môi trường MONGODB_URI.');
+    }
+  });
 
 // --- API ROUTES ---
 
