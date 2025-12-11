@@ -1,0 +1,62 @@
+import mongoose from 'mongoose';
+
+const recruitSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true }, // Keep existing ID logic for compatibility
+  citizenId: String,
+  fullName: { type: String, required: true },
+  dob: String,
+  phoneNumber: String,
+  avatarUrl: String,
+  address: {
+    province: String,
+    commune: String,
+    village: String,
+    street: String
+  },
+  hometown: {
+    province: String,
+    commune: String,
+    village: String
+  },
+  physical: {
+    height: Number,
+    weight: Number,
+    bmi: Number,
+    healthGrade: Number
+  },
+  details: {
+    education: String,
+    ethnicity: String,
+    religion: String,
+    maritalStatus: String,
+    job: String,
+    politicalStatus: String,
+    partyEntryDate: String
+  },
+  family: {
+    father: {
+      fullName: String,
+      job: String,
+      phoneNumber: String
+    },
+    mother: {
+      fullName: String,
+      job: String,
+      phoneNumber: String
+    },
+    wife: {
+      fullName: String,
+      job: String,
+      phoneNumber: String
+    },
+    children: String
+  },
+  status: { type: String, required: true },
+  defermentReason: String,
+  enlistmentUnit: String,
+  recruitmentYear: { type: Number, required: true }
+}, { timestamps: true });
+
+const Recruit = mongoose.model('Recruit', recruitSchema);
+
+export default Recruit;
