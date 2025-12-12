@@ -59,36 +59,53 @@ const COLORS = {
     pie: ['#059669', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1']
 };
 
-// Component thẻ quy trình (Process Step)
-const ProcessStepCard = ({ title, count, total, icon: Icon, color, onClick, isLast = false, subLabel, hideProgress = false, detailText }: any) => {
+// Component thẻ quy trình (Process Step) - Phong cách Quân sự (Military Style)
+const ProcessStepCard = ({ title, count, total, icon: Icon, color, onClick, isLast = false, hideProgress = false, detailText }: any) => {
+    // Chuyển đổi class bg- màu thành text- màu tương ứng để tô màu số liệu
+    const textClass = color.replace('bg-', 'text-');
+    const borderClass = color.replace('bg-', 'border-');
+
     return (
         <div 
             onClick={onClick}
-            className={`flex-1 relative p-4 rounded-xl border transition-all cursor-pointer group bg-white hover:shadow-lg ${isLast ? 'border-green-500 bg-green-50/30' : 'border-gray-200 hover:border-military-300'}`}
+            className={`
+                relative flex flex-col justify-between
+                bg-white
+                border border-gray-300
+                rounded-sm
+                hover:border-military-500 hover:shadow-md hover:-translate-y-0.5
+                transition-all cursor-pointer group
+                min-h-[100px]
+                overflow-hidden
+            `}
         >
-            <div className="flex justify-between items-start mb-2">
-                <div className={`p-2 rounded-lg ${color} text-white shadow-sm`}>
-                    <Icon size={20} />
+            {/* Military Status Bar Top */}
+            <div className={`h-1 w-full ${color}`}></div>
+
+            <div className="p-3 flex-1 flex flex-col justify-between">
+                <div className="flex justify-between items-start gap-2">
+                    {/* Title - Uppercase & Bold */}
+                    <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-tight leading-tight group-hover:text-military-700">
+                        {title}
+                    </h3>
+                    {/* Icon Watermark Style */}
+                    <Icon size={16} className="text-gray-200 group-hover:text-military-400 transition-colors shrink-0" />
                 </div>
-                <div className="text-right">
-                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{subLabel}</p>
-                     <p className={`text-2xl font-bold ${isLast ? 'text-green-700' : 'text-gray-800'}`}>{count}</p>
+
+                <div className="mt-2 text-right">
+                    {/* Number - Monospace font for data look */}
+                    <p className={`text-3xl font-black font-mono tracking-tighter ${textClass}`}>
+                        {count}
+                    </p>
+                    {/* Detail Text (if any) */}
+                    {detailText && (
+                        <p className="text-[10px] text-gray-400 font-medium -mt-1 font-mono">{detailText}</p>
+                    )}
                 </div>
             </div>
             
-            <h3 className="text-sm font-bold text-gray-700 mt-2 mb-1 group-hover:text-military-700 transition-colors uppercase">{title}</h3>
-            
-            {/* Detail text for Enlisted breakdown */}
-            {detailText && (
-                <p className="text-[10px] text-gray-500 font-medium mb-1">{detailText}</p>
-            )}
-
-            {/* Progress bar visual */}
-            {!isLast && !hideProgress && !detailText && (
-                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                    <div className="h-full bg-gray-300 group-hover:bg-military-500 transition-all" style={{ width: '100%' }}></div>
-                </div>
-            )}
+            {/* Decorative Corner Triangle */}
+            <div className="absolute bottom-0 left-0 w-2 h-2 bg-gray-100 group-hover:bg-military-100 transition-colors clip-path-triangle-corner"></div>
         </div>
     );
 };
@@ -411,12 +428,11 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              </span>
          </div>
          
-         {/* 12 CARDS GRID */}
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 relative">
+         {/* 12 CARDS GRID - Military Style - No SubLabels */}
+         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 relative">
              {/* 1. TỔNG NGUỒN THANH NIÊN */}
              <ProcessStepCard 
-                title="TỔNG NGUỒN THANH NIÊN" 
-                subLabel="QUẢN LÝ"
+                title="TỔNG NGUỒN" 
                 count={stats.countTotalSource} 
                 total={stats.countTotalSource}
                 icon={Users} 
@@ -427,8 +443,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              
              {/* 2. CHƯA ĐỦ 18 */}
              <ProcessStepCard 
-                title="CHƯA ĐỦ 18 TUỔI" 
-                subLabel="CHỜ TUỔI"
+                title="CHỜ TUỔI" 
                 count={stats.countUnder18} 
                 total={stats.countTotalSource}
                 icon={Baby} 
@@ -439,8 +454,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 3. ĐỦ ĐK SƠ TUYỂN */}
              <ProcessStepCard 
-                title="ĐỦ ĐK SƠ TUYỂN" 
-                subLabel="TIỀM NĂNG"
+                title="TIỀM NĂNG" 
                 count={stats.countEligiblePreCheck} 
                 total={stats.countTotalSource}
                 icon={ClipboardList} 
@@ -450,8 +464,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 4. ĐỦ ĐIỀU KIỆN KHÁM TUYỂN */}
              <ProcessStepCard 
-                title="ĐỦ ĐK KHÁM TUYỂN" 
-                subLabel="ĐẠT SƠ KHÁM"
+                title="ĐẠT SƠ KHÁM" 
                 count={stats.countEligibleMedExam} 
                 total={stats.countTotalSource}
                 icon={Stethoscope} 
@@ -461,8 +474,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 5. ĐỦ ĐK NHẬP NGŨ */}
              <ProcessStepCard 
-                title="ĐỦ ĐK NHẬP NGŨ" 
-                subLabel="CHỜ LỆNH"
+                title="CHỜ LỆNH" 
                 count={stats.countEligibleEnlist} 
                 total={stats.countTotalSource}
                 icon={FileSignature} 
@@ -472,20 +484,18 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 6. SỐ LƯỢNG NHẬP NGŨ */}
              <ProcessStepCard 
-                title="SỐ LƯỢNG NHẬP NGŨ" 
-                subLabel="CHÍNH THỨC"
+                title="NHẬP NGŨ" 
                 count={stats.countEnlisted} 
                 total={stats.countTotalSource}
                 icon={Flag} 
                 color="bg-red-600"
                 onClick={() => onNavigate('ENLISTED')}
-                detailText={`${stats.countEnlistedOfficial} Chính thức / ${stats.countEnlistedReserve} Dự bị`}
+                detailText={`${stats.countEnlistedOfficial} CT / ${stats.countEnlistedReserve} DB`}
              />
 
              {/* 7. TẠM HOÃN NGUỒN NĂM NAY */}
              <ProcessStepCard 
-                title="TẠM HOÃN NGUỒN" 
-                subLabel="NĂM NAY"
+                title="HOÃN NGUỒN" 
                 count={stats.countDeferredSource} 
                 total={stats.countTotalSource}
                 icon={PauseCircle} 
@@ -496,8 +506,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 8. TẠM HOÃN SƠ TUYỂN */}
              <ProcessStepCard 
-                title="TẠM HOÃN SƠ TUYỂN" 
-                subLabel="SAU SƠ KHÁM"
+                title="HOÃN SƠ TUYỂN" 
                 count={stats.countDeferredPreCheck} 
                 total={stats.countTotalSource}
                 icon={UserMinus} 
@@ -508,8 +517,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 9. TẠM HOÃN KHÁM TUYỂN */}
              <ProcessStepCard 
-                title="TẠM HOÃN KHÁM TUYỂN" 
-                subLabel="SAU KHÁM SK"
+                title="HOÃN KHÁM" 
                 count={stats.countDeferredMedExam} 
                 total={stats.countTotalSource}
                 icon={HeartPulse} 
@@ -520,8 +528,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 10. ĐƯỢC MIỄN */}
              <ProcessStepCard 
-                title="ĐƯỢC MIỄN" 
-                subLabel="MIỄN NVQS"
+                title="MIỄN NVQS" 
                 count={stats.countExempted} 
                 total={stats.countTotalSource}
                 icon={ShieldCheck} 
@@ -532,8 +539,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 11. LOẠI KHỎI NGUỒN */}
              <ProcessStepCard 
-                title="LOẠI KHỎI NGUỒN" 
-                subLabel="XÓA KHỎI DS"
+                title="ĐÃ LOẠI" 
                 count={stats.countRemoved} 
                 total={0}
                 icon={UserX} 
@@ -545,7 +551,6 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 12. TỔNG NGUỒN CÒN LẠI CHO NĂM SAU */}
              <ProcessStepCard 
                 title="NGUỒN CÒN LẠI" 
-                subLabel="CHO NĂM SAU"
                 count={stats.countRemainingNextYear} 
                 total={stats.countTotalSource}
                 icon={Layers} 
