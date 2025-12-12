@@ -54,6 +54,7 @@ const recruitSchema = new mongoose.Schema({
   status: { type: String, required: true },
   defermentReason: String,
   enlistmentUnit: String,
+  enlistmentType: String, // 'OFFICIAL' or 'RESERVE'
   recruitmentYear: { type: Number, required: true }
 }, { timestamps: true });
 

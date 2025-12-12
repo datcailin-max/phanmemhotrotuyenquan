@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
 import { EDUCATIONS, GET_ALL_COMMUNES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, MARITAL_STATUSES } from '../constants';
@@ -29,7 +30,9 @@ import {
   ChevronRight,
   Layers,
   ShieldCheck,
-  Baby
+  Baby,
+  Activity,
+  Star
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -63,16 +66,16 @@ const TABS = [
   },
   { 
       id: 'PRE_CHECK', 
-      label: 'Sơ khám', 
+      label: 'DS Đủ ĐK Sơ tuyển', 
       status: [
           RecruitmentStatus.SOURCE, 
           RecruitmentStatus.PRE_CHECK_PASSED, 
-          RecruitmentStatus.PRE_CHECK_FAILED,
+          // Removed PRE_CHECK_FAILED (Moved to separate list)
           RecruitmentStatus.MED_EXAM_PASSED,
           RecruitmentStatus.MED_EXAM_FAILED,
           RecruitmentStatus.FINALIZED,
           RecruitmentStatus.ENLISTED
-          // Không bao gồm DEFERRED (Tạm hoãn) và EXEMPTED (Miễn)
+          // EXEMPTED & DEFERRED are automatically excluded because they are not in this list
       ], 
       color: 'bg-blue-600', 
       borderColor: 'border-blue-600',
@@ -81,14 +84,13 @@ const TABS = [
   },
   { 
       id: 'MED_EXAM', 
-      label: 'Khám tuyển', 
+      label: 'DS Đủ ĐK Khám tuyển', 
       status: [
           RecruitmentStatus.PRE_CHECK_PASSED, 
           RecruitmentStatus.MED_EXAM_PASSED, 
-          RecruitmentStatus.MED_EXAM_FAILED,
+          // Removed MED_EXAM_FAILED (Moved to separate list)
           RecruitmentStatus.FINALIZED,
           RecruitmentStatus.ENLISTED
-          // Removed DEFERRED, EXEMPTED
       ], 
       color: 'bg-indigo-600', 
       borderColor: 'border-indigo-600',
@@ -97,11 +99,11 @@ const TABS = [
   },
   { 
       id: 'FINAL', 
-      label: 'Danh sách niêm yết', 
+      label: 'DS Đủ ĐK Nhập ngũ', 
       status: [
           RecruitmentStatus.MED_EXAM_PASSED, 
           RecruitmentStatus.FINALIZED,
-          RecruitmentStatus.ENLISTED // Đã phát lệnh vẫn hiện ở đây để quản lý danh sách niêm yết
+          RecruitmentStatus.ENLISTED 
       ], 
       color: 'bg-green-600', 
       borderColor: 'border-green-600',
@@ -121,7 +123,7 @@ const TABS = [
   },
   { 
     id: 'DEFERRED_LIST', 
-    label: 'Danh sách Tạm hoãn', 
+    label: 'DS Tạm hoãn (Nguồn)', 
     status: [
         RecruitmentStatus.DEFERRED
     ], 
@@ -129,6 +131,28 @@ const TABS = [
     borderColor: 'border-amber-600',
     textColor: 'text-amber-700',
     icon: PauseCircle
+  },
+  { 
+    id: 'POST_PRE_CHECK_DEFERRED', 
+    label: 'Tạm hoãn (Sơ tuyển)', 
+    status: [
+        RecruitmentStatus.PRE_CHECK_FAILED
+    ], 
+    color: 'bg-orange-600', 
+    borderColor: 'border-orange-600',
+    textColor: 'text-orange-700',
+    icon: Activity
+  },
+  { 
+    id: 'POST_MED_EXAM_DEFERRED', 
+    label: 'Tạm hoãn (Khám tuyển)', 
+    status: [
+        RecruitmentStatus.MED_EXAM_FAILED
+    ], 
+    color: 'bg-red-500', 
+    borderColor: 'border-red-500',
+    textColor: 'text-red-600',
+    icon: Activity
   },
   { 
     id: 'EXEMPTED_LIST', 
@@ -265,6 +289,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
     } else if (currentTab?.status) {
         // Các tab khác lọc theo Status như bình thường
         result = result.filter(r => currentTab.status && currentTab.status.includes(r.status));
+
+        // TÙY CHỈNH: Tab "DS Đủ ĐK Sơ tuyển" (PRE_CHECK) phải lọc bỏ người dưới 18 tuổi
+        if (activeTabId === 'PRE_CHECK') {
+            result = result.filter(r => {
+                const birthYear = parseInt(r.dob.split('-')[0]);
+                return (sessionYear - birthYear) >= 18;
+            });
+        }
     }
 
     // 3. User Input filtering
@@ -338,7 +370,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
     setShowForm(true);
   };
 
-  const handleStatusChange = (e: React.MouseEvent, recruit: Recruit, newStatus: RecruitmentStatus) => {
+  const handleStatusChange = (e: React.MouseEvent, recruit: Recruit, newStatus: RecruitmentStatus, enlistmentType?: 'OFFICIAL' | 'RESERVE') => {
     e.stopPropagation(); // Prevent row click
     if (isReadOnly) return; // Read Only cannot change status
     
@@ -365,13 +397,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
             status: newStatus,
             defermentReason: reason, // Lưu lý do không đạt vào trường này
             enlistmentUnit: undefined,
-            enlistmentDate: undefined
+            enlistmentDate: undefined,
+            enlistmentType: undefined
         };
         onUpdate(updated);
         return;
     }
 
     const updated = { ...recruit, status: newStatus };
+    
+    // Handle Enlistment Type
+    if (newStatus === RecruitmentStatus.ENLISTED && enlistmentType) {
+        updated.enlistmentType = enlistmentType;
+    } else if (newStatus !== RecruitmentStatus.ENLISTED) {
+        updated.enlistmentType = undefined; // Reset if moving out of enlisted
+    }
     
     // Clean up reason if not relevant (nếu đạt thì xóa lý do cũ)
     if (newStatus !== RecruitmentStatus.DEFERRED && newStatus !== RecruitmentStatus.EXEMPTED && newStatus !== RecruitmentStatus.REMOVED_FROM_SOURCE) {
@@ -428,7 +468,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           status: RecruitmentStatus.SOURCE,
           defermentReason: '', // Clear reason
           enlistmentUnit: undefined, // Clear unit if any
-          enlistmentDate: undefined
+          enlistmentDate: undefined,
+          enlistmentType: undefined
       };
       onUpdate(updated);
   };
@@ -505,11 +546,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       case RecruitmentStatus.PRE_CHECK_PASSED:
         return <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300 whitespace-nowrap">Đạt sơ khám</span>;
       case RecruitmentStatus.PRE_CHECK_FAILED:
-        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-900 border border-red-300 whitespace-nowrap">Sơ khám KĐ</span>;
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-900 border border-orange-300 whitespace-nowrap">Tạm hoãn (Sơ tuyển)</span>;
       case RecruitmentStatus.MED_EXAM_PASSED:
         return <span className="px-2 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-900 border border-indigo-300 whitespace-nowrap">Đủ điều kiện</span>;
       case RecruitmentStatus.MED_EXAM_FAILED:
-        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-900 border border-red-300 whitespace-nowrap">Sức khỏe KĐ</span>;
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-900 border border-red-300 whitespace-nowrap">Tạm hoãn (Khám tuyển)</span>;
       case RecruitmentStatus.FINALIZED:
         return (
             <div className="flex flex-col items-start gap-1">
@@ -519,7 +560,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       case RecruitmentStatus.ENLISTED:
         return (
             <div className="flex flex-col items-start gap-1">
-                <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300 whitespace-nowrap flex items-center gap-1"><Flag size={10} fill="currentColor"/> NHẬP NGŨ</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-bold border whitespace-nowrap flex items-center gap-1 ${recruit.enlistmentType === 'RESERVE' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                    <Flag size={10} fill="currentColor"/> 
+                    {recruit.enlistmentType === 'RESERVE' ? 'NHẬP NGŨ (DỰ BỊ)' : 'NHẬP NGŨ (CHÍNH THỨC)'}
+                </span>
                 {recruit.enlistmentUnit && <span className="text-xs font-bold text-green-700 flex items-center gap-1"><Tent size={10}/> {recruit.enlistmentUnit}</span>}
             </div>
         );
@@ -536,14 +580,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
   const renderTableHead = () => {
     switch (activeTabId) {
-        // ... (other cases remain the same)
         case 'PRE_CHECK':
             return (
                 <tr>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Họ tên & Ngày sinh</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">SĐT / Địa chỉ</th>
-                    <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Đánh giá Sơ khám</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Đánh giá Sơ tuyển</th>
                     {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Thao tác</th>}
                 </tr>
             );
@@ -564,7 +607,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Công dân</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Trình độ / SK</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Tình trạng niêm yết</th>
-                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">QUYẾT ĐỊNH</th>}
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">QUYẾT ĐỊNH NHẬP NGŨ</th>}
                 </tr>
             );
         case 'ENLISTED':
@@ -589,6 +632,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                 </tr>
             );
         case 'DEFERRED_LIST':
+        case 'POST_PRE_CHECK_DEFERRED':
+        case 'POST_MED_EXAM_DEFERRED':
             return (
                 <tr>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
@@ -680,15 +725,26 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           )
       }
 
-      // Deferred List Tab
-      if (activeTabId === 'DEFERRED_LIST') {
+      // Deferred List Tabs (Shared Logic for all 3 deferred types)
+      if (['DEFERRED_LIST', 'POST_PRE_CHECK_DEFERRED', 'POST_MED_EXAM_DEFERRED'].includes(activeTabId || '')) {
+          let bgClass = "bg-amber-50/20 hover:bg-amber-50/50";
+          let textClass = "text-amber-700";
+          
+          if (activeTabId === 'POST_PRE_CHECK_DEFERRED') {
+              bgClass = "bg-orange-50/20 hover:bg-orange-50/50";
+              textClass = "text-orange-700";
+          } else if (activeTabId === 'POST_MED_EXAM_DEFERRED') {
+              bgClass = "bg-red-50/20 hover:bg-red-50/50";
+              textClass = "text-red-700";
+          }
+
           return (
-             <tr key={recruit.id} className="hover:bg-amber-50/50 transition-colors border-b border-gray-100 bg-amber-50/20">
+             <tr key={recruit.id} className={`${bgClass} transition-colors border-b border-gray-100`}>
                  <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
                  <td className="p-4">{infoCell}</td>
                  <td className="p-4">{addressCell}</td>
                  <td className="p-4">
-                     <div className="text-sm font-bold text-amber-700 whitespace-pre-wrap">{recruit.defermentReason}</div>
+                     <div className={`text-sm font-bold ${textClass} whitespace-pre-wrap`}>{recruit.defermentReason}</div>
                  </td>
                  {!isReadOnly && (
                      <td className="p-4 text-center">
@@ -764,8 +820,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                                 onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_FAILED)}
                                 className={`px-3 py-1 border rounded text-xs font-bold flex items-center gap-1 transition-all
                                     ${recruit.status === RecruitmentStatus.PRE_CHECK_FAILED 
-                                        ? 'bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-100' 
-                                        : 'bg-white text-gray-400 border-gray-200 hover:border-red-500 hover:text-red-600'
+                                        ? 'bg-orange-600 text-white border-orange-600 shadow-md ring-2 ring-orange-100' 
+                                        : 'bg-white text-gray-400 border-gray-200 hover:border-orange-500 hover:text-orange-600'
                                     }
                                 `}
                                 disabled={isReadOnly}
@@ -773,12 +829,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                                 <XCircle size={14}/> Không
                              </button>
                          </div>
-                         {/* Show reason if failed */}
-                         {recruit.status === RecruitmentStatus.PRE_CHECK_FAILED && recruit.defermentReason && (
-                             <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
-                                 Lý do: {recruit.defermentReason}
-                             </span>
-                         )}
                      </div>
                 </td>
                 {!isReadOnly && (
@@ -835,11 +885,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                                        <Edit3 size={10} />
                                    </div>
                                </div>
-                               {recruit.status === RecruitmentStatus.MED_EXAM_FAILED && recruit.defermentReason && (
-                                     <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
-                                         Lý do: {recruit.defermentReason}
-                                     </span>
-                               )}
                            </div>
                        ) : (
                            getStatusBadge(recruit)
@@ -871,11 +916,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                      {(recruit.status === RecruitmentStatus.FINALIZED || recruit.status === RecruitmentStatus.ENLISTED) ? (
                          <div className="flex flex-col items-center gap-1">
                             <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-900 border border-green-300 whitespace-nowrap flex items-center justify-center gap-1">
-                                <CheckCircle2 size={12}/> Đã niêm yết
+                                <CheckCircle2 size={12}/> Đủ điều kiện nhập ngũ
                             </span>
                             {recruit.status === RecruitmentStatus.ENLISTED && (
-                                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 flex items-center gap-1">
-                                    <Flag size={10} /> Đã phát lệnh
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${recruit.enlistmentType === 'RESERVE' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                                    <Flag size={10} /> Đã phát lệnh ({recruit.enlistmentType === 'RESERVE' ? 'Dự bị' : 'Chính thức'})
                                 </span>
                             )}
                          </div>
@@ -892,20 +937,29 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                 {!isReadOnly && (
                     <td className="p-4 text-center">
                         {recruit.status === RecruitmentStatus.FINALIZED && (
-                            <div className="flex justify-center gap-2">
+                            <div className="flex flex-col gap-1 items-center justify-center">
+                                <div className="flex gap-2 mb-1">
+                                    <button 
+                                        onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.ENLISTED, 'OFFICIAL')}
+                                        className="px-2 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-bold shadow-md flex items-center gap-1 transition-all animate-in fade-in zoom-in w-28 justify-center"
+                                        title="Chốt và Phát lệnh (Chính thức)"
+                                    >
+                                        <Send size={12} /> CT (Chính thức)
+                                    </button>
+                                    <button 
+                                        onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED)}
+                                        className="px-2 py-1.5 bg-gray-100 text-gray-600 border border-gray-300 rounded hover:bg-gray-200 text-xs font-bold flex items-center justify-center transition-all"
+                                        title="Hủy niêm yết"
+                                    >
+                                        <XCircle size={12} />
+                                    </button>
+                                </div>
                                 <button 
-                                    onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.ENLISTED)}
-                                    className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-bold shadow-md flex items-center gap-1 transition-all animate-in fade-in zoom-in"
-                                    title="Chốt và Phát lệnh nhập ngũ"
+                                    onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.ENLISTED, 'RESERVE')}
+                                    className="px-2 py-1.5 bg-amber-500 text-white rounded hover:bg-amber-600 text-xs font-bold shadow-md flex items-center gap-1 transition-all animate-in fade-in zoom-in w-28 justify-center"
+                                    title="Chốt và Phát lệnh (Dự bị)"
                                 >
-                                    <Send size={12} /> Chốt & Phát lệnh
-                                </button>
-                                <button 
-                                    onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED)}
-                                    className="px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-300 rounded hover:bg-gray-200 text-xs font-bold flex items-center gap-1 transition-all"
-                                    title="Hủy niêm yết (Quay lại Đạt khám tuyển)"
-                                >
-                                    <XCircle size={12} /> Không chốt
+                                    <Star size={12} /> DB (Dự bị)
                                 </button>
                             </div>
                         )}
@@ -934,8 +988,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                 <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
                 <td className="p-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold border border-red-200">
-                            <Flag size={14} fill="currentColor"/>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border border-opacity-50 ${recruit.enlistmentType === 'RESERVE' ? 'bg-amber-100 text-amber-600 border-amber-300' : 'bg-red-100 text-red-600 border-red-300'}`}>
+                            {recruit.enlistmentType === 'RESERVE' ? <Star size={14} fill="currentColor"/> : <Flag size={14} fill="currentColor"/>}
                         </div>
                         {infoCell}
                     </div>

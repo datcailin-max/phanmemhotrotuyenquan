@@ -80,6 +80,7 @@ export interface Recruit {
   defermentReason?: string; // Lý do tạm hoãn, miễn HOẶC lý do không đạt sức khỏe
   enlistmentUnit?: string; // Đơn vị nhập ngũ (khi đã chốt)
   enlistmentDate?: string; // Ngày nhập ngũ
+  enlistmentType?: 'OFFICIAL' | 'RESERVE'; // 'OFFICIAL': Chính thức, 'RESERVE': Dự bị
   recruitmentYear: number;
 }
 
