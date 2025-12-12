@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShieldAlert, LogIn, Key, UserCheck, UserPlus, Check, Eye, Edit3, MapPin } from 'lucide-react';
+import { ShieldAlert, LogIn, Key, UserCheck, UserPlus, Check, Eye, Edit3, MapPin, Phone, Briefcase, User as UserIcon } from 'lucide-react';
 import { MOCK_USERS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones } from '../constants';
 import { User, UserRole } from '../types';
 
@@ -22,7 +22,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const [regUsername, setRegUsername] = useState('');
-  const [regFullName, setRegFullName] = useState('');
+  const [regUnitName, setRegUnitName] = useState(''); // Tên đơn vị (Hiển thị)
+  const [regPersonalName, setRegPersonalName] = useState(''); // Họ và tên
+  const [regPosition, setRegPosition] = useState(''); // Chức vụ
+  const [regPhone, setRegPhone] = useState(''); // SĐT
+
   const [regAccountType, setRegAccountType] = useState<'1' | '2'>('1'); // 1: Editor, 2: Viewer
   const [successInfo, setSuccessInfo] = useState<{user: string, pass: string} | null>(null);
 
@@ -69,9 +73,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         setRegUsername(cleanName + regAccountType);
         
         // Auto set display name if empty or default
-        // We update it whenever type changes to match the role description
         const roleDesc = regAccountType === '1' ? '(Cán bộ chuyên môn)' : '(Chỉ huy đơn vị)';
-        setRegFullName(`Ban CHQS ${regCommune} ${roleDesc}`);
+        setRegUnitName(`Ban CHQS ${regCommune} ${roleDesc}`);
         
     } else {
         setRegUsername('');
@@ -121,7 +124,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regProvince || !regCommune || !regUsername || !regFullName) {
+    if (!regProvince || !regCommune || !regUsername || !regUnitName || !regPersonalName || !regPosition || !regPhone) {
         setError("Vui lòng nhập đầy đủ thông tin");
         return;
     }
@@ -139,7 +142,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const newUser: User = {
         username: regUsername,
         password: '1', // Default password per requirement
-        fullName: regFullName,
+        fullName: regUnitName, // Unit Name as display name
+        personalName: regPersonalName,
+        position: regPosition,
+        phoneNumber: regPhone,
         role: newRole,
         unit: {
             province: regProvince,
@@ -160,7 +166,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setRegProvince('');
     setRegCommune('');
     setRegUsername('');
-    setRegFullName('');
+    setRegUnitName('');
+    setRegPersonalName('');
+    setRegPosition('');
+    setRegPhone('');
     setRegAccountType('1');
   };
 
@@ -241,7 +250,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </button>
         </div>
 
-        <div className="p-8">
+        <div className="p-8 max-h-[500px] overflow-y-auto custom-scrollbar">
             {error && (
                 <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200 flex items-center gap-2 mb-4 animate-in slide-in-from-top-2">
                     <ShieldAlert size={16} /> {error}
@@ -376,15 +385,51 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         </div>
                     </div>
 
+                    <div className="space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
+                        <h4 className="text-xs font-bold text-gray-700 uppercase border-b border-gray-200 pb-1">Thông tin cá nhân</h4>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Họ và tên</label>
+                            <div className="relative">
+                                <UserIcon className="absolute left-2 top-2 text-gray-400" size={14} />
+                                <input 
+                                    type="text" required
+                                    className="block w-full py-1.5 pl-7 pr-2 border border-gray-300 rounded text-sm"
+                                    value={regPersonalName} onChange={(e) => setRegPersonalName(e.target.value)} placeholder="Nguyễn Văn A"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Chức vụ</label>
+                            <div className="relative">
+                                <Briefcase className="absolute left-2 top-2 text-gray-400" size={14} />
+                                <input 
+                                    type="text" required
+                                    className="block w-full py-1.5 pl-7 pr-2 border border-gray-300 rounded text-sm"
+                                    value={regPosition} onChange={(e) => setRegPosition(e.target.value)} placeholder="Chỉ huy trưởng, Phó CHT..."
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Số điện thoại</label>
+                            <div className="relative">
+                                <Phone className="absolute left-2 top-2 text-gray-400" size={14} />
+                                <input 
+                                    type="text" required
+                                    className="block w-full py-1.5 pl-7 pr-2 border border-gray-300 rounded text-sm"
+                                    value={regPhone} onChange={(e) => setRegPhone(e.target.value)} placeholder="09xxxxxxxx"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Tên đơn vị (Hiển thị)</label>
                         <input 
                             type="text" 
                             required
-                            placeholder="Tự động điền..."
-                            className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-military-500 text-gray-900 bg-gray-50"
-                            value={regFullName}
-                            onChange={(e) => setRegFullName(e.target.value)}
+                            readOnly
+                            className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-military-500 text-gray-700 bg-gray-100 italic"
+                            value={regUnitName}
                         />
                     </div>
 

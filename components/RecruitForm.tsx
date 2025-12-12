@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User } from '../types';
-import { EDUCATIONS, ETHNICITIES, RELIGIONS, FAMILY_JOBS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES } from '../constants';
-import { X, Save, User as UserIcon, Users, MapPin, Home, Tent, Flag, Activity, PauseCircle, Info } from 'lucide-react';
+import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES } from '../constants';
+import { X, Save, User as UserIcon, Users, MapPin, Home, Activity, Info } from 'lucide-react';
 
 interface RecruitFormProps {
   initialData?: Recruit;
@@ -12,7 +12,7 @@ interface RecruitFormProps {
 }
 
 const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, onClose, sessionYear }) => {
-  const emptyFamilyMember: FamilyMember = { fullName: '', job: 'Làm nông', phoneNumber: '' };
+  const emptyFamilyMember: FamilyMember = { fullName: '', job: 'Làm nông', phoneNumber: '', birthYear: '' };
 
   // Helper to safely generate IDs in all environments
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -229,7 +229,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
           const newAddr = { ...prev.address, [field]: value };
           // Cascading resets
           if (field === 'province') { newAddr.commune = ''; newAddr.village = ''; } 
-          // Removed automatic village reset since it's manual now
           return { ...prev, address: newAddr };
       });
   };
@@ -503,9 +502,10 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700">Công việc</label>
+                    <label className="block text-sm font-bold text-gray-700">Công việc (Nhập tay)</label>
                     <input 
                         type="text" 
+                        placeholder="VD: Làm nông, Công nhân..."
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-gray-900"
                         value={formData.details.job}
                         onChange={(e) => handleChange('details.job', e.target.value)}
@@ -628,39 +628,72 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
                           )}
                       </div>
                   </div>
+                  
+                  {/* Deferment Reason (Conditional) */}
+                   {(formData.status === RecruitmentStatus.DEFERRED || formData.status === RecruitmentStatus.EXEMPTED) && (
+                      <div className="col-span-2 bg-amber-50 p-3 rounded-md border border-amber-200 animate-in fade-in slide-in-from-top-2">
+                          <label className="block text-sm font-bold text-amber-800 mb-1">
+                              Lý do {formData.status === RecruitmentStatus.DEFERRED ? 'Tạm hoãn' : 'Miễn'}:
+                          </label>
+                          <input 
+                            type="text" 
+                            required
+                            placeholder="Nhập lý do cụ thể..."
+                            className="w-full p-2 border border-amber-300 rounded text-sm focus:ring-2 focus:ring-amber-500"
+                            value={formData.defermentReason || ''}
+                            onChange={(e) => handleChange('defermentReason', e.target.value)}
+                          />
+                      </div>
+                   )}
                </div>
                
                {/* Family */}
                <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-2 flex items-center gap-2 uppercase text-sm mt-6">
                  <Users size={18} /> Quan hệ gia đình
                </h3>
-               <div className="space-y-3">
+               <div className="space-y-4">
                    {/* Father */}
-                   <div className="grid grid-cols-12 gap-2 items-center">
-                       <span className="col-span-2 text-sm font-bold text-gray-600">Cha:</span>
-                       <input placeholder="Họ tên cha" className="col-span-4 p-2 border rounded text-sm" value={formData.family.father.fullName} onChange={(e) => handleChange('family.father.fullName', e.target.value)} />
-                       <select className="col-span-3 p-2 border rounded text-sm" value={formData.family.father.job} onChange={(e) => handleChange('family.father.job', e.target.value)}>
-                           {FAMILY_JOBS.map(j => <option key={j} value={j}>{j}</option>)}
-                       </select>
-                       <input placeholder="SĐT" className="col-span-3 p-2 border rounded text-sm" value={formData.family.father.phoneNumber} onChange={(e) => handleChange('family.father.phoneNumber', e.target.value)} />
+                   <div className="bg-gray-50 p-3 rounded-md border border-gray-100">
+                       <span className="text-sm font-bold text-gray-700 block mb-2 border-b pb-1">THÔNG TIN CHA</span>
+                       <div className="grid grid-cols-2 gap-2">
+                           <input placeholder="Họ và tên cha" className="col-span-1 p-2 border rounded text-sm" value={formData.family.father.fullName} onChange={(e) => handleChange('family.father.fullName', e.target.value)} />
+                           <input placeholder="Năm sinh" className="col-span-1 p-2 border rounded text-sm" type="number" value={formData.family.father.birthYear || ''} onChange={(e) => handleChange('family.father.birthYear', e.target.value)} />
+                           <input placeholder="Nghề nghiệp" className="col-span-1 p-2 border rounded text-sm" value={formData.family.father.job} onChange={(e) => handleChange('family.father.job', e.target.value)} />
+                           <input placeholder="SĐT" className="col-span-1 p-2 border rounded text-sm" value={formData.family.father.phoneNumber} onChange={(e) => handleChange('family.father.phoneNumber', e.target.value)} />
+                       </div>
                    </div>
+
                    {/* Mother */}
-                   <div className="grid grid-cols-12 gap-2 items-center">
-                       <span className="col-span-2 text-sm font-bold text-gray-600">Mẹ:</span>
-                       <input placeholder="Họ tên mẹ" className="col-span-4 p-2 border rounded text-sm" value={formData.family.mother.fullName} onChange={(e) => handleChange('family.mother.fullName', e.target.value)} />
-                       <select className="col-span-3 p-2 border rounded text-sm" value={formData.family.mother.job} onChange={(e) => handleChange('family.mother.job', e.target.value)}>
-                           {FAMILY_JOBS.map(j => <option key={j} value={j}>{j}</option>)}
-                       </select>
-                       <input placeholder="SĐT" className="col-span-3 p-2 border rounded text-sm" value={formData.family.mother.phoneNumber} onChange={(e) => handleChange('family.mother.phoneNumber', e.target.value)} />
+                   <div className="bg-gray-50 p-3 rounded-md border border-gray-100">
+                       <span className="text-sm font-bold text-gray-700 block mb-2 border-b pb-1">THÔNG TIN MẸ</span>
+                       <div className="grid grid-cols-2 gap-2">
+                           <input placeholder="Họ và tên mẹ" className="col-span-1 p-2 border rounded text-sm" value={formData.family.mother.fullName} onChange={(e) => handleChange('family.mother.fullName', e.target.value)} />
+                           <input placeholder="Năm sinh" className="col-span-1 p-2 border rounded text-sm" type="number" value={formData.family.mother.birthYear || ''} onChange={(e) => handleChange('family.mother.birthYear', e.target.value)} />
+                           <input placeholder="Nghề nghiệp" className="col-span-1 p-2 border rounded text-sm" value={formData.family.mother.job} onChange={(e) => handleChange('family.mother.job', e.target.value)} />
+                           <input placeholder="SĐT" className="col-span-1 p-2 border rounded text-sm" value={formData.family.mother.phoneNumber} onChange={(e) => handleChange('family.mother.phoneNumber', e.target.value)} />
+                       </div>
                    </div>
+
                    {/* Wife (Optional) */}
-                   <div className="grid grid-cols-12 gap-2 items-center">
-                       <span className="col-span-2 text-sm font-bold text-gray-600">Vợ:</span>
-                       <input placeholder="(Nếu có)" className="col-span-4 p-2 border rounded text-sm" value={formData.family.wife?.fullName || ''} onChange={(e) => handleChange('family.wife.fullName', e.target.value)} />
-                       <select className="col-span-3 p-2 border rounded text-sm" value={formData.family.wife?.job || 'Làm nông'} onChange={(e) => handleChange('family.wife.job', e.target.value)}>
-                           {FAMILY_JOBS.map(j => <option key={j} value={j}>{j}</option>)}
-                       </select>
-                       <input placeholder="SĐT" className="col-span-3 p-2 border rounded text-sm" value={formData.family.wife?.phoneNumber || ''} onChange={(e) => handleChange('family.wife.phoneNumber', e.target.value)} />
+                   <div className="bg-gray-50 p-3 rounded-md border border-gray-100">
+                       <span className="text-sm font-bold text-gray-700 block mb-2 border-b pb-1">THÔNG TIN VỢ (NẾU CÓ)</span>
+                       <div className="grid grid-cols-2 gap-2">
+                           <input placeholder="Họ và tên vợ" className="col-span-1 p-2 border rounded text-sm" value={formData.family.wife?.fullName || ''} onChange={(e) => handleChange('family.wife.fullName', e.target.value)} />
+                           <input placeholder="Năm sinh" className="col-span-1 p-2 border rounded text-sm" type="number" value={formData.family.wife?.birthYear || ''} onChange={(e) => handleChange('family.wife.birthYear', e.target.value)} />
+                           <input placeholder="Nghề nghiệp" className="col-span-1 p-2 border rounded text-sm" value={formData.family.wife?.job || ''} onChange={(e) => handleChange('family.wife.job', e.target.value)} />
+                           <input placeholder="SĐT" className="col-span-1 p-2 border rounded text-sm" value={formData.family.wife?.phoneNumber || ''} onChange={(e) => handleChange('family.wife.phoneNumber', e.target.value)} />
+                       </div>
+                   </div>
+
+                   {/* Children */}
+                    <div className="bg-gray-50 p-3 rounded-md border border-gray-100">
+                       <span className="text-sm font-bold text-gray-700 block mb-2 border-b pb-1">THÔNG TIN CON (NẾU CÓ)</span>
+                       <textarea 
+                           placeholder="Nhập tên, năm sinh con..." 
+                           className="w-full p-2 border rounded text-sm" 
+                           value={formData.family.children || ''} 
+                           onChange={(e) => handleChange('family.children', e.target.value)} 
+                       />
                    </div>
                </div>
 
@@ -668,9 +701,18 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
           </div>
           
           <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-200">
-             <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md font-medium">Hủy bỏ</button>
-             <button type="submit" className="px-6 py-2 bg-military-600 text-white hover:bg-military-700 rounded-md font-bold shadow-lg flex items-center gap-2">
-                 <Save size={18}/> Lưu hồ sơ
+             <button 
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-gray-50 font-bold text-sm"
+             >
+                Hủy bỏ
+             </button>
+             <button 
+                type="submit"
+                className="px-4 py-2 bg-military-600 text-white rounded hover:bg-military-700 font-bold text-sm flex items-center gap-2 shadow-sm"
+             >
+                <Save size={18} /> Lưu hồ sơ
              </button>
           </div>
         </form>

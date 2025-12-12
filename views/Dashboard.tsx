@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { Recruit, RecruitmentStatus } from '../types';
+import React, { useMemo, useState } from 'react';
+import { Recruit, RecruitmentStatus, UserRole } from '../types';
+import { PROVINCES_VN, LOCATION_DATA } from '../constants';
 import { 
   Users, 
   Activity, 
@@ -14,7 +15,10 @@ import {
   TrendingUp,
   AlertCircle,
   Tent,
-  Smile
+  Smile,
+  Filter,
+  Ruler,
+  UserX
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -35,6 +39,7 @@ interface DashboardProps {
   recruits: Recruit[];
   onNavigate: (tabId: string) => void;
   sessionYear: number;
+  userRole: UserRole;
 }
 
 // Màu sắc biểu đồ chuẩn quân đội/báo cáo
@@ -49,6 +54,7 @@ const COLORS = {
 
 // Component thẻ quy trình (Process Step)
 const ProcessStepCard = ({ title, count, total, icon: Icon, color, onClick, isLast = false, subLabel }: any) => {
+    // Nếu total = 0 thì percentage = 0
     const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
     
     return (
@@ -85,26 +91,64 @@ const ProcessStepCard = ({ title, count, total, icon: Icon, color, onClick, isLa
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear }) => {
-  // --- MEMO: Filter Data by Session Year ---
+const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear, userRole }) => {
+  // --- ADMIN FILTERS ---
+  const [filterProvince, setFilterProvince] = useState('');
+  const [filterCommune, setFilterCommune] = useState('');
+
+  // --- MEMO: Filter Data by Session Year & Location ---
   const yearRecruits = useMemo(() => {
-      return recruits.filter(r => r.recruitmentYear === sessionYear);
-  }, [recruits, sessionYear]);
+      // Quan trọng: Lọc bỏ những người đã bị loại khỏi nguồn (Status = REMOVED_FROM_SOURCE)
+      let filtered = recruits.filter(r => 
+          r.recruitmentYear === sessionYear && 
+          r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE
+      );
+      
+      if (filterProvince) {
+          filtered = filtered.filter(r => r.address.province === filterProvince);
+      }
+      if (filterCommune) {
+          filtered = filtered.filter(r => r.address.commune === filterCommune);
+      }
+      return filtered;
+  }, [recruits, sessionYear, filterProvince, filterCommune]);
+
+  // Commune List based on selected province
+  const communeList = useMemo(() => {
+     if (!filterProvince) return [];
+     // @ts-ignore
+     const data = LOCATION_DATA[filterProvince];
+     return data ? Object.keys(data) : [];
+  }, [filterProvince]);
 
   // --- MEMO: Calculate Stats ---
   const stats = useMemo(() => {
     const total = yearRecruits.length;
     
-    // 1. Pipeline Stats
-    const countPreCheck = yearRecruits.filter(r => r.status !== RecruitmentStatus.SOURCE).length;
-    const countMedExam = yearRecruits.filter(r => [
+    // 1. Pipeline Stats - REVISED Logic
+    // Đạt sơ khám = Đủ điều kiện (Passed) + các trạng thái sau đó (Med Exam, Finalized)
+    // Loại bỏ: Source, Pre-check Failed, Deferred/Exempted (nếu bị loại ngay từ đầu)
+    const countPreCheck = yearRecruits.filter(r => [
+        RecruitmentStatus.PRE_CHECK_PASSED, 
         RecruitmentStatus.MED_EXAM_PASSED, 
         RecruitmentStatus.MED_EXAM_FAILED, 
-        RecruitmentStatus.FINALIZED,
-        RecruitmentStatus.DEFERRED, 
-        RecruitmentStatus.EXEMPTED
+        RecruitmentStatus.FINALIZED
     ].includes(r.status)).length;
+
+    const countMedExam = yearRecruits.filter(r => [
+        RecruitmentStatus.MED_EXAM_PASSED, 
+        RecruitmentStatus.FINALIZED
+    ].includes(r.status)).length;
+    
     const countFinal = yearRecruits.filter(r => r.status === RecruitmentStatus.FINALIZED).length;
+    
+    // Calculate Removed Count separately (as yearRecruits excludes them)
+    const countRemoved = recruits.filter(r => 
+        r.recruitmentYear === sessionYear && 
+        r.status === RecruitmentStatus.REMOVED_FROM_SOURCE &&
+        (!filterProvince || r.address.province === filterProvince) &&
+        (!filterCommune || r.address.commune === filterCommune)
+    ).length;
 
     // 2. Health & Political
     const dangVien = yearRecruits.filter(r => r.details.politicalStatus === 'Dang_Vien').length;
@@ -169,22 +213,78 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     });
     const religionData = Object.entries(religionMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
 
+    // 8. Height, Weight, BMI
+    const heightStats = {
+        'Duoi_160': yearRecruits.filter(r => r.physical.height > 0 && r.physical.height < 160).length,
+        '160_165': yearRecruits.filter(r => r.physical.height >= 160 && r.physical.height <= 165).length,
+        '166_170': yearRecruits.filter(r => r.physical.height >= 166 && r.physical.height <= 170).length,
+        'Tren_170': yearRecruits.filter(r => r.physical.height > 170).length
+    };
+    
+    const weightStats = {
+        'Duoi_50': yearRecruits.filter(r => r.physical.weight > 0 && r.physical.weight < 50).length,
+        '50_60': yearRecruits.filter(r => r.physical.weight >= 50 && r.physical.weight <= 60).length,
+        'Tren_60': yearRecruits.filter(r => r.physical.weight > 60).length
+    };
+
+    const bmiStats = {
+        'Gay': yearRecruits.filter(r => r.physical.bmi > 0 && r.physical.bmi < 18.5).length,
+        'Binh_Thuong': yearRecruits.filter(r => r.physical.bmi >= 18.5 && r.physical.bmi <= 24.9).length,
+        'Thua_Can': yearRecruits.filter(r => r.physical.bmi >= 25).length
+    };
+
     return { 
         total,
-        countPreCheck, countMedExam, countFinal,
+        countPreCheck, countMedExam, countFinal, countRemoved,
         dangVien, doanVien,
         healthGrade1, healthGrade2, healthGrade3, healthGrade4,
         eduChartData,
         ageChartData,
         villageChartData,
         ethnicityData,
-        religionData
+        religionData,
+        heightStats,
+        weightStats,
+        bmiStats
     };
-  }, [yearRecruits]);
+  }, [yearRecruits, recruits, sessionYear, filterProvince, filterCommune]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-        
+      
+      {/* FILTER BAR FOR ADMIN (Optional view context) */}
+      {userRole === 'ADMIN' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+               <div className="flex items-center gap-2 text-gray-700 font-bold whitespace-nowrap">
+                   <Filter size={18} /> Phạm vi thống kê:
+               </div>
+               <select 
+                  className="border border-gray-300 rounded p-2 text-sm w-full md:w-48"
+                  value={filterProvince}
+                  onChange={(e) => { setFilterProvince(e.target.value); setFilterCommune(''); }}
+               >
+                   <option value="">-- Cả nước (Tổng hợp) --</option>
+                   {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
+               </select>
+               
+               <select 
+                  className="border border-gray-300 rounded p-2 text-sm w-full md:w-48 disabled:bg-gray-100 disabled:text-gray-400"
+                  value={filterCommune}
+                  onChange={(e) => setFilterCommune(e.target.value)}
+                  disabled={!filterProvince}
+               >
+                   <option value="">-- Toàn tỉnh --</option>
+                   {communeList.map(c => <option key={c} value={c}>{c}</option>)}
+               </select>
+               
+               <div className="ml-auto text-xs text-gray-500 italic">
+                   Dữ liệu tự động tổng hợp từ các đơn vị cấp dưới
+               </div>
+            </div>
+        </div>
+      )}
+
       {/* SECTION 1: QUY TRÌNH TUYỂN QUÂN (PIPELINE) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
          <div className="flex items-center justify-between mb-4">
@@ -196,7 +296,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              </span>
          </div>
          
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 relative">
              <ProcessStepCard 
                 title="TỔNG NGUỒN" 
                 subLabel="QUẢN LÝ"
@@ -208,7 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              />
              <ProcessStepCard 
                 title="ĐẠT SƠ KHÁM" 
-                subLabel="KẾT QUẢ"
+                subLabel="ĐỦ ĐIỀU KIỆN"
                 count={stats.countPreCheck} 
                 total={stats.total}
                 icon={ClipboardList} 
@@ -217,7 +317,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              />
              <ProcessStepCard 
                 title="ĐẠT KHÁM TUYỂN" 
-                subLabel="SỨC KHỎE"
+                subLabel="ĐỦ ĐK SỨC KHỎE"
                 count={stats.countMedExam} 
                 total={stats.total}
                 icon={Stethoscope} 
@@ -225,14 +325,24 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 onClick={() => onNavigate('MED_EXAM')}
              />
              <ProcessStepCard 
-                title="CHỐT NHẬP NGŨ" 
-                subLabel="LỆNH GỌI"
+                title="BÌNH CỬ" 
+                subLabel="CHỐT DANH SÁCH"
                 count={stats.countFinal} 
                 total={stats.total}
                 icon={FileSignature} 
                 color="bg-green-600"
                 isLast={true}
                 onClick={() => onNavigate('FINAL')}
+             />
+             <ProcessStepCard 
+                title="ĐÃ LOẠI" 
+                subLabel="KHỎI NGUỒN"
+                count={stats.countRemoved} 
+                total={0} // Không cần progress bar
+                icon={UserX} 
+                color="bg-red-600"
+                isLast={true}
+                onClick={() => onNavigate('REMOVED')}
              />
          </div>
       </div>
@@ -319,6 +429,62 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                   </ResponsiveContainer>
               </div>
           </div>
+      </div>
+      
+      {/* SECTION 2.5: THỂ TRẠNG (NEW ROW) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+           <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase border-b pb-2">
+               <Ruler size={18} className="text-blue-600" /> Thống kê Thể trạng (Chiều cao, Cân nặng, BMI)
+           </h3>
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* CHIỀU CAO */}
+                <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase">Chiều cao</h4>
+                    <div className="bg-gray-50 p-3 rounded">
+                        <div className="flex justify-between text-xs mb-1"><span>Dưới 1m60</span><span className="font-bold">{stats.heightStats['Duoi_160']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-500 h-1.5 rounded-full" style={{width: `${(stats.heightStats['Duoi_160']/stats.total)*100}%`}}></div></div>
+                        
+                        <div className="flex justify-between text-xs mb-1"><span>1m60 - 1m65</span><span className="font-bold">{stats.heightStats['160_165']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-600 h-1.5 rounded-full" style={{width: `${(stats.heightStats['160_165']/stats.total)*100}%`}}></div></div>
+                        
+                        <div className="flex justify-between text-xs mb-1"><span>1m66 - 1m70</span><span className="font-bold">{stats.heightStats['166_170']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-700 h-1.5 rounded-full" style={{width: `${(stats.heightStats['166_170']/stats.total)*100}%`}}></div></div>
+                        
+                        <div className="flex justify-between text-xs mb-1"><span>Trên 1m70</span><span className="font-bold">{stats.heightStats['Tren_170']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-blue-800 h-1.5 rounded-full" style={{width: `${(stats.heightStats['Tren_170']/stats.total)*100}%`}}></div></div>
+                    </div>
+                </div>
+
+                {/* CÂN NẶNG */}
+                <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase">Cân nặng</h4>
+                    <div className="bg-gray-50 p-3 rounded">
+                        <div className="flex justify-between text-xs mb-1"><span>Dưới 50kg</span><span className="font-bold">{stats.weightStats['Duoi_50']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-orange-500 h-1.5 rounded-full" style={{width: `${(stats.weightStats['Duoi_50']/stats.total)*100}%`}}></div></div>
+                        
+                        <div className="flex justify-between text-xs mb-1"><span>50kg - 60kg</span><span className="font-bold">{stats.weightStats['50_60']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-orange-600 h-1.5 rounded-full" style={{width: `${(stats.weightStats['50_60']/stats.total)*100}%`}}></div></div>
+                        
+                        <div className="flex justify-between text-xs mb-1"><span>Trên 60kg</span><span className="font-bold">{stats.weightStats['Tren_60']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-orange-700 h-1.5 rounded-full" style={{width: `${(stats.weightStats['Tren_60']/stats.total)*100}%`}}></div></div>
+                    </div>
+                </div>
+
+                 {/* BMI */}
+                 <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase">Chỉ số BMI</h4>
+                    <div className="bg-gray-50 p-3 rounded">
+                        <div className="flex justify-between text-xs mb-1"><span>Thiếu cân (&lt;18.5)</span><span className="font-bold">{stats.bmiStats['Gay']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-red-400 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Gay']/stats.total)*100}%`}}></div></div>
+                        
+                        <div className="flex justify-between text-xs mb-1"><span>Bình thường</span><span className="font-bold">{stats.bmiStats['Binh_Thuong']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-green-600 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Binh_Thuong']/stats.total)*100}%`}}></div></div>
+                        
+                        <div className="flex justify-between text-xs mb-1"><span>Thừa cân (&gt;25)</span><span className="font-bold">{stats.bmiStats['Thua_Can']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-yellow-500 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Thua_Can']/stats.total)*100}%`}}></div></div>
+                    </div>
+                </div>
+           </div>
       </div>
 
       {/* SECTION 3: SỨC KHỎE & CHÍNH TRỊ (Modified) */}

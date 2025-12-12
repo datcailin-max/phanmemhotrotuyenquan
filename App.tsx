@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -11,7 +11,14 @@ import {
   HelpCircle,
   CalendarDays,
   Wifi,
-  WifiOff
+  WifiOff,
+  UserCog,
+  Check,
+  Phone,
+  Mail,
+  Lock,
+  Unlock,
+  BellRing
 } from 'lucide-react';
 import { Recruit, User } from './types';
 import { INITIAL_RECRUITS } from './constants';
@@ -24,7 +31,7 @@ import { api } from './api';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessionYear, setSessionYear] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin'>('dashboard');
   
   // State to control which sub-tab of RecruitManagement is active
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
@@ -39,12 +46,17 @@ function App() {
   // Mobile sidebar state (hidden/visible)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Password Modal
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [changePassMsg, setChangePassMsg] = useState('');
 
   // Support Modal State
   const [showSupportModal, setShowSupportModal] = useState(false);
+  
+  // Admin Update Trigger (to refresh sidebar badge)
+  const [adminUpdateTrigger, setAdminUpdateTrigger] = useState(0);
 
   // FETCH DATA FROM SERVER
   useEffect(() => {
@@ -107,7 +119,7 @@ function App() {
   };
 
   const handleDeleteRecruit = async (id: string) => {
-    if(window.confirm('Đồng chí chắc chắn muốn xóa hồ sơ này?')) {
+    if(window.confirm("Bạn muốn thực hiện thao tác này")) {
         const oldRecruits = [...recruits];
         // Optimistic delete
         setRecruits(prev => prev.filter(r => r.id !== id));
@@ -132,26 +144,217 @@ function App() {
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 1) return;
+    
+    if (newPassword !== confirmPassword) {
+        setChangePassMsg("Mật khẩu xác nhận không khớp!");
+        return;
+    }
 
     // Update in LocalStorage (Auth is still local for this version)
     const savedUsers = JSON.parse(localStorage.getItem('military_users') || '[]');
-    const updatedUsers = savedUsers.map((u: User) => {
-        if (u.username === user?.username) {
-            return { ...u, password: newPassword };
-        }
-        return u;
-    });
-    localStorage.setItem('military_users', JSON.stringify(updatedUsers));
     
-    // Update current session
-    if (user) setUser({ ...user, password: newPassword });
+    if (user?.role === 'ADMIN') {
+        // Admin changes password directly
+        const updatedUsers = savedUsers.map((u: User) => {
+            if (u.username === user?.username) {
+                return { ...u, password: newPassword };
+            }
+            return u;
+        });
+        localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+        if (user) setUser({ ...user, password: newPassword });
+        setChangePassMsg("Đổi mật khẩu thành công!");
+    } else {
+        // Normal user sends request
+        const updatedUsers = savedUsers.map((u: User) => {
+            if (u.username === user?.username) {
+                return { ...u, pendingPassword: newPassword };
+            }
+            return u;
+        });
+        localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+        setChangePassMsg("Đã gửi yêu cầu đổi mật khẩu tới Quản trị viên.");
+    }
 
-    setChangePassMsg("Đổi mật khẩu thành công!");
+    setAdminUpdateTrigger(prev => prev + 1);
+
     setTimeout(() => {
         setShowPasswordModal(false);
         setNewPassword('');
+        setConfirmPassword('');
         setChangePassMsg('');
-    }, 1500);
+    }, 2000);
+  };
+
+  const AdminPanel = () => {
+      const [allUsers, setAllUsers] = useState<User[]>(JSON.parse(localStorage.getItem('military_users') || '[]'));
+      const pendingUsers = allUsers.filter(u => u.pendingPassword);
+
+      const refreshUsers = () => {
+          setAllUsers(JSON.parse(localStorage.getItem('military_users') || '[]'));
+          setAdminUpdateTrigger(prev => prev + 1);
+      };
+
+      const approvePassword = (username: string) => {
+          const updatedUsers = allUsers.map(u => {
+              if (u.username === username && u.pendingPassword) {
+                  return { ...u, password: u.pendingPassword, pendingPassword: undefined };
+              }
+              return u;
+          });
+          localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+          refreshUsers();
+          alert(`Đã duyệt mật khẩu cho ${username}`);
+      };
+
+      const toggleLockUser = (username: string, currentStatus: boolean | undefined) => {
+          if (username === user?.username) {
+              alert("Không thể tự khóa tài khoản của chính mình!");
+              return;
+          }
+          const updatedUsers = allUsers.map(u => {
+              if (u.username === username) {
+                  return { ...u, isLocked: !currentStatus };
+              }
+              return u;
+          });
+          localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+          refreshUsers();
+      };
+
+      const resetUserPassword = (username: string) => {
+          const newPass = prompt(`Nhập mật khẩu mới cho tài khoản ${username}:`);
+          if (newPass) {
+              const updatedUsers = allUsers.map(u => {
+                  if (u.username === username) {
+                      return { ...u, password: newPass, pendingPassword: undefined };
+                  }
+                  return u;
+              });
+              localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+              refreshUsers();
+              alert(`Đã đổi mật khẩu cho ${username} thành công.`);
+          }
+      };
+
+      return (
+          <div className="p-6 bg-white m-6 rounded-lg shadow-sm border border-gray-200">
+              <h2 className="text-xl font-bold text-military-700 mb-6 flex items-center gap-2">
+                  <UserCog /> Quản trị hệ thống
+              </h2>
+              
+              {/* NOTIFICATIONS SECTION */}
+              <div className="mb-8 bg-amber-50 border border-amber-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
+                  <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
+                      <BellRing size={18} className={pendingUsers.length > 0 ? "animate-bounce" : ""}/> 
+                      Thông báo & Yêu cầu ({pendingUsers.length})
+                  </h3>
+                  {pendingUsers.length === 0 ? (
+                      <p className="text-sm text-gray-500 italic ml-6">Không có yêu cầu nào cần xử lý.</p>
+                  ) : (
+                      <div className="overflow-x-auto mt-2 bg-white rounded border border-amber-100 shadow-sm">
+                          <table className="w-full text-left border-collapse">
+                              <thead className="bg-amber-100 text-xs text-amber-900 uppercase">
+                                  <tr>
+                                      <th className="p-2 border-b">Tài khoản</th>
+                                      <th className="p-2 border-b">Đơn vị</th>
+                                      <th className="p-2 border-b">Yêu cầu</th>
+                                      <th className="p-2 border-b text-center">Xử lý</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="text-sm">
+                                  {pendingUsers.map(u => (
+                                      <tr key={u.username} className="border-b border-gray-100 last:border-0">
+                                          <td className="p-2 font-bold">{u.username}</td>
+                                          <td className="p-2">{u.fullName}</td>
+                                          <td className="p-2">
+                                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded border border-blue-200">Đổi mật khẩu: <b>{u.pendingPassword}</b></span>
+                                          </td>
+                                          <td className="p-2 text-center">
+                                              <button 
+                                                onClick={() => approvePassword(u.username)}
+                                                className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-green-700 flex items-center gap-1 mx-auto"
+                                              >
+                                                  <Check size={14} /> Duyệt
+                                              </button>
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  )}
+              </div>
+
+              {/* ALL USERS LIST */}
+              <div>
+                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                      <Users size={18} /> Danh sách tài khoản ({allUsers.length})
+                  </h3>
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                      <table className="w-full text-left border-collapse">
+                          <thead className="bg-gray-100 text-xs text-gray-600 uppercase">
+                              <tr>
+                                  <th className="p-3 border-b">TT</th>
+                                  <th className="p-3 border-b">Tài khoản</th>
+                                  <th className="p-3 border-b">Thông tin người dùng</th>
+                                  <th className="p-3 border-b">Vai trò</th>
+                                  <th className="p-3 border-b text-center">Trạng thái</th>
+                                  <th className="p-3 border-b text-center">Thao tác</th>
+                              </tr>
+                          </thead>
+                          <tbody className="text-sm divide-y divide-gray-100">
+                              {allUsers.map((u, idx) => (
+                                  <tr key={u.username} className={`hover:bg-gray-50 ${u.isLocked ? 'bg-red-50/50' : ''}`}>
+                                      <td className="p-3 text-center text-gray-500">{idx + 1}</td>
+                                      <td className="p-3">
+                                          <div className="font-bold font-mono text-military-700">{u.username}</div>
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="font-bold">{u.fullName}</div>
+                                          <div className="text-xs text-gray-500">{u.personalName} - {u.position}</div>
+                                          <div className="text-xs text-gray-400">{u.phoneNumber}</div>
+                                      </td>
+                                      <td className="p-3">
+                                          <span className={`text-xs px-2 py-1 rounded font-bold border ${u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700 border-purple-200' : u.role === 'EDITOR' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                                              {u.role}
+                                          </span>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                          {u.isLocked ? (
+                                              <span className="text-xs font-bold text-red-600 flex items-center justify-center gap-1"><Lock size={12}/> Đã khóa</span>
+                                          ) : (
+                                              <span className="text-xs font-bold text-green-600 flex items-center justify-center gap-1"><Check size={12}/> Hoạt động</span>
+                                          )}
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="flex items-center justify-center gap-2">
+                                              <button 
+                                                  onClick={() => toggleLockUser(u.username, u.isLocked)}
+                                                  className={`p-1.5 rounded transition-colors ${u.isLocked ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+                                                  title={u.isLocked ? "Mở khóa nhập liệu" : "Vô hiệu hóa nhập liệu"}
+                                                  disabled={u.role === 'ADMIN'}
+                                              >
+                                                  {u.isLocked ? <Unlock size={16}/> : <Lock size={16}/>}
+                                              </button>
+                                              
+                                              <button 
+                                                  onClick={() => resetUserPassword(u.username)}
+                                                  className="p-1.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+                                                  title="Đặt lại mật khẩu"
+                                              >
+                                                  <Key size={16}/>
+                                              </button>
+                                          </div>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      )
   };
 
   // 1. Login Screen
@@ -163,6 +366,13 @@ function App() {
   if (!sessionYear) {
     return <YearSelection onSelectYear={setSessionYear} currentUser={user} />;
   }
+
+  // Calculate pending requests for sidebar badge
+  const pendingRequestsCount = (() => {
+      if (user.role !== 'ADMIN') return 0;
+      const allUsers: User[] = JSON.parse(localStorage.getItem('military_users') || '[]');
+      return allUsers.filter(u => u.pendingPassword).length;
+  })();
 
   // Sidebar Content Component to reuse
   const SidebarContent = () => (
@@ -216,6 +426,32 @@ function App() {
             {(isSidebarOpen || isMobileMenuOpen) && <span>CHI TIẾT</span>}
           </button>
 
+          {user.role === 'ADMIN' && (
+              <button 
+                onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'admin' ? 'bg-white text-gray-900 border-l-4 border-amber-500 font-bold' : 'text-military-200 hover:bg-military-800'}`}
+              >
+                <div className="relative shrink-0">
+                    <UserCog size={20} />
+                    {pendingRequestsCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold animate-pulse">
+                            {pendingRequestsCount}
+                        </span>
+                    )}
+                </div>
+                {(isSidebarOpen || isMobileMenuOpen) && (
+                    <div className="flex items-center justify-between w-full">
+                        <span>QUẢN TRỊ</span>
+                        {pendingRequestsCount > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                {pendingRequestsCount} yêu cầu
+                            </span>
+                        )}
+                    </div>
+                )}
+              </button>
+          )}
+
           <div className="mt-8 px-4 text-xs font-semibold text-military-400 uppercase tracking-wider">
             {(isSidebarOpen || isMobileMenuOpen) && "Báo cáo & Tiện ích"}
           </div>
@@ -250,7 +486,14 @@ function App() {
                 <LogOut size={20} className="shrink-0" />
                 {(isSidebarOpen || isMobileMenuOpen) && <span className="font-medium">Đăng xuất</span>}
              </button>
-             {(isSidebarOpen || isMobileMenuOpen) && <div className="mt-4 text-xs text-military-400 text-center">Phiên bản 2.2 Online</div>}
+             {(isSidebarOpen || isMobileMenuOpen) && (
+                 <div className="mt-4 text-[10px] text-military-400 text-center border-t border-military-800 pt-2">
+                     <div className="font-bold text-military-300">Admin: Thới Hạ Sang</div>
+                     <div className="flex justify-center items-center gap-1 mt-1">
+                         <Phone size={10} /> 0334429954
+                     </div>
+                 </div>
+             )}
       </div>
     </>
   );
@@ -291,7 +534,7 @@ function App() {
                 <Menu size={24} />
              </button>
              <h1 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-tight truncate max-w-[200px] md:max-w-none flex flex-col">
-                <span>{activeTab === 'dashboard' ? `Quy trình tuyển quân ${sessionYear}` : `Quản lý công dân nhập ngũ ${sessionYear}`}</span>
+                <span>{activeTab === 'dashboard' ? `Quy trình tuyển quân ${sessionYear}` : activeTab === 'admin' ? 'Quản trị hệ thống' : `Quản lý công dân nhập ngũ ${sessionYear}`}</span>
                 {isLoading && <span className="text-[10px] text-gray-400 normal-case font-normal animate-pulse">Đang đồng bộ dữ liệu...</span>}
              </h1>
           </div>
@@ -328,7 +571,7 @@ function App() {
         </header>
 
         <div className="flex-1 overflow-auto p-4 md:p-6 relative">
-          {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={handleNavigate} sessionYear={sessionYear} />}
+          {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={handleNavigate} sessionYear={sessionYear} userRole={user.role} />}
           {activeTab === 'recruits' && (
             <RecruitManagement 
                 user={user}
@@ -340,6 +583,7 @@ function App() {
                 sessionYear={sessionYear}
             />
           )}
+          {activeTab === 'admin' && <AdminPanel />}
         </div>
       </main>
 
@@ -349,16 +593,24 @@ function App() {
              <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
                  <h3 className="text-lg font-bold text-gray-900 mb-4">Đổi mật khẩu</h3>
                  {changePassMsg ? (
-                     <div className="text-green-600 font-bold text-center py-4">{changePassMsg}</div>
+                     <div className="text-green-600 font-bold text-center py-4 px-2">{changePassMsg}</div>
                  ) : (
                      <form onSubmit={handleChangePassword}>
                          <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
                          <input 
                             type="password"
                             required
-                            className="w-full border border-gray-300 rounded p-2 mb-4 text-gray-900 bg-white"
+                            className="w-full border border-gray-300 rounded p-2 mb-3 text-gray-900 bg-white"
                             value={newPassword}
                             onChange={e => setNewPassword(e.target.value)}
+                         />
+                         <label className="block text-sm font-medium text-gray-700 mb-1">Nhập lại mật khẩu</label>
+                         <input 
+                            type="password"
+                            required
+                            className="w-full border border-gray-300 rounded p-2 mb-4 text-gray-900 bg-white"
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
                          />
                          <div className="flex justify-end gap-2">
                              <button type="button" onClick={() => setShowPasswordModal(false)} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded">Hủy</button>
@@ -381,12 +633,22 @@ function App() {
                  
                  <div className="space-y-3 mb-6 bg-cyan-50 p-4 rounded border border-cyan-100">
                     <div>
-                        <p className="text-xs text-cyan-700 uppercase font-bold">Người hỗ trợ kỹ thuật</p>
-                        <p className="text-lg font-bold text-gray-900">Đồng chí Sang</p>
+                        <p className="text-xs text-cyan-700 uppercase font-bold">Admin / Tác giả</p>
+                        <p className="text-lg font-bold text-gray-900">Thới Hạ Sang</p>
                     </div>
                     <div>
-                        <p className="text-xs text-cyan-700 uppercase font-bold">Số điện thoại / Zalo</p>
-                        <p className="text-lg font-mono font-bold text-gray-900">0222.020.022</p>
+                        <div className="flex items-center gap-2">
+                            <Phone size={16} className="text-cyan-700"/>
+                            <p className="text-xs text-cyan-700 uppercase font-bold">Số điện thoại / Zalo</p>
+                        </div>
+                        <p className="text-lg font-mono font-bold text-gray-900">0334429954</p>
+                    </div>
+                    <div>
+                         <div className="flex items-center gap-2">
+                            <Mail size={16} className="text-cyan-700"/>
+                            <p className="text-xs text-cyan-700 uppercase font-bold">Email</p>
+                        </div>
+                        <p className="text-lg font-mono font-bold text-gray-900 break-words">thoihasang@gmail.com</p>
                     </div>
                     <div className="text-xs text-gray-500 italic mt-2 border-t border-cyan-200 pt-2">
                         Vui lòng liên hệ trong giờ hành chính để được hỗ trợ tốt nhất về nghiệp vụ và phần mềm.

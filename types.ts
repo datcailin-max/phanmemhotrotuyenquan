@@ -5,27 +5,34 @@ export enum RecruitmentStatus {
   PRE_CHECK_FAILED = 'SO_KHAM_KHONG_DAT', // Không đạt sơ khám
   MED_EXAM_PASSED = 'KHAM_TUYEN_DAT', // Đạt khám tuyển
   MED_EXAM_FAILED = 'KHAM_TUYEN_KHONG_DAT', // Không đạt khám tuyển
-  FINALIZED = 'CHOT_NHAP_NGU', // Chốt nhập ngũ
+  FINALIZED = 'BINH_CU_CONG_KHAI', // Danh sách bình cử công khai (Trước đây là Chốt nhập ngũ)
   DEFERRED = 'TAM_HOAN', // Tạm hoãn
-  EXEMPTED = 'MIEN_KHAM' // Miễn làm NVQS
+  EXEMPTED = 'MIEN_KHAM', // Miễn làm NVQS
+  REMOVED_FROM_SOURCE = 'LOAI_KHOI_NGUON' // Đã loại khỏi nguồn (Soft delete)
 }
 
 export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER';
 
 export interface User {
   username: string;
-  fullName: string;
-  password?: string; // Optional because we might sanitize it out
-  role: UserRole; // Role determines permissions
+  fullName: string; // Tên hiển thị (thường là đơn vị)
+  personalName?: string; // Họ và tên người đăng ký
+  position?: string; // Chức vụ
+  phoneNumber?: string; // Số điện thoại
+  password?: string;
+  role: UserRole;
   unit: {
     province: string;
     commune: string;
   };
+  pendingPassword?: string; // Mật khẩu mới đang chờ duyệt
+  isLocked?: boolean; // Vô hiệu hóa nhập dữ liệu
 }
 
 export interface FamilyMember {
   fullName: string;
-  job: string; // CNVC, Công nhân, Buôn bán, Đã mất...
+  birthYear?: string; // Năm sinh
+  job: string; // Nhập tay
   phoneNumber: string;
 }
 

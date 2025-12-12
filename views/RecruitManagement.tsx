@@ -1,3 +1,4 @@
+// ... (imports remain the same)
 import React, { useState, useMemo, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
 import { EDUCATIONS, GET_ALL_COMMUNES, SOURCE_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, MARITAL_STATUSES } from '../constants';
@@ -5,28 +6,24 @@ import RecruitForm from '../components/RecruitForm';
 import { 
   Search, 
   Plus, 
-  MoreVertical, 
   CheckCircle2, 
   XCircle, 
   FileEdit, 
   Trash2,
   Stethoscope,
   ClipboardList,
-  ChevronDown,
-  ChevronUp,
   RefreshCw,
   Filter,
-  Briefcase,
   ShieldOff,
   Tent,
   Calendar,
-  Flag,
-  Lock,
   PauseCircle,
-  PlayCircle,
   Users,
   FileSignature,
-  Edit3
+  Edit3,
+  UserX,
+  RotateCcw,
+  Lock
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -85,7 +82,7 @@ const TABS = [
   },
   { 
       id: 'FINAL', 
-      label: 'Xét duyệt & Chốt', 
+      label: 'Xét duyệt & Bình cử', 
       status: [
           RecruitmentStatus.MED_EXAM_PASSED, 
           RecruitmentStatus.FINALIZED, 
@@ -97,11 +94,23 @@ const TABS = [
       textColor: 'text-green-700',
       icon: FileSignature
   },
+  { 
+    id: 'REMOVED', 
+    label: 'DS Loại khỏi nguồn', 
+    status: [
+        RecruitmentStatus.REMOVED_FROM_SOURCE
+    ], 
+    color: 'bg-red-600', 
+    borderColor: 'border-red-600',
+    textColor: 'text-red-700',
+    icon: UserX
+  },
 ];
 
 const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear }) => {
   const isAdmin = user.role === 'ADMIN';
-  const isViewer = user.role === 'VIEWER';
+  // Check if User is locked or is just a viewer
+  const isReadOnly = user.role === 'VIEWER' || !!user.isLocked;
 
   const [activeTabId, setActiveTabId] = useState(initialTab);
   const [showForm, setShowForm] = useState(false);
@@ -112,6 +121,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   const [showDefermentModal, setShowDefermentModal] = useState(false);
   const [selectedDefermentRecruit, setSelectedDefermentRecruit] = useState<Recruit | null>(null);
   const [selectedDefermentReason, setSelectedDefermentReason] = useState(SOURCE_DEFERMENT_REASONS[0]);
+  const [customDefermentReason, setCustomDefermentReason] = useState('');
 
   // Sync internal state if prop changes
   useEffect(() => {
@@ -161,8 +171,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
     // 2. Tab filtering
     const currentTab = TABS.find(t => t.id === activeTabId);
-    if (currentTab?.status) {
-      result = result.filter(r => currentTab.status && currentTab.status.includes(r.status));
+    
+    // SPECIAL HANDLING FOR 'ALL' TAB: Exclude Removed items
+    if (activeTabId === 'ALL') {
+        result = result.filter(r => r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE);
+    } 
+    // Handle other tabs based on status
+    else if (currentTab?.status) {
+        result = result.filter(r => currentTab.status && currentTab.status.includes(r.status));
     }
 
     // 3. User Input filtering
@@ -230,15 +246,15 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   };
 
   const handleEdit = (recruit: Recruit) => {
-    // Viewers cannot edit
-    if (isViewer) return;
+    // Read only cannot edit
+    if (isReadOnly) return;
     setEditingRecruit(recruit);
     setShowForm(true);
   };
 
   const handleStatusChange = (e: React.MouseEvent, recruit: Recruit, newStatus: RecruitmentStatus) => {
     e.stopPropagation(); // Prevent row click
-    if (isViewer) return; // Viewers cannot change status
+    if (isReadOnly) return; // Read Only cannot change status
     
     // Validation: Low Education Check for Pre-Check
     if (newStatus === RecruitmentStatus.PRE_CHECK_PASSED && LOW_EDUCATION_GRADES.includes(recruit.details.education)) {
@@ -246,11 +262,24 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
         return;
     }
 
+    // Logic: Nếu chuyển sang "Không đạt sơ khám", reset mọi trạng thái sau đó
+    if (newStatus === RecruitmentStatus.PRE_CHECK_FAILED) {
+        // Reset enlistment unit, reason
+        const updated = {
+            ...recruit,
+            status: newStatus,
+            defermentReason: undefined,
+            enlistmentUnit: undefined
+        };
+        onUpdate(updated);
+        return;
+    }
+
     const updated = { ...recruit, status: newStatus };
     
     // Clean up reason if not relevant
-    if (newStatus !== RecruitmentStatus.DEFERRED && newStatus !== RecruitmentStatus.EXEMPTED) {
-        updated.defermentReason = undefined;
+    if (newStatus !== RecruitmentStatus.DEFERRED && newStatus !== RecruitmentStatus.EXEMPTED && newStatus !== RecruitmentStatus.REMOVED_FROM_SOURCE) {
+        updated.defermentReason = '';
     }
     // Clean up unit if not finalized
     if (newStatus !== RecruitmentStatus.FINALIZED) {
@@ -260,10 +289,39 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
     onUpdate(updated);
   };
 
+  // Soft Delete Handler (Move to Removed List)
+  const handleSoftDelete = (e: React.MouseEvent, recruit: Recruit) => {
+      e.stopPropagation();
+      if (isReadOnly) return;
+      
+      // Chuyển ngay lập tức (không hỏi confirm) theo yêu cầu
+      handleStatusChange(e, recruit, RecruitmentStatus.REMOVED_FROM_SOURCE);
+      
+      // Thông báo nhẹ sau khi chuyển
+      setTimeout(() => {
+          alert(`Đã chuyển công dân ${recruit.fullName} vào "Danh sách loại khỏi nguồn".`);
+      }, 100);
+  };
+
+  // Restore Handler (Move back to Source)
+  const handleRestore = (e: React.MouseEvent, recruit: Recruit) => {
+      e.stopPropagation();
+      if (isReadOnly) return;
+      
+      // Trực tiếp khôi phục không cần hỏi lại để thao tác nhanh
+      const updated: Recruit = { 
+          ...recruit, 
+          status: RecruitmentStatus.SOURCE,
+          defermentReason: '', // Clear reason
+          enlistmentUnit: undefined // Clear unit if any
+      };
+      onUpdate(updated);
+  };
+
   // NEW: Toggle Med Exam Result directly (Passed <-> Failed)
   const toggleMedExamResult = (e: React.MouseEvent, recruit: Recruit) => {
       e.stopPropagation();
-      if (isViewer) return;
+      if (isReadOnly) return;
       
       let newStatus: RecruitmentStatus;
       if (recruit.status === RecruitmentStatus.MED_EXAM_PASSED) {
@@ -280,6 +338,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
   const openSourceDefermentModal = (e: React.MouseEvent, recruit: Recruit) => {
       e.stopPropagation();
+      if (isReadOnly) return;
       // IF already deferred -> Toggle OFF (Un-defer)
       if (recruit.status === RecruitmentStatus.DEFERRED) {
           const updated = {
@@ -294,15 +353,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       // IF not deferred -> Open Modal to Defer
       setSelectedDefermentRecruit(recruit);
       setSelectedDefermentReason(SOURCE_DEFERMENT_REASONS[0]);
+      setCustomDefermentReason(''); // Reset custom
       setShowDefermentModal(true);
   };
 
   const confirmSourceDeferment = () => {
       if (!selectedDefermentRecruit) return;
+      
+      const finalReason = selectedDefermentReason === 'Khác' 
+          ? (customDefermentReason || 'Lý do khác') 
+          : selectedDefermentReason;
+
       const updated = {
           ...selectedDefermentRecruit,
           status: RecruitmentStatus.DEFERRED,
-          defermentReason: selectedDefermentReason
+          defermentReason: finalReason
       };
       onUpdate(updated);
       setShowDefermentModal(false);
@@ -312,6 +377,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   // Toggle Finalization: Finalized <-> Med Exam Passed
   const toggleFinalization = (e: React.MouseEvent, recruit: Recruit) => {
       e.stopPropagation();
+      if (isReadOnly) return;
       if (recruit.status === RecruitmentStatus.FINALIZED) {
           // Un-finalize
           handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED);
@@ -336,7 +402,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       case RecruitmentStatus.FINALIZED:
         return (
             <div className="flex flex-col items-start gap-1">
-                <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-900 border border-green-300 whitespace-nowrap">Chốt nhập ngũ</span>
+                <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-900 border border-green-300 whitespace-nowrap">Danh sách bình cử</span>
                 {recruit.enlistmentUnit && <span className="text-xs font-bold text-green-700 flex items-center gap-1"><Tent size={10}/> {recruit.enlistmentUnit}</span>}
             </div>
         );
@@ -344,6 +410,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
         return <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">Tạm hoãn</span>;
       case RecruitmentStatus.EXEMPTED:
         return <span className="px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300 whitespace-nowrap">Miễn NVQS</span>;
+      case RecruitmentStatus.REMOVED_FROM_SOURCE:
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-600 text-white border border-gray-700 whitespace-nowrap">Đã loại</span>;
       default:
         return null;
     }
@@ -358,7 +426,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Họ tên & Ngày sinh</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">SĐT / Địa chỉ</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Đánh giá Sơ khám</th>
-                    {!isViewer && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Thao tác</th>}
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Thao tác</th>}
                 </tr>
             );
         case 'MED_EXAM':
@@ -368,7 +436,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Họ tên & Ngày sinh</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Thể trạng (BMI)</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Kết quả Khám tuyển</th>
-                    {!isViewer && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Thao tác</th>}
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Thao tác</th>}
                 </tr>
             );
         case 'FINAL':
@@ -378,7 +446,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Công dân</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Trình độ / SK</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Đơn vị & Lệnh gọi</th>
-                    {!isViewer && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Tác vụ</th>}
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Tác vụ</th>}
+                </tr>
+            );
+        case 'REMOVED':
+            return (
+                <tr>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Họ tên & Ngày sinh</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Địa chỉ</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Trạng thái</th>
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">HÀNH ĐỘNG</th>}
                 </tr>
             );
         default: // ALL
@@ -389,7 +467,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Địa chỉ</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Học vấn / Nghề</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Trạng thái</th>
-                    {!isViewer && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Thao tác</th>}
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Thao tác</th>}
                 </tr>
             );
     }
@@ -417,6 +495,30 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           </div>
       );
 
+      // Removed List Tab
+      if (activeTabId === 'REMOVED') {
+          return (
+             <tr key={recruit.id} className="hover:bg-red-50/50 transition-colors border-b border-gray-100 bg-gray-50 opacity-80">
+                 <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
+                 <td className="p-4">{infoCell}</td>
+                 <td className="p-4">{addressCell}</td>
+                 <td className="p-4 text-center">{getStatusBadge(recruit)}</td>
+                 {!isReadOnly && (
+                     <td className="p-4 text-center">
+                         <button 
+                            onClick={(e) => handleRestore(e, recruit)}
+                            className="px-3 py-1.5 text-xs font-bold bg-green-600 text-white rounded hover:bg-green-700 shadow-sm flex items-center gap-1 mx-auto transition-colors"
+                            title="Bổ sung lại vào nguồn"
+                         >
+                             <RotateCcw size={14}/> Bổ sung nguồn
+                         </button>
+                     </td>
+                 )}
+             </tr>
+          )
+      }
+
+      // ... (rest of the renderRow function)
       // TAB SPECIFIC ROWS
       if (activeTabId === 'PRE_CHECK') {
           return (
@@ -425,28 +527,35 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                 <td className="p-4">{infoCell}</td>
                 <td className="p-4">{addressCell}</td>
                 <td className="p-4 text-center">
-                    {recruit.status === RecruitmentStatus.SOURCE ? (
-                         <div className="flex justify-center gap-2">
-                             <button 
-                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_PASSED)}
-                                className="px-3 py-1 bg-white border border-green-500 text-green-600 rounded hover:bg-green-50 text-xs font-bold flex items-center gap-1"
-                                disabled={isViewer}
-                             >
-                                <CheckCircle2 size={14}/> Đạt
-                             </button>
-                             <button 
-                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_FAILED)}
-                                className="px-3 py-1 bg-white border border-red-500 text-red-600 rounded hover:bg-red-50 text-xs font-bold flex items-center gap-1"
-                                disabled={isViewer}
-                             >
-                                <XCircle size={14}/> Không
-                             </button>
-                         </div>
-                    ) : (
-                         getStatusBadge(recruit)
-                    )}
+                    {/* Luôn hiển thị nút để có thể thay đổi kết quả Sơ Khám */}
+                     <div className="flex justify-center gap-2">
+                         <button 
+                            onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_PASSED)}
+                            className={`px-3 py-1 border rounded text-xs font-bold flex items-center gap-1 transition-all
+                                ${recruit.status === RecruitmentStatus.PRE_CHECK_PASSED || recruit.status === RecruitmentStatus.MED_EXAM_PASSED || recruit.status === RecruitmentStatus.MED_EXAM_FAILED || recruit.status === RecruitmentStatus.FINALIZED
+                                    ? 'bg-green-600 text-white border-green-600 shadow-md ring-2 ring-green-100' 
+                                    : 'bg-white text-gray-400 border-gray-200 hover:border-green-500 hover:text-green-600'
+                                }
+                            `}
+                            disabled={isReadOnly}
+                         >
+                            <CheckCircle2 size={14}/> Đạt
+                         </button>
+                         <button 
+                            onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_FAILED)}
+                            className={`px-3 py-1 border rounded text-xs font-bold flex items-center gap-1 transition-all
+                                ${recruit.status === RecruitmentStatus.PRE_CHECK_FAILED 
+                                    ? 'bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-100' 
+                                    : 'bg-white text-gray-400 border-gray-200 hover:border-red-500 hover:text-red-600'
+                                }
+                            `}
+                            disabled={isReadOnly}
+                         >
+                            <XCircle size={14}/> Không
+                         </button>
+                     </div>
                 </td>
-                {!isViewer && (
+                {!isReadOnly && (
                     <td className="p-4 text-center">
                         <button onClick={() => handleEdit(recruit)} className="text-gray-400 hover:text-military-600 p-2"><FileEdit size={16} /></button>
                     </td>
@@ -472,14 +581,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                                 <button 
                                     onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED)}
                                     className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-bold shadow-sm"
-                                    disabled={isViewer}
+                                    disabled={isReadOnly}
                                 >
                                     Đủ ĐK Sức khỏe
                                 </button>
                                 <button 
                                     onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_FAILED)}
                                     className="px-3 py-1 bg-white border border-gray-300 text-gray-600 rounded hover:bg-gray-100 text-xs font-bold"
-                                    disabled={isViewer}
+                                    disabled={isReadOnly}
                                 >
                                     Loại
                                 </button>
@@ -488,7 +597,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                        </div>
                    ) : (
                        // Allow toggling result if already set (Pass/Fail)
-                       [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED].includes(recruit.status) && !isViewer ? (
+                       [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED].includes(recruit.status) && !isReadOnly ? (
                            <div 
                                 onClick={(e) => toggleMedExamResult(e, recruit)}
                                 className="cursor-pointer hover:opacity-80 transition-opacity relative group inline-block"
@@ -504,7 +613,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                        )
                    )}
               </td>
-              {!isViewer && (
+              {!isReadOnly && (
                 <td className="p-4 text-center">
                     <button onClick={() => handleEdit(recruit)} className="text-gray-400 hover:text-military-600 p-2"><FileEdit size={16} /></button>
                 </td>
@@ -533,12 +642,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                                 ? 'bg-green-600 text-white hover:bg-green-700 ring-2 ring-green-200' 
                                 : 'bg-white border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-600'
                             }`}
-                        disabled={isViewer}
+                        disabled={isReadOnly}
                      >
-                         {recruit.status === RecruitmentStatus.FINALIZED ? <><CheckCircle2 size={14}/> Đã chốt</> : 'Chốt lệnh'}
+                         {recruit.status === RecruitmentStatus.FINALIZED ? <><CheckCircle2 size={14}/> Danh sách bình cử</> : 'Bình cử'}
                      </button>
                 </td>
-                {!isViewer && (
+                {!isReadOnly && (
                     <td className="p-4 text-center">
                         <button onClick={() => handleEdit(recruit)} className="text-gray-400 hover:text-military-600 p-2"><FileEdit size={16} /></button>
                     </td>
@@ -572,7 +681,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                  </div>
              )}
           </td>
-          {!isViewer && (
+          {!isReadOnly && (
             <td className="p-4 text-center">
                 <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
@@ -582,6 +691,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     >
                         <PauseCircle size={16} />
                     </button>
+                    
                     <button 
                         title="Sửa"
                         onClick={() => handleEdit(recruit)} 
@@ -589,10 +699,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     >
                         <FileEdit size={16} />
                     </button>
+                    
                     <button 
-                        title="Xóa"
-                        onClick={(e) => { e.stopPropagation(); onDelete(recruit.id); }} 
-                        className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Loại khỏi nguồn"
+                        onClick={(e) => handleSoftDelete(e, recruit)} 
+                        className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors bg-white border border-red-100 shadow-sm"
                     >
                         <Trash2 size={16} />
                     </button>
@@ -606,6 +717,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       
+      {/* 0. LOCKED BANNER */}
+      {!!user.isLocked && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3 shadow-sm mb-4">
+              <Lock size={20} className="shrink-0" />
+              <div>
+                  <p className="font-bold text-sm">Tài khoản đã bị vô hiệu hóa chức năng nhập liệu</p>
+                  <p className="text-xs">Bạn chỉ có thể xem dữ liệu. Vui lòng liên hệ Quản trị viên để được mở khóa.</p>
+              </div>
+          </div>
+      )}
+
       {/* 1. Header & Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
         <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 md:pb-0">
@@ -631,7 +753,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto">
-          {!isViewer && activeTabId === 'ALL' && (
+          {!isReadOnly && activeTabId === 'ALL' && (
             <button
                 onClick={() => { setEditingRecruit(undefined); setShowForm(true); }}
                 className="flex items-center gap-2 px-4 py-2 bg-military-600 text-white rounded-lg hover:bg-military-700 shadow-md font-bold text-sm transition-transform active:scale-95 w-full md:w-auto justify-center"
@@ -846,6 +968,20 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                               <span className="text-sm font-medium text-gray-800">{reason}</span>
                           </label>
                       ))}
+                      
+                      {/* Custom Reason Input if 'Khác' is selected */}
+                      {selectedDefermentReason === 'Khác' && (
+                          <div className="pl-8 animate-in fade-in slide-in-from-top-1">
+                              <input 
+                                  type="text" 
+                                  autoFocus
+                                  className="w-full border border-amber-300 rounded p-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                  placeholder="Nhập lý do cụ thể..."
+                                  value={customDefermentReason}
+                                  onChange={(e) => setCustomDefermentReason(e.target.value)}
+                              />
+                          </div>
+                      )}
                   </div>
 
                   <div className="flex justify-end gap-3">
