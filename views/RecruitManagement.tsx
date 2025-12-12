@@ -1,7 +1,6 @@
-// ... (imports remain the same)
 import React, { useState, useMemo, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
-import { EDUCATIONS, GET_ALL_COMMUNES, SOURCE_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, MARITAL_STATUSES } from '../constants';
+import { EDUCATIONS, GET_ALL_COMMUNES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, MARITAL_STATUSES } from '../constants';
 import RecruitForm from '../components/RecruitForm';
 import { 
   Search, 
@@ -23,7 +22,14 @@ import {
   Edit3,
   UserX,
   RotateCcw,
-  Lock
+  Lock,
+  Flag,
+  Send,
+  CornerUpLeft,
+  ChevronRight,
+  Layers,
+  ShieldCheck,
+  Baby
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -39,12 +45,21 @@ interface RecruitManagementProps {
 const TABS = [
   { 
       id: 'ALL', 
-      label: 'Toàn bộ nguồn', 
+      label: 'Toàn bộ nguồn (18+)', 
       status: null, 
       color: 'bg-gray-600', 
       borderColor: 'border-gray-600', 
       textColor: 'text-gray-700',
       icon: Users 
+  },
+  { 
+      id: 'UNDER_18', 
+      label: 'Chưa đủ 18 tuổi', 
+      status: null, // Custom Logic
+      color: 'bg-pink-600', 
+      borderColor: 'border-pink-600', 
+      textColor: 'text-pink-700',
+      icon: Baby 
   },
   { 
       id: 'PRE_CHECK', 
@@ -56,8 +71,8 @@ const TABS = [
           RecruitmentStatus.MED_EXAM_PASSED,
           RecruitmentStatus.MED_EXAM_FAILED,
           RecruitmentStatus.FINALIZED,
-          RecruitmentStatus.DEFERRED,
-          RecruitmentStatus.EXEMPTED
+          RecruitmentStatus.ENLISTED
+          // Không bao gồm DEFERRED (Tạm hoãn) và EXEMPTED (Miễn)
       ], 
       color: 'bg-blue-600', 
       borderColor: 'border-blue-600',
@@ -72,8 +87,8 @@ const TABS = [
           RecruitmentStatus.MED_EXAM_PASSED, 
           RecruitmentStatus.MED_EXAM_FAILED,
           RecruitmentStatus.FINALIZED,
-          RecruitmentStatus.DEFERRED,
-          RecruitmentStatus.EXEMPTED
+          RecruitmentStatus.ENLISTED
+          // Removed DEFERRED, EXEMPTED
       ], 
       color: 'bg-indigo-600', 
       borderColor: 'border-indigo-600',
@@ -82,12 +97,11 @@ const TABS = [
   },
   { 
       id: 'FINAL', 
-      label: 'Xét duyệt & Bình cử', 
+      label: 'Danh sách niêm yết', 
       status: [
           RecruitmentStatus.MED_EXAM_PASSED, 
-          RecruitmentStatus.FINALIZED, 
-          RecruitmentStatus.DEFERRED, 
-          RecruitmentStatus.EXEMPTED
+          RecruitmentStatus.FINALIZED,
+          RecruitmentStatus.ENLISTED // Đã phát lệnh vẫn hiện ở đây để quản lý danh sách niêm yết
       ], 
       color: 'bg-green-600', 
       borderColor: 'border-green-600',
@@ -95,14 +109,66 @@ const TABS = [
       icon: FileSignature
   },
   { 
+      id: 'ENLISTED', 
+      label: 'Danh sách nhập ngũ', 
+      status: [
+          RecruitmentStatus.ENLISTED
+      ], 
+      color: 'bg-red-600', 
+      borderColor: 'border-red-600',
+      textColor: 'text-red-700',
+      icon: Flag
+  },
+  { 
+    id: 'DEFERRED_LIST', 
+    label: 'Danh sách Tạm hoãn', 
+    status: [
+        RecruitmentStatus.DEFERRED
+    ], 
+    color: 'bg-amber-600', 
+    borderColor: 'border-amber-600',
+    textColor: 'text-amber-700',
+    icon: PauseCircle
+  },
+  { 
+    id: 'EXEMPTED_LIST', 
+    label: 'Danh sách Miễn', 
+    status: [
+        RecruitmentStatus.EXEMPTED
+    ], 
+    color: 'bg-purple-600', 
+    borderColor: 'border-purple-600',
+    textColor: 'text-purple-700',
+    icon: ShieldCheck
+  },
+  { 
+    id: 'REMAINING', 
+    label: 'Nguồn còn lại', 
+    status: [
+        RecruitmentStatus.SOURCE,
+        RecruitmentStatus.PRE_CHECK_PASSED,
+        RecruitmentStatus.PRE_CHECK_FAILED,
+        RecruitmentStatus.MED_EXAM_PASSED,
+        RecruitmentStatus.MED_EXAM_FAILED,
+        RecruitmentStatus.FINALIZED,
+        RecruitmentStatus.DEFERRED,
+        RecruitmentStatus.EXEMPTED
+        // Tất cả trừ ENLISTED và REMOVED_FROM_SOURCE
+    ], 
+    color: 'bg-teal-600', 
+    borderColor: 'border-teal-600',
+    textColor: 'text-teal-700',
+    icon: Layers
+  },
+  { 
     id: 'REMOVED', 
     label: 'DS Loại khỏi nguồn', 
     status: [
         RecruitmentStatus.REMOVED_FROM_SOURCE
     ], 
-    color: 'bg-red-600', 
-    borderColor: 'border-red-600',
-    textColor: 'text-red-700',
+    color: 'bg-gray-600', 
+    borderColor: 'border-gray-600',
+    textColor: 'text-gray-700',
     icon: UserX
   },
 ];
@@ -117,11 +183,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   const [editingRecruit, setEditingRecruit] = useState<Recruit | undefined>(undefined);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
-  // State for Source Deferment Modal
-  const [showDefermentModal, setShowDefermentModal] = useState(false);
-  const [selectedDefermentRecruit, setSelectedDefermentRecruit] = useState<Recruit | null>(null);
-  const [selectedDefermentReason, setSelectedDefermentReason] = useState(SOURCE_DEFERMENT_REASONS[0]);
-  const [customDefermentReason, setCustomDefermentReason] = useState('');
+  // State for Exception Modal (Deferment & Exemption)
+  const [showExceptionModal, setShowExceptionModal] = useState(false);
+  const [targetExceptionStatus, setTargetExceptionStatus] = useState<RecruitmentStatus | null>(null);
+  const [selectedExceptionRecruit, setSelectedExceptionRecruit] = useState<Recruit | null>(null);
+  const [selectedExceptionReason, setSelectedExceptionReason] = useState('');
+  const [customExceptionReason, setCustomExceptionReason] = useState('');
 
   // Sync internal state if prop changes
   useEffect(() => {
@@ -180,15 +247,23 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
         result = result.filter(r => r.address.commune === user.unit.commune);
     } 
 
-    // 2. Tab filtering
+    // 2. Tab filtering logic
     const currentTab = TABS.find(t => t.id === activeTabId);
     
-    // SPECIAL HANDLING FOR 'ALL' TAB: Exclude Removed items
-    if (activeTabId === 'ALL') {
-        result = result.filter(r => r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE);
-    } 
-    // Handle other tabs based on status
-    else if (currentTab?.status) {
+    if (activeTabId === 'UNDER_18') {
+        // Chỉ lấy những người dưới 18 tuổi (tính theo năm)
+        result = result.filter(r => {
+            const birthYear = parseInt(r.dob.split('-')[0]);
+            return (sessionYear - birthYear) < 18 && r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE;
+        });
+    } else if (activeTabId === 'ALL') {
+        // Toàn bộ nguồn nhưng PHẢI >= 18 tuổi
+        result = result.filter(r => {
+            const birthYear = parseInt(r.dob.split('-')[0]);
+            return (sessionYear - birthYear) >= 18 && r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE;
+        });
+    } else if (currentTab?.status) {
+        // Các tab khác lọc theo Status như bình thường
         result = result.filter(r => currentTab.status && currentTab.status.includes(r.status));
     }
 
@@ -273,14 +348,24 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
         return;
     }
 
-    // Logic: Nếu chuyển sang "Không đạt sơ khám", reset mọi trạng thái sau đó
-    if (newStatus === RecruitmentStatus.PRE_CHECK_FAILED) {
-        // Reset enlistment unit, reason
+    // Logic: Nếu chuyển sang "Không đạt sơ khám" hoặc "Không đạt khám tuyển", BẮT BUỘC nhập lý do
+    if (newStatus === RecruitmentStatus.PRE_CHECK_FAILED || newStatus === RecruitmentStatus.MED_EXAM_FAILED) {
+        const reason = window.prompt("Vui lòng nhập lý do KHÔNG ĐẠT (Ví dụ: Cận thị, Xăm hình, Viêm gan B...):");
+        
+        // Nếu người dùng bấm Cancel hoặc để trống
+        if (reason === null) return; 
+        if (reason.trim() === "") {
+            alert("Bạn phải nhập lý do không đạt để tiếp tục!");
+            return;
+        }
+
+        // Reset enlistment unit, save reason
         const updated = {
             ...recruit,
             status: newStatus,
-            defermentReason: undefined,
-            enlistmentUnit: undefined
+            defermentReason: reason, // Lưu lý do không đạt vào trường này
+            enlistmentUnit: undefined,
+            enlistmentDate: undefined
         };
         onUpdate(updated);
         return;
@@ -288,13 +373,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
     const updated = { ...recruit, status: newStatus };
     
-    // Clean up reason if not relevant
+    // Clean up reason if not relevant (nếu đạt thì xóa lý do cũ)
     if (newStatus !== RecruitmentStatus.DEFERRED && newStatus !== RecruitmentStatus.EXEMPTED && newStatus !== RecruitmentStatus.REMOVED_FROM_SOURCE) {
         updated.defermentReason = '';
     }
     // Clean up unit if not finalized
-    if (newStatus !== RecruitmentStatus.FINALIZED) {
+    if (newStatus !== RecruitmentStatus.FINALIZED && newStatus !== RecruitmentStatus.ENLISTED) {
         updated.enlistmentUnit = undefined;
+        updated.enlistmentDate = undefined;
     }
 
     onUpdate(updated);
@@ -305,13 +391,19 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       e.stopPropagation();
       if (isReadOnly) return;
       
-      // Chuyển ngay lập tức (không hỏi confirm) theo yêu cầu
-      handleStatusChange(e, recruit, RecruitmentStatus.REMOVED_FROM_SOURCE);
+      // Yêu cầu nhập lý do khi loại khỏi nguồn
+      const reason = window.prompt(`Nhập lý do loại công dân ${recruit.fullName} khỏi nguồn:`);
       
-      // Thông báo nhẹ sau khi chuyển
-      setTimeout(() => {
-          alert(`Đã chuyển công dân ${recruit.fullName} vào "Danh sách loại khỏi nguồn".`);
-      }, 100);
+      // Nếu user bấm Cancel (reason === null), hủy thao tác
+      if (reason === null) return;
+
+      const updated: Recruit = {
+          ...recruit,
+          status: RecruitmentStatus.REMOVED_FROM_SOURCE,
+          defermentReason: reason || 'Không có lý do cụ thể' // Lưu lý do vào defermentReason
+      };
+      
+      onUpdate(updated);
   };
 
   // Permanent Delete Handler (Actually delete)
@@ -335,7 +427,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           ...recruit, 
           status: RecruitmentStatus.SOURCE,
           defermentReason: '', // Clear reason
-          enlistmentUnit: undefined // Clear unit if any
+          enlistmentUnit: undefined, // Clear unit if any
+          enlistmentDate: undefined
       };
       onUpdate(updated);
   };
@@ -347,7 +440,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       
       let newStatus: RecruitmentStatus;
       if (recruit.status === RecruitmentStatus.MED_EXAM_PASSED) {
-          newStatus = RecruitmentStatus.MED_EXAM_FAILED;
+          // Từ Đạt -> Không đạt (Cần lý do)
+          handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_FAILED);
+          return;
       } else if (recruit.status === RecruitmentStatus.MED_EXAM_FAILED) {
           newStatus = RecruitmentStatus.MED_EXAM_PASSED;
       } else {
@@ -358,11 +453,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       onUpdate(updated);
   };
 
-  const openSourceDefermentModal = (e: React.MouseEvent, recruit: Recruit) => {
+  const openExceptionModal = (e: React.MouseEvent, recruit: Recruit, status: RecruitmentStatus) => {
       e.stopPropagation();
       if (isReadOnly) return;
-      // IF already deferred -> Toggle OFF (Un-defer)
-      if (recruit.status === RecruitmentStatus.DEFERRED) {
+      
+      // IF already in that status -> Toggle OFF (Un-defer / Un-exempt)
+      if (recruit.status === status) {
           const updated = {
               ...recruit,
               status: RecruitmentStatus.SOURCE, // Reset to source
@@ -372,41 +468,34 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           return;
       }
       
-      // IF not deferred -> Open Modal to Defer
-      setSelectedDefermentRecruit(recruit);
-      setSelectedDefermentReason(SOURCE_DEFERMENT_REASONS[0]);
-      setCustomDefermentReason(''); // Reset custom
-      setShowDefermentModal(true);
+      // IF not -> Open Modal to Set Reason
+      setSelectedExceptionRecruit(recruit);
+      setTargetExceptionStatus(status);
+      
+      // Set default first reason
+      const reasonList = status === RecruitmentStatus.DEFERRED ? LEGAL_DEFERMENT_REASONS : LEGAL_EXEMPTION_REASONS;
+      setSelectedExceptionReason(reasonList[0]);
+      
+      setCustomExceptionReason(''); // Reset custom
+      setShowExceptionModal(true);
   };
 
-  const confirmSourceDeferment = () => {
-      if (!selectedDefermentRecruit) return;
+  const confirmExceptionStatus = () => {
+      if (!selectedExceptionRecruit || !targetExceptionStatus) return;
       
-      const finalReason = selectedDefermentReason === 'Khác' 
-          ? (customDefermentReason || 'Lý do khác') 
-          : selectedDefermentReason;
+      const finalReason = selectedExceptionReason.startsWith('Khác') 
+          ? (customExceptionReason || 'Lý do khác') 
+          : selectedExceptionReason;
 
       const updated = {
-          ...selectedDefermentRecruit,
-          status: RecruitmentStatus.DEFERRED,
+          ...selectedExceptionRecruit,
+          status: targetExceptionStatus,
           defermentReason: finalReason
       };
       onUpdate(updated);
-      setShowDefermentModal(false);
-      setSelectedDefermentRecruit(null);
-  };
-
-  // Toggle Finalization: Finalized <-> Med Exam Passed
-  const toggleFinalization = (e: React.MouseEvent, recruit: Recruit) => {
-      e.stopPropagation();
-      if (isReadOnly) return;
-      if (recruit.status === RecruitmentStatus.FINALIZED) {
-          // Un-finalize
-          handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED);
-      } else {
-          // Finalize
-          handleStatusChange(e, recruit, RecruitmentStatus.FINALIZED);
-      }
+      setShowExceptionModal(false);
+      setSelectedExceptionRecruit(null);
+      setTargetExceptionStatus(null);
   };
 
   const getStatusBadge = (recruit: Recruit) => {
@@ -424,7 +513,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       case RecruitmentStatus.FINALIZED:
         return (
             <div className="flex flex-col items-start gap-1">
-                <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-900 border border-green-300 whitespace-nowrap">Danh sách bình cử</span>
+                <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-900 border border-green-300 whitespace-nowrap">Đã niêm yết</span>
+            </div>
+        );
+      case RecruitmentStatus.ENLISTED:
+        return (
+            <div className="flex flex-col items-start gap-1">
+                <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300 whitespace-nowrap flex items-center gap-1"><Flag size={10} fill="currentColor"/> NHẬP NGŨ</span>
                 {recruit.enlistmentUnit && <span className="text-xs font-bold text-green-700 flex items-center gap-1"><Tent size={10}/> {recruit.enlistmentUnit}</span>}
             </div>
         );
@@ -441,6 +536,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
   const renderTableHead = () => {
     switch (activeTabId) {
+        // ... (other cases remain the same)
         case 'PRE_CHECK':
             return (
                 <tr>
@@ -467,7 +563,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Công dân</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Trình độ / SK</th>
-                    <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Đơn vị & Lệnh gọi</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Tình trạng niêm yết</th>
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">QUYẾT ĐỊNH</th>}
+                </tr>
+            );
+        case 'ENLISTED':
+            return (
+                <tr>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Công dân nhập ngũ</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Thông tin chi tiết</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Đơn vị & Thời gian</th>
                     {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Tác vụ</th>}
                 </tr>
             );
@@ -477,8 +583,29 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Họ tên & Ngày sinh</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Địa chỉ</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Lý do loại</th>
                     <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Trạng thái</th>
                     {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">HÀNH ĐỘNG</th>}
+                </tr>
+            );
+        case 'DEFERRED_LIST':
+            return (
+                <tr>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Họ tên & Ngày sinh</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Địa chỉ</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Lý do Tạm hoãn</th>
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Tác vụ</th>}
+                </tr>
+            );
+        case 'EXEMPTED_LIST':
+            return (
+                <tr>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">STT</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Họ tên & Ngày sinh</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Địa chỉ</th>
+                    <th className="p-4 font-bold text-sm border-b border-gray-200 whitespace-nowrap">Lý do Miễn</th>
+                    {!isReadOnly && <th className="p-4 font-bold text-sm border-b border-gray-200 text-center whitespace-nowrap">Tác vụ</th>}
                 </tr>
             );
         default: // ALL
@@ -497,6 +624,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
   const renderRow = (recruit: Recruit, index: number) => {
       // Common Cells
+      // ... (infoCell, addressCell logic remains the same)
       const infoCell = (
           <div>
             <div className="font-bold text-gray-900">{recruit.fullName}</div>
@@ -524,6 +652,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                  <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
                  <td className="p-4">{infoCell}</td>
                  <td className="p-4">{addressCell}</td>
+                 <td className="p-4">
+                     <span className="text-sm font-medium text-red-800">{recruit.defermentReason}</span>
+                 </td>
                  <td className="p-4 text-center">{getStatusBadge(recruit)}</td>
                  {!isReadOnly && (
                      <td className="p-4 text-center">
@@ -549,6 +680,62 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           )
       }
 
+      // Deferred List Tab
+      if (activeTabId === 'DEFERRED_LIST') {
+          return (
+             <tr key={recruit.id} className="hover:bg-amber-50/50 transition-colors border-b border-gray-100 bg-amber-50/20">
+                 <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
+                 <td className="p-4">{infoCell}</td>
+                 <td className="p-4">{addressCell}</td>
+                 <td className="p-4">
+                     <div className="text-sm font-bold text-amber-700 whitespace-pre-wrap">{recruit.defermentReason}</div>
+                 </td>
+                 {!isReadOnly && (
+                     <td className="p-4 text-center">
+                         <div className="flex items-center justify-center gap-2">
+                             <button 
+                                onClick={(e) => handleRestore(e, recruit)}
+                                className="px-3 py-1.5 text-xs font-bold bg-white text-gray-600 border border-gray-300 rounded hover:bg-gray-100 shadow-sm flex items-center gap-1 transition-colors"
+                                title="Hủy tạm hoãn (Đưa về nguồn)"
+                             >
+                                 <RotateCcw size={14}/> Hủy tạm hoãn
+                             </button>
+                             <button onClick={() => handleEdit(recruit)} className="text-gray-400 hover:text-military-600 p-2"><FileEdit size={16} /></button>
+                         </div>
+                     </td>
+                 )}
+             </tr>
+          )
+      }
+
+      // Exempted List Tab
+      if (activeTabId === 'EXEMPTED_LIST') {
+          return (
+             <tr key={recruit.id} className="hover:bg-purple-50/50 transition-colors border-b border-gray-100 bg-purple-50/20">
+                 <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
+                 <td className="p-4">{infoCell}</td>
+                 <td className="p-4">{addressCell}</td>
+                 <td className="p-4">
+                     <div className="text-sm font-bold text-purple-700 whitespace-pre-wrap">{recruit.defermentReason}</div>
+                 </td>
+                 {!isReadOnly && (
+                     <td className="p-4 text-center">
+                         <div className="flex items-center justify-center gap-2">
+                             <button 
+                                onClick={(e) => handleRestore(e, recruit)}
+                                className="px-3 py-1.5 text-xs font-bold bg-white text-gray-600 border border-gray-300 rounded hover:bg-gray-100 shadow-sm flex items-center gap-1 transition-colors"
+                                title="Hủy miễn (Đưa về nguồn)"
+                             >
+                                 <RotateCcw size={14}/> Hủy miễn
+                             </button>
+                             <button onClick={() => handleEdit(recruit)} className="text-gray-400 hover:text-military-600 p-2"><FileEdit size={16} /></button>
+                         </div>
+                     </td>
+                 )}
+             </tr>
+          )
+      }
+
       // ... (rest of the renderRow function)
       // TAB SPECIFIC ROWS
       if (activeTabId === 'PRE_CHECK') {
@@ -559,31 +746,39 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                 <td className="p-4">{addressCell}</td>
                 <td className="p-4 text-center">
                     {/* Luôn hiển thị nút để có thể thay đổi kết quả Sơ Khám */}
-                     <div className="flex justify-center gap-2">
-                         <button 
-                            onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_PASSED)}
-                            className={`px-3 py-1 border rounded text-xs font-bold flex items-center gap-1 transition-all
-                                ${recruit.status === RecruitmentStatus.PRE_CHECK_PASSED || recruit.status === RecruitmentStatus.MED_EXAM_PASSED || recruit.status === RecruitmentStatus.MED_EXAM_FAILED || recruit.status === RecruitmentStatus.FINALIZED
-                                    ? 'bg-green-600 text-white border-green-600 shadow-md ring-2 ring-green-100' 
-                                    : 'bg-white text-gray-400 border-gray-200 hover:border-green-500 hover:text-green-600'
-                                }
-                            `}
-                            disabled={isReadOnly}
-                         >
-                            <CheckCircle2 size={14}/> Đạt
-                         </button>
-                         <button 
-                            onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_FAILED)}
-                            className={`px-3 py-1 border rounded text-xs font-bold flex items-center gap-1 transition-all
-                                ${recruit.status === RecruitmentStatus.PRE_CHECK_FAILED 
-                                    ? 'bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-100' 
-                                    : 'bg-white text-gray-400 border-gray-200 hover:border-red-500 hover:text-red-600'
-                                }
-                            `}
-                            disabled={isReadOnly}
-                         >
-                            <XCircle size={14}/> Không
-                         </button>
+                     <div className="flex flex-col items-center gap-2">
+                         <div className="flex justify-center gap-2">
+                             <button 
+                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_PASSED)}
+                                className={`px-3 py-1 border rounded text-xs font-bold flex items-center gap-1 transition-all
+                                    ${recruit.status === RecruitmentStatus.PRE_CHECK_PASSED || recruit.status === RecruitmentStatus.MED_EXAM_PASSED || recruit.status === RecruitmentStatus.MED_EXAM_FAILED || recruit.status === RecruitmentStatus.FINALIZED || recruit.status === RecruitmentStatus.ENLISTED
+                                        ? 'bg-green-600 text-white border-green-600 shadow-md ring-2 ring-green-100' 
+                                        : 'bg-white text-gray-400 border-gray-200 hover:border-green-500 hover:text-green-600'
+                                    }
+                                `}
+                                disabled={isReadOnly}
+                             >
+                                <CheckCircle2 size={14}/> Đạt
+                             </button>
+                             <button 
+                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.PRE_CHECK_FAILED)}
+                                className={`px-3 py-1 border rounded text-xs font-bold flex items-center gap-1 transition-all
+                                    ${recruit.status === RecruitmentStatus.PRE_CHECK_FAILED 
+                                        ? 'bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-100' 
+                                        : 'bg-white text-gray-400 border-gray-200 hover:border-red-500 hover:text-red-600'
+                                    }
+                                `}
+                                disabled={isReadOnly}
+                             >
+                                <XCircle size={14}/> Không
+                             </button>
+                         </div>
+                         {/* Show reason if failed */}
+                         {recruit.status === RecruitmentStatus.PRE_CHECK_FAILED && recruit.defermentReason && (
+                             <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                                 Lý do: {recruit.defermentReason}
+                             </span>
+                         )}
                      </div>
                 </td>
                 {!isReadOnly && (
@@ -596,7 +791,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       }
 
       if (activeTabId === 'MED_EXAM') {
-        const bmiColor = recruit.physical.bmi < 18.0 || recruit.physical.bmi > 29.9 ? 'text-red-600' : 'text-green-600';
+        const bmiColor = recruit.physical.bmi < 18.5 || recruit.physical.bmi > 29.9 ? 'text-red-600' : 'text-green-600';
         return (
           <tr key={recruit.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
               <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
@@ -629,15 +824,22 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                    ) : (
                        // Allow toggling result if already set (Pass/Fail)
                        [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED].includes(recruit.status) && !isReadOnly ? (
-                           <div 
-                                onClick={(e) => toggleMedExamResult(e, recruit)}
-                                className="cursor-pointer hover:opacity-80 transition-opacity relative group inline-block"
-                                title="Bấm để thay đổi kết quả (Thực tế đơn vị)"
-                           >
-                               {getStatusBadge(recruit)}
-                               <div className="absolute -top-2 -right-3 text-military-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full shadow-sm border border-military-100 p-0.5">
-                                   <Edit3 size={10} />
+                           <div className="flex flex-col items-center gap-1">
+                               <div 
+                                    onClick={(e) => toggleMedExamResult(e, recruit)}
+                                    className="cursor-pointer hover:opacity-80 transition-opacity relative group inline-block"
+                                    title="Bấm để thay đổi kết quả (Thực tế đơn vị)"
+                               >
+                                   {getStatusBadge(recruit)}
+                                   <div className="absolute -top-2 -right-3 text-military-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full shadow-sm border border-military-100 p-0.5">
+                                       <Edit3 size={10} />
+                                   </div>
                                </div>
+                               {recruit.status === RecruitmentStatus.MED_EXAM_FAILED && recruit.defermentReason && (
+                                     <span className="text-[10px] text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                                         Lý do: {recruit.defermentReason}
+                                     </span>
+                               )}
                            </div>
                        ) : (
                            getStatusBadge(recruit)
@@ -666,21 +868,116 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                      </div>
                 </td>
                 <td className="p-4 text-center">
-                     <button 
-                        onClick={(e) => toggleFinalization(e, recruit)}
-                        className={`px-4 py-2 rounded-lg font-bold text-xs shadow-sm transition-all flex items-center gap-2 mx-auto w-32 justify-center
-                            ${recruit.status === RecruitmentStatus.FINALIZED 
-                                ? 'bg-green-600 text-white hover:bg-green-700 ring-2 ring-green-200' 
-                                : 'bg-white border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-600'
-                            }`}
-                        disabled={isReadOnly}
-                     >
-                         {recruit.status === RecruitmentStatus.FINALIZED ? <><CheckCircle2 size={14}/> Danh sách bình cử</> : 'Bình cử'}
-                     </button>
+                     {(recruit.status === RecruitmentStatus.FINALIZED || recruit.status === RecruitmentStatus.ENLISTED) ? (
+                         <div className="flex flex-col items-center gap-1">
+                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-900 border border-green-300 whitespace-nowrap flex items-center justify-center gap-1">
+                                <CheckCircle2 size={12}/> Đã niêm yết
+                            </span>
+                            {recruit.status === RecruitmentStatus.ENLISTED && (
+                                <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 flex items-center gap-1">
+                                    <Flag size={10} /> Đã phát lệnh
+                                </span>
+                            )}
+                         </div>
+                     ) : (
+                         <button 
+                            onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.FINALIZED)}
+                            className="px-4 py-1 bg-white border border-green-500 text-green-600 rounded-full hover:bg-green-50 text-xs font-bold shadow-sm transition-colors mx-auto flex items-center gap-1"
+                            disabled={isReadOnly}
+                         >
+                             <FileSignature size={12}/> Niêm yết
+                         </button>
+                     )}
                 </td>
                 {!isReadOnly && (
                     <td className="p-4 text-center">
-                        <button onClick={() => handleEdit(recruit)} className="text-gray-400 hover:text-military-600 p-2"><FileEdit size={16} /></button>
+                        {recruit.status === RecruitmentStatus.FINALIZED && (
+                            <div className="flex justify-center gap-2">
+                                <button 
+                                    onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.ENLISTED)}
+                                    className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-bold shadow-md flex items-center gap-1 transition-all animate-in fade-in zoom-in"
+                                    title="Chốt và Phát lệnh nhập ngũ"
+                                >
+                                    <Send size={12} /> Chốt & Phát lệnh
+                                </button>
+                                <button 
+                                    onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED)}
+                                    className="px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-300 rounded hover:bg-gray-200 text-xs font-bold flex items-center gap-1 transition-all"
+                                    title="Hủy niêm yết (Quay lại Đạt khám tuyển)"
+                                >
+                                    <XCircle size={12} /> Không chốt
+                                </button>
+                            </div>
+                        )}
+                        {recruit.status === RecruitmentStatus.ENLISTED && (
+                             <button 
+                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.FINALIZED)}
+                                className="px-3 py-1.5 bg-white text-gray-500 border border-gray-300 rounded hover:bg-gray-50 hover:text-red-600 text-xs font-bold shadow-sm transition-all"
+                                title="Hủy lệnh gọi (Giữ lại danh sách niêm yết)"
+                            >
+                                <CornerUpLeft size={12} /> Hủy lệnh
+                            </button>
+                        )}
+                        {recruit.status === RecruitmentStatus.MED_EXAM_PASSED && (
+                            <button onClick={() => handleEdit(recruit)} className="text-gray-400 hover:text-military-600 p-2"><FileEdit size={16} /></button>
+                        )}
+                    </td>
+                )}
+            </tr>
+          );
+      }
+
+      // Enlisted Tab
+      if (activeTabId === 'ENLISTED') {
+          return (
+            <tr key={recruit.id} className="hover:bg-red-50/30 transition-colors border-b border-gray-100 bg-red-50/10">
+                <td className="p-4 text-center text-gray-500 font-mono text-xs">{index + 1}</td>
+                <td className="p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold border border-red-200">
+                            <Flag size={14} fill="currentColor"/>
+                        </div>
+                        {infoCell}
+                    </div>
+                </td>
+                <td className="p-4">
+                     <div className="text-sm font-bold text-gray-800">{recruit.details.education}</div>
+                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                         <span>SK Loại {recruit.physical.healthGrade}</span>
+                         <span>•</span>
+                         <span>{recruit.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : recruit.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng'}</span>
+                     </div>
+                </td>
+                <td className="p-4 text-center">
+                     {recruit.enlistmentUnit ? (
+                         <div className="flex flex-col items-center gap-1">
+                             <span className="text-sm font-bold text-green-700 flex items-center justify-center gap-1 bg-green-50 py-1 px-2 rounded border border-green-200">
+                                 <Tent size={14}/> {recruit.enlistmentUnit}
+                             </span>
+                             {recruit.enlistmentDate && (
+                                 <span className="text-xs text-gray-500 italic flex items-center gap-1">
+                                     <Calendar size={10} /> {recruit.enlistmentDate.split('-').reverse().join('/')}
+                                 </span>
+                             )}
+                         </div>
+                     ) : (
+                         <span className="text-xs text-gray-400 italic">Chưa phân đơn vị</span>
+                     )}
+                </td>
+                {!isReadOnly && (
+                    <td className="p-4 text-center">
+                        <div className="flex justify-center gap-2">
+                            <button onClick={() => handleEdit(recruit)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" title="Sửa thông tin / Đơn vị">
+                                <FileEdit size={16} />
+                            </button>
+                            <button 
+                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.FINALIZED)}
+                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded border border-transparent hover:border-red-200 transition-colors"
+                                title="Hủy nhập ngũ (Quay lại Niêm yết)"
+                            >
+                                <CornerUpLeft size={16} />
+                            </button>
+                        </div>
                     </td>
                 )}
             </tr>
@@ -717,10 +1014,18 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                 <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
                         title="Tạm hoãn nguồn"
-                        onClick={(e) => openSourceDefermentModal(e, recruit)}
+                        onClick={(e) => openExceptionModal(e, recruit, RecruitmentStatus.DEFERRED)}
                         className={`p-1.5 rounded hover:bg-amber-50 transition-colors ${recruit.status === RecruitmentStatus.DEFERRED ? 'text-amber-600 bg-amber-50' : 'text-gray-400 hover:text-amber-600'}`}
                     >
                         <PauseCircle size={16} />
+                    </button>
+
+                    <button 
+                        title="Miễn NVQS"
+                        onClick={(e) => openExceptionModal(e, recruit, RecruitmentStatus.EXEMPTED)}
+                        className={`p-1.5 rounded hover:bg-purple-50 transition-colors ${recruit.status === RecruitmentStatus.EXEMPTED ? 'text-purple-600 bg-purple-50' : 'text-gray-400 hover:text-purple-600'}`}
+                    >
+                        <ShieldCheck size={16} />
                     </button>
                     
                     <button 
@@ -746,6 +1051,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   };
 
   return (
+    // ... (rest of the component JSX remains the same)
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       
       {/* 0. LOCKED BANNER */}
@@ -759,206 +1065,224 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           </div>
       )}
 
-      {/* 1. Header & Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-2 md:pb-0">
-          {TABS.map(tab => {
-              const isActive = activeTabId === tab.id;
-              const Icon = tab.icon;
-              return (
-                <button
-                    key={tab.id}
-                    onClick={() => handleTabChange(tab.id)}
-                    className={`
-                        flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap
-                        ${isActive 
-                            ? `${tab.color} text-white shadow-md ring-2 ring-offset-1 ring-gray-200` 
-                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-transparent'
-                        }
-                    `}
-                >
-                    <Icon size={16} /> {tab.label}
-                </button>
-              );
-          })}
-        </div>
+      <div className="flex flex-col lg:flex-row gap-6">
+          {/* 1. LEFT SIDEBAR: VERTICAL TABS */}
+          <div className="lg:w-64 shrink-0">
+              <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200 sticky top-4">
+                  <div className="flex lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+                      {TABS.map(tab => {
+                          const isActive = activeTabId === tab.id;
+                          const Icon = tab.icon;
+                          return (
+                              <button
+                                  key={tab.id}
+                                  onClick={() => handleTabChange(tab.id)}
+                                  className={`
+                                      flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap w-full text-left group
+                                      ${isActive 
+                                          ? `${tab.color} text-white shadow-md` 
+                                          : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                                      }
+                                  `}
+                              >
+                                  <Icon size={18} className={!isActive ? "text-gray-400 group-hover:text-gray-600" : ""} /> 
+                                  <span className="flex-1">{tab.label}</span>
+                                  {isActive && <ChevronRight size={16} className="hidden lg:block opacity-50" />}
+                              </button>
+                          );
+                      })}
+                  </div>
+              </div>
+          </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          {!isReadOnly && activeTabId === 'ALL' && (
-            <button
-                onClick={() => { setEditingRecruit(undefined); setShowForm(true); }}
-                className="flex items-center gap-2 px-4 py-2 bg-military-600 text-white rounded-lg hover:bg-military-700 shadow-md font-bold text-sm transition-transform active:scale-95 w-full md:w-auto justify-center"
-            >
-                <Plus size={18} /> Bổ sung nguồn
-            </button>
-          )}
-        </div>
-      </div>
+          {/* 2. RIGHT CONTENT AREA */}
+          <div className="flex-1 min-w-0 space-y-4">
+              
+              {/* CONTENT HEADER: Title + Add Button */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                      <h2 className="text-lg font-bold text-gray-900 uppercase">
+                          {TABS.find(t => t.id === activeTabId)?.label}
+                      </h2>
+                      <p className="text-xs text-gray-500">Quản lý danh sách và hồ sơ chi tiết</p>
+                  </div>
 
-      {/* 2. Filters Bar */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3 w-full">
-                {/* Search */}
-                <div className="md:col-span-2 lg:col-span-2">
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Tìm kiếm</label>
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Tên, số CCCD..."
-                            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-military-500 focus:border-transparent"
-                            value={filters.search}
-                            onChange={(e) => setFilters(prev => ({...prev, search: e.target.value}))}
-                        />
-                        <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                  {!isReadOnly && activeTabId === 'ALL' && (
+                      <button
+                          onClick={() => { setEditingRecruit(undefined); setShowForm(true); }}
+                          className="flex items-center gap-2 px-4 py-2 bg-military-600 text-white rounded-lg hover:bg-military-700 shadow-md font-bold text-sm transition-transform active:scale-95 w-full md:w-auto justify-center"
+                      >
+                          <Plus size={18} /> Bổ sung nguồn
+                      </button>
+                  )}
+              </div>
+
+              {/* FILTERS BAR */}
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3 w-full">
+                        {/* Search */}
+                        <div className="md:col-span-2 lg:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Tìm kiếm</label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Tên, số CCCD..."
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-military-500 focus:border-transparent"
+                                    value={filters.search}
+                                    onChange={(e) => setFilters(prev => ({...prev, search: e.target.value}))}
+                                />
+                                <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                            </div>
+                        </div>
+
+                        {/* Village Filter */}
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Thôn / Ấp</label>
+                            <input
+                                type="text"
+                                placeholder="Nhập tên thôn/ấp..."
+                                className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-military-500 focus:border-transparent"
+                                value={filters.village}
+                                onChange={(e) => setFilters(prev => ({...prev, village: e.target.value}))}
+                            />
+                        </div>
+
+                        {/* Age Filter */}
+                        <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Độ tuổi ({sessionYear})</label>
+                            <select
+                                className="w-full border border-gray-300 rounded p-2 text-sm text-gray-700"
+                                value={filters.age}
+                                onChange={(e) => setFilters(prev => ({...prev, age: e.target.value}))}
+                            >
+                                <option value="">-- Tất cả --</option>
+                                <option value="UNDER_18" className="font-bold text-red-600">Dưới 18 tuổi</option>
+                                {AGE_OPTIONS.map(age => (
+                                    <option key={age} value={age}>{age} tuổi (Sinh {sessionYear - age})</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Commune Filter (Admin Only) */}
+                        {isAdmin && (
+                            <div className="md:col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 mb-1">Xã / Phường</label>
+                                <select
+                                    className="w-full border border-gray-300 rounded p-2 text-sm text-gray-700"
+                                    value={filters.commune}
+                                    onChange={(e) => setFilters(prev => ({...prev, commune: e.target.value}))}
+                                >
+                                    <option value="">-- Tất cả --</option>
+                                    {COMMUNES.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="md:col-span-1 flex items-end">
+                            <button 
+                                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                                className={`w-full py-2 px-3 rounded text-sm font-bold border transition-colors flex items-center justify-center gap-1 ${showAdvancedFilters ? 'bg-military-50 border-military-300 text-military-700' : 'bg-gray-50 border-gray-300 text-gray-600'}`}
+                            >
+                                <Filter size={14}/> {showAdvancedFilters ? 'Thu gọn' : 'Bộ lọc khác'}
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="shrink-0 mb-0.5">
+                        <button 
+                            onClick={resetFilters}
+                            className="p-2 text-gray-400 hover:text-military-600 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Đặt lại bộ lọc"
+                        >
+                            <RefreshCw size={18} />
+                        </button>
                     </div>
                 </div>
 
-                {/* Village Filter - Manual Input (UPDATED) */}
-                <div className="md:col-span-1">
-                     <label className="block text-xs font-bold text-gray-500 mb-1">Thôn / Ấp</label>
-                     <input
-                         type="text"
-                         placeholder="Nhập tên thôn/ấp..."
-                         className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-military-500 focus:border-transparent"
-                         value={filters.village}
-                         onChange={(e) => setFilters(prev => ({...prev, village: e.target.value}))}
-                     />
-                </div>
+                {/* Advanced Filters */}
+                {showAdvancedFilters && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-3 pt-3 border-t border-gray-100 animate-in slide-in-from-top-2">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Trình độ văn hóa</label>
+                            <select
+                                className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                                value={filters.education}
+                                onChange={(e) => setFilters(prev => ({...prev, education: e.target.value}))}
+                            >
+                                <option value="">-- Tất cả --</option>
+                                {EDUCATIONS.map(e => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Dân tộc</label>
+                            <select
+                                className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                                value={filters.ethnicity}
+                                onChange={(e) => setFilters(prev => ({...prev, ethnicity: e.target.value}))}
+                            >
+                                <option value="">-- Tất cả --</option>
+                                {ETHNICITIES.map(e => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                        </div>
 
-                {/* Age Filter (UPDATED) */}
-                <div className="md:col-span-1">
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Độ tuổi ({sessionYear})</label>
-                    <select
-                        className="w-full border border-gray-300 rounded p-2 text-sm text-gray-700"
-                        value={filters.age}
-                        onChange={(e) => setFilters(prev => ({...prev, age: e.target.value}))}
-                    >
-                        <option value="">-- Tất cả --</option>
-                        <option value="UNDER_18" className="font-bold text-red-600">Dưới 18 tuổi</option>
-                        {AGE_OPTIONS.map(age => (
-                             <option key={age} value={age}>{age} tuổi (Sinh {sessionYear - age})</option>
-                        ))}
-                    </select>
-                </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Tôn giáo</label>
+                            <select
+                                className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                                value={filters.religion}
+                                onChange={(e) => setFilters(prev => ({...prev, religion: e.target.value}))}
+                            >
+                                <option value="">-- Tất cả --</option>
+                                {RELIGIONS.map(e => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                        </div>
 
-                {/* Commune Filter (Admin Only) */}
-                {isAdmin && (
-                    <div className="md:col-span-1">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Xã / Phường</label>
-                        <select
-                            className="w-full border border-gray-300 rounded p-2 text-sm text-gray-700"
-                            value={filters.commune}
-                            onChange={(e) => setFilters(prev => ({...prev, commune: e.target.value}))}
-                        >
-                            <option value="">-- Tất cả --</option>
-                            {COMMUNES.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Hôn nhân</label>
+                            <select
+                                className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                                value={filters.maritalStatus}
+                                onChange={(e) => setFilters(prev => ({...prev, maritalStatus: e.target.value}))}
+                            >
+                                <option value="">-- Tất cả --</option>
+                                {MARITAL_STATUSES.map(e => <option key={e} value={e}>{e}</option>)}
+                            </select>
+                        </div>
                     </div>
                 )}
+              </div>
 
-                <div className="md:col-span-1 flex items-end">
-                    <button 
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        className={`w-full py-2 px-3 rounded text-sm font-bold border transition-colors flex items-center justify-center gap-1 ${showAdvancedFilters ? 'bg-military-50 border-military-300 text-military-700' : 'bg-gray-50 border-gray-300 text-gray-600'}`}
-                    >
-                        <Filter size={14}/> {showAdvancedFilters ? 'Thu gọn' : 'Bộ lọc khác'}
-                    </button>
+              {/* DATA TABLE */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                {filteredRecruits.length === 0 ? (
+                    <div className="p-12 text-center text-gray-400 flex flex-col items-center">
+                        <ShieldOff size={48} className="mb-3 opacity-20"/>
+                        <p className="text-lg font-medium">Không tìm thấy dữ liệu</p>
+                        <p className="text-sm">Vui lòng thử lại với bộ lọc khác</p>
+                        <button onClick={resetFilters} className="mt-4 text-military-600 font-bold hover:underline">Xóa bộ lọc</button>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-gray-50 text-gray-600 uppercase text-xs sticky top-0 z-10">
+                                {renderTableHead()}
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-sm">
+                                {filteredRecruits.map((recruit, index) => renderRow(recruit, index))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+                
+                {/* Footer Stats */}
+                <div className="bg-gray-50 border-t border-gray-200 p-3 text-xs text-gray-500 flex justify-between items-center">
+                    <span>Hiển thị <strong>{filteredRecruits.length}</strong> / <strong>{totalRelevantRecruits}</strong> hồ sơ</span>
+                    <span className="italic">Dữ liệu năm {sessionYear}</span>
                 </div>
-            </div>
-            
-            <div className="shrink-0 mb-0.5">
-                 <button 
-                    onClick={resetFilters}
-                    className="p-2 text-gray-400 hover:text-military-600 hover:bg-gray-100 rounded-full transition-colors"
-                    title="Đặt lại bộ lọc"
-                 >
-                    <RefreshCw size={18} />
-                 </button>
-            </div>
-        </div>
-
-        {/* Advanced Filters */}
-        {showAdvancedFilters && (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-3 pt-3 border-t border-gray-100 animate-in slide-in-from-top-2">
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Trình độ văn hóa</label>
-                    <select
-                        className="w-full border border-gray-300 rounded p-1.5 text-sm"
-                        value={filters.education}
-                        onChange={(e) => setFilters(prev => ({...prev, education: e.target.value}))}
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {EDUCATIONS.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                 </div>
-                 
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Dân tộc</label>
-                    <select
-                        className="w-full border border-gray-300 rounded p-1.5 text-sm"
-                        value={filters.ethnicity}
-                        onChange={(e) => setFilters(prev => ({...prev, ethnicity: e.target.value}))}
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {ETHNICITIES.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                 </div>
-
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Tôn giáo</label>
-                    <select
-                        className="w-full border border-gray-300 rounded p-1.5 text-sm"
-                        value={filters.religion}
-                        onChange={(e) => setFilters(prev => ({...prev, religion: e.target.value}))}
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {RELIGIONS.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                 </div>
-
-                 <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Hôn nhân</label>
-                    <select
-                        className="w-full border border-gray-300 rounded p-1.5 text-sm"
-                        value={filters.maritalStatus}
-                        onChange={(e) => setFilters(prev => ({...prev, maritalStatus: e.target.value}))}
-                    >
-                        <option value="">-- Tất cả --</option>
-                        {MARITAL_STATUSES.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                 </div>
-            </div>
-        )}
-      </div>
-
-      {/* 3. Data Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {filteredRecruits.length === 0 ? (
-             <div className="p-12 text-center text-gray-400 flex flex-col items-center">
-                 <ShieldOff size={48} className="mb-3 opacity-20"/>
-                 <p className="text-lg font-medium">Không tìm thấy dữ liệu</p>
-                 <p className="text-sm">Vui lòng thử lại với bộ lọc khác</p>
-                 <button onClick={resetFilters} className="mt-4 text-military-600 font-bold hover:underline">Xóa bộ lọc</button>
-             </div>
-        ) : (
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 text-gray-600 uppercase text-xs sticky top-0 z-10">
-                        {renderTableHead()}
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 text-sm">
-                        {filteredRecruits.map((recruit, index) => renderRow(recruit, index))}
-                    </tbody>
-                </table>
-            </div>
-        )}
-        
-        {/* Footer Stats */}
-        <div className="bg-gray-50 border-t border-gray-200 p-3 text-xs text-gray-500 flex justify-between items-center">
-             <span>Hiển thị <strong>{filteredRecruits.length}</strong> / <strong>{totalRelevantRecruits}</strong> hồ sơ</span>
-             <span className="italic">Dữ liệu năm {sessionYear}</span>
-        </div>
+              </div>
+          </div>
       </div>
 
       {/* MODAL: Recruit Form */}
@@ -975,56 +1299,57 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
         />
       )}
 
-      {/* MODAL: Deferment Reason */}
-      {showDefermentModal && (
+      {/* MODAL: Deferment / Exemption Reason */}
+      {showExceptionModal && targetExceptionStatus && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-              <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 animate-in zoom-in-95">
-                  <h3 className="text-lg font-bold text-amber-700 mb-4 flex items-center gap-2">
-                      <PauseCircle /> Tạm hoãn nguồn
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+                  <h3 className={`text-lg font-bold mb-4 flex items-center gap-2 ${targetExceptionStatus === RecruitmentStatus.DEFERRED ? 'text-amber-700' : 'text-purple-700'}`}>
+                      {targetExceptionStatus === RecruitmentStatus.DEFERRED ? <PauseCircle /> : <ShieldCheck />}
+                      {targetExceptionStatus === RecruitmentStatus.DEFERRED ? 'Xét duyệt Tạm hoãn' : 'Xét duyệt Miễn NVQS'}
                   </h3>
                   <p className="text-sm text-gray-600 mb-4">
-                      Vui lòng chọn lý do tạm hoãn cho công dân <strong>{selectedDefermentRecruit?.fullName}</strong>:
+                      Vui lòng chọn lý do pháp lý cho công dân <strong>{selectedExceptionRecruit?.fullName}</strong> theo Luật NVQS:
                   </p>
                   
                   <div className="space-y-2 mb-6">
-                      {SOURCE_DEFERMENT_REASONS.map(reason => (
-                          <label key={reason} className="flex items-center gap-3 p-3 border rounded cursor-pointer hover:bg-amber-50 transition-colors">
+                      {(targetExceptionStatus === RecruitmentStatus.DEFERRED ? LEGAL_DEFERMENT_REASONS : LEGAL_EXEMPTION_REASONS).map((reason, idx) => (
+                          <label key={idx} className={`flex items-start gap-3 p-3 border rounded cursor-pointer transition-colors ${targetExceptionStatus === RecruitmentStatus.DEFERRED ? 'hover:bg-amber-50' : 'hover:bg-purple-50'}`}>
                               <input 
                                   type="radio" 
-                                  name="deferReason" 
-                                  className="text-amber-600 focus:ring-amber-500"
-                                  checked={selectedDefermentReason === reason}
-                                  onChange={() => setSelectedDefermentReason(reason)}
+                                  name="exceptionReason" 
+                                  className={`mt-1 ${targetExceptionStatus === RecruitmentStatus.DEFERRED ? 'text-amber-600 focus:ring-amber-500' : 'text-purple-600 focus:ring-purple-500'}`}
+                                  checked={selectedExceptionReason === reason}
+                                  onChange={() => setSelectedExceptionReason(reason)}
                               />
-                              <span className="text-sm font-medium text-gray-800">{reason}</span>
+                              <span className="text-sm font-medium text-gray-800 leading-relaxed">{reason}</span>
                           </label>
                       ))}
                       
                       {/* Custom Reason Input if 'Khác' is selected */}
-                      {selectedDefermentReason === 'Khác' && (
+                      {selectedExceptionReason.startsWith('Khác') && (
                           <div className="pl-8 animate-in fade-in slide-in-from-top-1">
                               <input 
                                   type="text" 
                                   autoFocus
-                                  className="w-full border border-amber-300 rounded p-2 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                  className={`w-full border rounded p-2 text-sm outline-none ${targetExceptionStatus === RecruitmentStatus.DEFERRED ? 'border-amber-300 focus:ring-2 focus:ring-amber-500' : 'border-purple-300 focus:ring-2 focus:ring-purple-500'}`}
                                   placeholder="Nhập lý do cụ thể..."
-                                  value={customDefermentReason}
-                                  onChange={(e) => setCustomDefermentReason(e.target.value)}
+                                  value={customExceptionReason}
+                                  onChange={(e) => setCustomExceptionReason(e.target.value)}
                               />
                           </div>
                       )}
                   </div>
 
-                  <div className="flex justify-end gap-3">
+                  <div className="flex justify-end gap-3 border-t pt-4">
                       <button 
-                          onClick={() => setShowDefermentModal(false)}
+                          onClick={() => setShowExceptionModal(false)}
                           className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-bold"
                       >
                           Hủy
                       </button>
                       <button 
-                          onClick={confirmSourceDeferment}
-                          className="px-4 py-2 bg-amber-600 text-white rounded font-bold hover:bg-amber-700"
+                          onClick={confirmExceptionStatus}
+                          className={`px-4 py-2 text-white rounded font-bold ${targetExceptionStatus === RecruitmentStatus.DEFERRED ? 'bg-amber-600 hover:bg-amber-700' : 'bg-purple-600 hover:bg-purple-700'}`}
                       >
                           Xác nhận
                       </button>

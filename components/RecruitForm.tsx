@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User } from '../types';
-import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES } from '../constants';
-import { X, Save, User as UserIcon, Users, MapPin, Home, Activity, Info } from 'lucide-react';
+import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS } from '../constants';
+import { X, Save, User as UserIcon, Users, MapPin, Home, Activity, Info, Tent, Calendar } from 'lucide-react';
 
 interface RecruitFormProps {
   initialData?: Recruit;
@@ -53,6 +53,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
     status: RecruitmentStatus.SOURCE,
     recruitmentYear: sessionYear, // Mặc định theo sessionYear
     enlistmentUnit: '',
+    enlistmentDate: '',
     defermentReason: ''
   });
 
@@ -101,6 +102,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
             healthGrade: initialData.physical.healthGrade || 0
         },
         enlistmentUnit: initialData.enlistmentUnit || '',
+        enlistmentDate: initialData.enlistmentDate || '',
         defermentReason: initialData.defermentReason || ''
       });
     } else {
@@ -158,41 +160,24 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
       );
   }, [formData.hometown.commune, hometownCommuneList]);
 
-  // Auto calculate BMI and Suggest Health Grade
+  // Auto calculate BMI ONLY - Do NOT suggest Health Grade
   useEffect(() => {
     if (formData.physical.height > 0 && formData.physical.weight > 0) {
       const heightInM = formData.physical.height / 100;
       const bmi = parseFloat((formData.physical.weight / (heightInM * heightInM)).toFixed(2));
       
-      // Calculate Health Grade based on Circular 68/2025/TT-BQP
-      let suggestedGrade = 0;
-      
-      if (bmi >= 18.5 && bmi <= 24.9) {
-          suggestedGrade = 1;
-      } else if (bmi >= 25.0 && bmi <= 26.9) {
-          suggestedGrade = 2;
-      } else if (bmi >= 27.0 && bmi <= 29.9) {
-          suggestedGrade = 3;
-      } else if (bmi < 18.5 || (bmi >= 30.0 && bmi <= 34.9)) {
-          suggestedGrade = 4;
-      } else if (bmi >= 35.0 && bmi <= 39.9) {
-          suggestedGrade = 5;
-      } else if (bmi >= 40.0) {
-          suggestedGrade = 6;
-      }
-
+      // Update BMI only, keep healthGrade as is (user must select)
       setFormData(prev => ({ 
           ...prev, 
           physical: { 
               ...prev.physical, 
-              bmi,
-              healthGrade: suggestedGrade
+              bmi
           } 
       }));
     } else {
         // Reset if invalid input
         if(formData.physical.bmi !== 0) {
-             setFormData(prev => ({ ...prev, physical: { ...prev.physical, bmi: 0, healthGrade: 0 } }));
+             setFormData(prev => ({ ...prev, physical: { ...prev.physical, bmi: 0 } }));
         }
     }
   }, [formData.physical.height, formData.physical.weight]);
@@ -258,6 +243,13 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
 
     onSubmit(formData);
   };
+
+  // Determine which reasons to show based on status
+  const legalReasons = formData.status === RecruitmentStatus.DEFERRED 
+      ? LEGAL_DEFERMENT_REASONS 
+      : formData.status === RecruitmentStatus.EXEMPTED 
+          ? LEGAL_EXEMPTION_REASONS 
+          : [];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -486,6 +478,42 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
 
             {/* RIGHT COLUMN: Details & Family */}
             <div className="space-y-6">
+                
+                {/* ENLISTMENT UNIT & DATE INPUT (Conditional) */}
+                {(formData.status === RecruitmentStatus.FINALIZED || formData.status === RecruitmentStatus.ENLISTED) && (
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200 shadow-sm animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="p-1.5 bg-green-100 rounded-full text-green-700">
+                                <Tent size={16} />
+                            </div>
+                            <label className="text-sm font-bold text-green-800 uppercase">
+                                Nhập ngũ (Dự kiến / Chính thức)
+                            </label>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2 md:col-span-1">
+                                <label className="block text-xs font-bold text-green-700 mb-1">Đơn vị tiếp nhận</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="VD: Sư đoàn 309..."
+                                    className="w-full p-2 border border-green-300 rounded text-sm focus:ring-2 focus:ring-green-500 font-bold text-green-900 bg-white"
+                                    value={formData.enlistmentUnit || ''}
+                                    onChange={(e) => handleChange('enlistmentUnit', e.target.value)}
+                                />
+                            </div>
+                            <div className="col-span-2 md:col-span-1">
+                                <label className="block text-xs font-bold text-green-700 mb-1">Ngày nhập ngũ</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full p-2 border border-green-300 rounded text-sm focus:ring-2 focus:ring-green-500 font-bold text-green-900 bg-white"
+                                    value={formData.enlistmentDate || ''}
+                                    onChange={(e) => handleChange('enlistmentDate', e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-2 flex items-center gap-2 uppercase text-sm">
                  <Activity size={18} /> Chi tiết & Gia cảnh
                </h3>
@@ -597,7 +625,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
                       <div className="flex flex-col justify-end">
                           <label className="block text-xs font-bold text-gray-500">BMI (Tự động)</label>
                           <div className={`mt-1 py-1 px-2 border rounded text-center font-bold bg-white flex items-center justify-center gap-1
-                              ${formData.physical.bmi >= 18.0 && formData.physical.bmi <= 29.9 ? 'text-green-600 border-green-200' : 'text-red-600 border-red-200'}
+                              ${formData.physical.bmi >= 18.5 && formData.physical.bmi <= 29.9 ? 'text-green-600 border-green-200' : 'text-red-600 border-red-200'}
                           `}>
                               {formData.physical.bmi || '--'}
                           </div>
@@ -618,31 +646,45 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
                       <div className="col-span-4 mt-1 flex items-center gap-2 text-[11px]">
                           {formData.physical.bmi > 0 ? (
                               <>
-                                <Info size={14} className={formData.physical.bmi >= 18.0 && formData.physical.bmi <= 29.9 ? "text-green-600" : "text-red-600"}/>
-                                {formData.physical.bmi < 18.0 && <span className="text-red-600 font-bold">Gầy (Không đủ ĐK nhập ngũ)</span>}
-                                {formData.physical.bmi >= 18.0 && formData.physical.bmi <= 29.9 && <span className="text-green-600 font-bold">Đủ ĐK nhập ngũ (18.0 - 29.9)</span>}
-                                {formData.physical.bmi > 29.9 && <span className="text-red-600 font-bold">Thừa cân/Béo phì (Không đủ ĐK nhập ngũ)</span>}
+                                <Info size={14} className={formData.physical.bmi >= 18.5 && formData.physical.bmi <= 29.9 ? "text-green-600" : "text-red-600"}/>
+                                {formData.physical.bmi < 18.5 && <span className="text-red-600 font-bold">Gầy (BMI &lt; 18.5)</span>}
+                                {formData.physical.bmi >= 18.5 && formData.physical.bmi <= 29.9 && <span className="text-green-600 font-bold">Bình thường (18.5 - 29.9)</span>}
+                                {formData.physical.bmi > 29.9 && <span className="text-red-600 font-bold">Thừa cân/Béo phì (BMI &gt; 29.9)</span>}
+                                <span className="text-gray-400 italic ml-2">- Cần khám lâm sàng để kết luận PL Sức khỏe</span>
                               </>
                           ) : (
-                              <span className="text-gray-400 italic">* Nhập chiều cao & cân nặng để tính BMI</span>
+                              <span className="text-gray-400 italic">* Nhập chiều cao & cân nặng để tính BMI tham khảo</span>
                           )}
                       </div>
                   </div>
                   
                   {/* Deferment Reason (Conditional) */}
                    {(formData.status === RecruitmentStatus.DEFERRED || formData.status === RecruitmentStatus.EXEMPTED) && (
-                      <div className="col-span-2 bg-amber-50 p-3 rounded-md border border-amber-200 animate-in fade-in slide-in-from-top-2">
-                          <label className="block text-sm font-bold text-amber-800 mb-1">
+                      <div className={`col-span-2 p-3 rounded-md border animate-in fade-in slide-in-from-top-2 ${formData.status === RecruitmentStatus.DEFERRED ? 'bg-amber-50 border-amber-200' : 'bg-purple-50 border-purple-200'}`}>
+                          <label className={`block text-sm font-bold mb-1 ${formData.status === RecruitmentStatus.DEFERRED ? 'text-amber-800' : 'text-purple-800'}`}>
                               Lý do {formData.status === RecruitmentStatus.DEFERRED ? 'Tạm hoãn' : 'Miễn'}:
                           </label>
-                          <input 
-                            type="text" 
+                          <select
                             required
-                            placeholder="Nhập lý do cụ thể..."
-                            className="w-full p-2 border border-amber-300 rounded text-sm focus:ring-2 focus:ring-amber-500"
-                            value={formData.defermentReason || ''}
-                            onChange={(e) => handleChange('defermentReason', e.target.value)}
-                          />
+                            className={`w-full p-2 border rounded text-sm focus:ring-2 ${formData.status === RecruitmentStatus.DEFERRED ? 'border-amber-300 focus:ring-amber-500' : 'border-purple-300 focus:ring-purple-500'}`}
+                            value={legalReasons.includes(formData.defermentReason || '') ? formData.defermentReason : 'Other'}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val !== 'Other') handleChange('defermentReason', val);
+                                else handleChange('defermentReason', ''); // Clear for typing if we supported custom typing here, but dropdown is stricter
+                            }}
+                          >
+                              <option value="">-- Chọn lý do pháp lý --</option>
+                              {legalReasons.map((reason, idx) => (
+                                  <option key={idx} value={reason}>{reason}</option>
+                              ))}
+                          </select>
+                          {/* If current reason is not in the list (e.g. legacy data), show it */}
+                          {!legalReasons.includes(formData.defermentReason || '') && formData.defermentReason && (
+                              <div className="mt-2 text-xs italic text-gray-500">
+                                  Lý do hiện tại: {formData.defermentReason}
+                              </div>
+                          )}
                       </div>
                    )}
                </div>

@@ -5,7 +5,8 @@ export enum RecruitmentStatus {
   PRE_CHECK_FAILED = 'SO_KHAM_KHONG_DAT', // Không đạt sơ khám
   MED_EXAM_PASSED = 'KHAM_TUYEN_DAT', // Đạt khám tuyển
   MED_EXAM_FAILED = 'KHAM_TUYEN_KHONG_DAT', // Không đạt khám tuyển
-  FINALIZED = 'BINH_CU_CONG_KHAI', // Danh sách bình cử công khai (Trước đây là Chốt nhập ngũ)
+  FINALIZED = 'BINH_CU_CONG_KHAI', // Danh sách bình cử công khai
+  ENLISTED = 'NHAP_NGU', // Đã chốt và phát lệnh nhập ngũ
   DEFERRED = 'TAM_HOAN', // Tạm hoãn
   EXEMPTED = 'MIEN_KHAM', // Miễn làm NVQS
   REMOVED_FROM_SOURCE = 'LOAI_KHOI_NGUON' // Đã loại khỏi nguồn (Soft delete)
@@ -76,8 +77,9 @@ export interface Recruit {
     children?: string; // Thông tin về con
   };
   status: RecruitmentStatus;
-  defermentReason?: string; // Lý do tạm hoãn hoặc miễn
+  defermentReason?: string; // Lý do tạm hoãn, miễn HOẶC lý do không đạt sức khỏe
   enlistmentUnit?: string; // Đơn vị nhập ngũ (khi đã chốt)
+  enlistmentDate?: string; // Ngày nhập ngũ
   recruitmentYear: number;
 }
 

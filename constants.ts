@@ -550,14 +550,30 @@ export const RELIGIONS = ["Không", "Phật giáo", "Công giáo", "Tin lành", 
 export const MARITAL_STATUSES = ["Độc thân", "Đã kết hôn", "Ly hôn"];
 export const FAMILY_JOBS = ["Làm nông", "Công nhân", "CNVC/Viên chức", "Buôn bán/Kinh doanh", "Tự do", "Hưu trí", "Đã mất", "Khác"];
 
-// Lý do tạm hoãn nguồn
-export const SOURCE_DEFERMENT_REASONS = [
-    "Học sinh, Sinh viên (HSSV)",
-    "Trình độ văn hóa thấp (Chưa hết lớp 8)",
-    "Xuất khẩu lao động",
-    "Hoàn cảnh khó khăn",
-    "Khác"
+// Lý do tạm hoãn nguồn (Theo Điều 41, Luật NVQS 2015)
+export const LEGAL_DEFERMENT_REASONS = [
+    "Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe",
+    "Lao động duy nhất phải trực tiếp nuôi dưỡng thân nhân không còn khả năng lao động hoặc chưa đến tuổi lao động; trong gia đình bị thiệt hại nặng về người và tài sản do tai nạn, thiên tai, dịch bệnh nguy hiểm gây ra được Ủy ban nhân dân cấp xã xác nhận",
+    "Một con của bệnh binh, người nhiễm chất độc da cam suy giảm khả năng lao động từ 61% đến 80%",
+    "Có anh, chị hoặc em ruột là hạ sĩ quan, binh sĩ đang phục vụ tại ngũ; hạ sĩ quan, chiến sĩ thực hiện nghĩa vụ tham gia Công an nhân dân",
+    "Người thuộc diện di dân, giãn dân trong 03 năm đầu đến các xã đặc biệt khó khăn theo dự án phát triển kinh tế - xã hội của Nhà nước do Ủy ban nhân dân cấp tỉnh trở lên quyết định",
+    "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật",
+    "Đang học tại cơ sở giáo dục phổ thông; đang được đào tạo trình độ đại học hệ chính quy thuộc cơ sở giáo dục đại học, trình độ cao đẳng hệ chính quy thuộc cơ sở giáo dục nghề nghiệp trong thời gian một khóa đào tạo của một trình độ đào tạo",
+    "Khác (Lý do cụ thể)"
 ];
+
+// Lý do miễn gọi nhập ngũ (Theo Điều 41, Luật NVQS 2015)
+export const LEGAL_EXEMPTION_REASONS = [
+    "Con của liệt sĩ, con của thương binh hạng một",
+    "Một anh hoặc một em trai của liệt sĩ",
+    "Một con của thương binh hạng hai; một con của bệnh binh suy giảm khả năng lao động từ 81% trở lên; một con của người nhiễm chất độc da cam suy giảm khả năng lao động từ 81 % trở lên",
+    "Người làm công tác cơ yếu không phải là quân nhân, Công an nhân dân",
+    "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật từ 24 tháng trở lên",
+    "Khác (Lý do cụ thể)"
+];
+
+// Để tương thích ngược với code cũ, giữ lại biến này nhưng trỏ đến list mới
+export const SOURCE_DEFERMENT_REASONS = LEGAL_DEFERMENT_REASONS;
 
 // Helper to extract list for filters
 export const GET_ALL_COMMUNES = () => {
