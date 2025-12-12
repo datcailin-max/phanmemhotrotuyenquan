@@ -119,19 +119,19 @@ function App() {
   };
 
   const handleDeleteRecruit = async (id: string) => {
-    if(window.confirm("Bạn muốn thực hiện thao tác này")) {
-        const oldRecruits = [...recruits];
-        // Optimistic delete
-        setRecruits(prev => prev.filter(r => r.id !== id));
-        
-        const success = await api.deleteRecruit(id);
-        if (!success) {
-            alert("Lỗi kết nối Server! Không xóa được dữ liệu.");
-            setRecruits(oldRecruits);
-            setIsOnline(false);
-        } else {
-            setIsOnline(true);
-        }
+    // Confirmation is handled in the View layer (RecruitManagement) for better context
+    const oldRecruits = [...recruits];
+    
+    // Optimistic delete: Remove immediately from UI
+    setRecruits(prev => prev.filter(r => r.id !== id));
+    
+    const success = await api.deleteRecruit(id);
+    if (!success) {
+        alert("Lỗi kết nối Server! Không xóa được dữ liệu.");
+        setRecruits(oldRecruits); // Rollback
+        setIsOnline(false);
+    } else {
+        setIsOnline(true);
     }
   };
 

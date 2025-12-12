@@ -160,6 +160,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       return Array.from({length: 10}, (_, i) => 18 + i); // 18, 19, ... 27
   }, []);
 
+  // --- LOGIC MỚI: Tính tổng số hồ sơ THỰC TẾ của năm hiện tại và đơn vị hiện tại (Mẫu số) ---
+  const totalRelevantRecruits = useMemo(() => {
+      return recruits.filter(r => {
+          // 1. Phải thuộc năm tuyển quân đang chọn
+          if (r.recruitmentYear !== sessionYear) return false;
+          // 2. Phải thuộc đơn vị quản lý (nếu không phải Admin)
+          if (!isAdmin && r.address.commune !== user.unit.commune) return false;
+          return true;
+      }).length;
+  }, [recruits, sessionYear, isAdmin, user]);
+
   const filteredRecruits = useMemo(() => {
     let result = recruits;
     
@@ -301,6 +312,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       setTimeout(() => {
           alert(`Đã chuyển công dân ${recruit.fullName} vào "Danh sách loại khỏi nguồn".`);
       }, 100);
+  };
+
+  // Permanent Delete Handler (Actually delete)
+  const handlePermanentDelete = (e: React.MouseEvent, recruitId: string) => {
+      e.stopPropagation();
+      if (isReadOnly) return;
+      
+      // Hỏi xác nhận kỹ vì xóa thật
+      if (window.confirm("CẢNH BÁO: Bạn có chắc chắn muốn xóa VĨNH VIỄN hồ sơ này không?\nHành động này không thể hoàn tác.")) {
+          onDelete(recruitId);
+      }
   };
 
   // Restore Handler (Move back to Source)
@@ -505,13 +527,22 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                  <td className="p-4 text-center">{getStatusBadge(recruit)}</td>
                  {!isReadOnly && (
                      <td className="p-4 text-center">
-                         <button 
-                            onClick={(e) => handleRestore(e, recruit)}
-                            className="px-3 py-1.5 text-xs font-bold bg-green-600 text-white rounded hover:bg-green-700 shadow-sm flex items-center gap-1 mx-auto transition-colors"
-                            title="Bổ sung lại vào nguồn"
-                         >
-                             <RotateCcw size={14}/> Bổ sung nguồn
-                         </button>
+                         <div className="flex items-center justify-center gap-2">
+                             <button 
+                                onClick={(e) => handleRestore(e, recruit)}
+                                className="px-3 py-1.5 text-xs font-bold bg-green-600 text-white rounded hover:bg-green-700 shadow-sm flex items-center gap-1 transition-colors"
+                                title="Bổ sung lại vào nguồn"
+                             >
+                                 <RotateCcw size={14}/> Bổ sung nguồn
+                             </button>
+                             <button 
+                                onClick={(e) => handlePermanentDelete(e, recruit.id)}
+                                className="px-3 py-1.5 text-xs font-bold bg-red-600 text-white rounded hover:bg-red-700 shadow-sm flex items-center gap-1 transition-colors"
+                                title="Xóa vĩnh viễn khỏi hệ thống"
+                             >
+                                 <Trash2 size={14}/> Xóa vĩnh viễn
+                             </button>
+                         </div>
                      </td>
                  )}
              </tr>
@@ -925,7 +956,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
         
         {/* Footer Stats */}
         <div className="bg-gray-50 border-t border-gray-200 p-3 text-xs text-gray-500 flex justify-between items-center">
-             <span>Hiển thị <strong>{filteredRecruits.length}</strong> / <strong>{recruits.length}</strong> hồ sơ</span>
+             <span>Hiển thị <strong>{filteredRecruits.length}</strong> / <strong>{totalRelevantRecruits}</strong> hồ sơ</span>
              <span className="italic">Dữ liệu năm {sessionYear}</span>
         </div>
       </div>
