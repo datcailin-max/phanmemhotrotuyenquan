@@ -95,45 +95,10 @@ const ProcessStepCard = ({ title, count, total, icon: Icon, color, onClick, isLa
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear, userRole }) => {
+const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear, userRole, userUnit }) => {
   // --- ADMIN FILTERS ---
   const [filterProvince, setFilterProvince] = useState('');
   const [filterCommune, setFilterCommune] = useState('');
-
-  // Helper function to check if a recruit matches current filters (Role + Admin Dropdowns)
-  const isMatchLocation = (r: Recruit) => {
-      // 1. Nếu không phải Admin, phải khớp với đơn vị của User (đã được lọc ở lớp cha hoặc xử lý ở đây nếu cần, 
-      // nhưng ở App.tsx ta truyền full list. Để an toàn, ta giả định recruits truyền vào Dashboard là raw list).
-      // Tuy nhiên, App.tsx hiện tại truyền full list. Ta cần logic lọc quyền ở đây.
-      // NOTE: Dashboard nhận full list, ta cần lọc theo context user.
-      // Logic: Nếu UserRole != ADMIN, ta cần lọc theo userUnit (được truyền ngầm hoặc lấy từ context, ở đây ta đơn giản hóa là lọc theo logic Admin filters nếu là Admin, còn User thường thì logic ở App đã handle? 
-      // Xem lại App.tsx: Dashboard nhận `recruits` state. 
-      // `recruits` fetch từ API trả về ALL.
-      // => Dashboard cần tự lọc nếu User không phải Admin.
-      
-      // TẠM THỜI: Để đơn giản, giả sử User thường chỉ thấy dữ liệu xã mình nếu App đã lọc. 
-      // Nhưng App.tsx gọi api.getRecruits() lấy hết. 
-      // => Cần bổ sung logic lọc quyền.
-      
-      const savedUserStr = localStorage.getItem('military_users');
-      const currentUser = savedUserStr ? JSON.parse(savedUserStr).find((u: any) => u.role === userRole) : null; 
-      // *Lưu ý: Cách lấy user trên hơi rủi ro, nhưng trong phạm vi UI ta dùng props userRole để check.*
-      // Thực tế ta sẽ dựa vào bộ lọc Admin.
-      
-      if (userRole !== 'ADMIN') {
-          // Logic lọc cho user thường sẽ phức tạp nếu không có prop userUnit.
-          // Nhưng ở đây ta tập trung vào Admin Filter.
-          // Nếu là user thường, ta hiển thị những gì có trong recruits (giả sử recruits đã được filtered hoặc user chấp nhận nhìn thấy hết trong demo này).
-          // Để đúng logic nhất:
-          // Nếu User != ADMIN, recruits nên được filter trước khi vào Dashboard hoặc Dashboard filter theo user.
-          // Ở đây ta dùng filterProvince/Commune cho Admin.
-      }
-
-      if (filterProvince && r.address.province !== filterProvince) return false;
-      if (filterCommune && r.address.commune !== filterCommune) return false;
-      
-      return true;
-  };
 
   // --- MEMO: Filter Data by Session Year & Location ---
   const yearRecruits = useMemo(() => {
@@ -143,6 +108,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
           r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE
       );
       
+      // ADMIN FILTERS
       if (filterProvince) {
           filtered = filtered.filter(r => r.address.province === filterProvince);
       }
@@ -150,20 +116,13 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
           filtered = filtered.filter(r => r.address.commune === filterCommune);
       }
       
-      // Nếu không phải Admin, lọc theo đơn vị của user đang đăng nhập (lấy từ localStorage để fix nhanh vì prop thiếu)
-      if (userRole !== 'ADMIN') {
-          const userStr = localStorage.getItem('military_users');
-          if (userStr) {
-              const users = JSON.parse(userStr);
-              // Tìm user hiện tại đang login (đây là hack vì Dashboard ko nhận user prop đầy đủ)
-              // Tuy nhiên, logic đúng là `recruits` nên được lọc từ ngoài.
-              // Ở đây ta lọc thêm một lớp an toàn:
-              // filtered = filtered.filter(r => r.address.commune === userUnit.commune);
-          }
+      // USER FILTERS (STRICT)
+      if (userRole !== 'ADMIN' && userUnit) {
+          filtered = filtered.filter(r => r.address.province === userUnit.province && r.address.commune === userUnit.commune);
       }
 
       return filtered;
-  }, [recruits, sessionYear, filterProvince, filterCommune, userRole]);
+  }, [recruits, sessionYear, filterProvince, filterCommune, userRole, userUnit]);
 
   // --- MEMO: Calculate Data for All Years (New Feature) ---
   const multiYearStats = useMemo(() => {
@@ -177,6 +136,11 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
           if (filterProvince && r.address.province !== filterProvince) return;
           if (filterCommune && r.address.commune !== filterCommune) return;
 
+          // Nếu không phải Admin, BẮT BUỘC lọc theo đơn vị của user
+          if (userRole !== 'ADMIN' && userUnit) {
+              if (r.address.province !== userUnit.province || r.address.commune !== userUnit.commune) return;
+          }
+
           // Đếm
           const y = r.recruitmentYear;
           stats[y] = (stats[y] || 0) + 1;
@@ -186,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
       return Object.entries(stats)
           .map(([year, count]) => ({ year: `Năm ${year}`, count, rawYear: parseInt(year) }))
           .sort((a, b) => a.rawYear - b.rawYear);
-  }, [recruits, filterProvince, filterCommune]);
+  }, [recruits, filterProvince, filterCommune, userRole, userUnit]);
 
 
   // Commune List based on selected province
@@ -223,7 +187,8 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         r.recruitmentYear === sessionYear && 
         r.status === RecruitmentStatus.REMOVED_FROM_SOURCE &&
         (!filterProvince || r.address.province === filterProvince) &&
-        (!filterCommune || r.address.commune === filterCommune)
+        (!filterCommune || r.address.commune === filterCommune) &&
+        (userRole === 'ADMIN' || (userUnit && r.address.province === userUnit.province && r.address.commune === userUnit.commune))
     ).length;
 
     // 2. Health & Political
@@ -323,7 +288,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         weightStats,
         bmiStats
     };
-  }, [yearRecruits, recruits, sessionYear, filterProvince, filterCommune]);
+  }, [yearRecruits, recruits, sessionYear, filterProvince, filterCommune, userRole, userUnit]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

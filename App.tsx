@@ -1,24 +1,25 @@
+// ... (imports remain the same)
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
   FileCheck, 
-  Menu,
-  ShieldAlert,
-  LogOut,
-  Key,
-  X,
-  HelpCircle,
-  CalendarDays,
-  Wifi,
-  WifiOff,
-  UserCog,
-  Check,
-  Phone,
-  Mail,
-  Lock,
-  Unlock,
-  BellRing
+  Menu, 
+  ShieldAlert, 
+  LogOut, 
+  Key, 
+  X, 
+  HelpCircle, 
+  CalendarDays, 
+  Wifi, 
+  WifiOff, 
+  UserCog, 
+  Check, 
+  Phone, 
+  Mail, 
+  Lock, 
+  Unlock, 
+  BellRing 
 } from 'lucide-react';
 import { Recruit, User } from './types';
 import { INITIAL_RECRUITS } from './constants';
@@ -571,7 +572,13 @@ function App() {
         </header>
 
         <div className="flex-1 overflow-auto p-4 md:p-6 relative">
-          {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={handleNavigate} sessionYear={sessionYear} userRole={user.role} />}
+          {activeTab === 'dashboard' && <Dashboard 
+                recruits={recruits} 
+                onNavigate={handleNavigate} 
+                sessionYear={sessionYear} 
+                userRole={user.role} 
+                userUnit={user.unit}
+          />}
           {activeTab === 'recruits' && (
             <RecruitManagement 
                 user={user}
