@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
-import { EDUCATIONS, GET_ALL_COMMUNES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, MARITAL_STATUSES } from '../constants';
+import { EDUCATIONS, GET_ALL_COMMUNES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, MARITAL_STATUSES, PROVINCES_VN, LOCATION_DATA } from '../constants';
 import RecruitForm from '../components/RecruitForm';
 import { 
   Search, 
@@ -227,6 +227,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   // Filters
   const initialFilters = {
     search: '',
+    province: '', // New Province filter for Admin
     commune: '',
     village: '', // Text input for manual filtering
     age: '', // Age filter
@@ -243,6 +244,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   useEffect(() => {
     setFilters(prev => ({ ...prev, year: sessionYear }));
   }, [sessionYear]);
+
+  // Commune List based on selected province in filter (Admin only)
+  const adminCommuneList = useMemo(() => {
+    if (!filters.province) return [];
+    // @ts-ignore
+    const data = LOCATION_DATA[filters.province];
+    return data ? Object.keys(data) : [];
+  }, [filters.province]);
 
   const COMMUNES = useMemo(() => GET_ALL_COMMUNES(), []);
 
@@ -305,9 +314,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       result = result.filter(r => r.fullName.toLowerCase().includes(q));
     }
     
-    // Only filter by commune input if Admin (Locals are already filtered)
-    if (isAdmin && filters.commune) {
-      result = result.filter(r => r.address.commune === filters.commune);
+    // ADMIN FILTERS: Province -> Commune
+    if (isAdmin) {
+        if (filters.province) {
+            result = result.filter(r => r.address.province === filters.province);
+        }
+        if (filters.commune) {
+            result = result.filter(r => r.address.commune === filters.commune);
+        }
     }
 
     // Village Filter - Manual Text Search
@@ -851,45 +865,40 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                    <div className={`text-xs font-bold ${bmiColor}`}>BMI: {recruit.physical.bmi || '--'}</div>
               </td>
               <td className="p-4 text-center">
-                   {recruit.status === RecruitmentStatus.PRE_CHECK_PASSED ? (
-                       <div className="flex flex-col items-center gap-2">
-                           <div className="flex gap-2">
-                                <button 
-                                    onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED)}
-                                    className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-bold shadow-sm"
-                                    disabled={isReadOnly}
-                                >
-                                    Đủ ĐK Sức khỏe
-                                </button>
-                                <button 
-                                    onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_FAILED)}
-                                    className="px-3 py-1 bg-white border border-gray-300 text-gray-600 rounded hover:bg-gray-100 text-xs font-bold"
-                                    disabled={isReadOnly}
-                                >
-                                    Loại
-                                </button>
-                           </div>
-                           <span className="text-[10px] text-gray-400 italic">Vui lòng cập nhật Loại SK trong chi tiết</span>
+                   {/* Cho phép thay đổi kết quả khám tuyển kể cả khi đã Niêm yết hoặc Nhập ngũ */}
+                   <div className="flex flex-col items-center gap-2">
+                       <div className="flex gap-2">
+                            <button 
+                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_PASSED)}
+                                className={`px-3 py-1 rounded text-xs font-bold shadow-sm transition-all border ${
+                                    [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(recruit.status)
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-500 border-gray-300 hover:bg-indigo-50 hover:text-indigo-600'
+                                }`}
+                                disabled={isReadOnly}
+                            >
+                                Đủ ĐK Sức khỏe
+                            </button>
+                            <button 
+                                onClick={(e) => handleStatusChange(e, recruit, RecruitmentStatus.MED_EXAM_FAILED)}
+                                className={`px-3 py-1 rounded text-xs font-bold shadow-sm transition-all border ${
+                                    recruit.status === RecruitmentStatus.MED_EXAM_FAILED
+                                    ? 'bg-red-600 text-white border-red-600'
+                                    : 'bg-white text-gray-500 border-gray-300 hover:bg-red-50 hover:text-red-600'
+                                }`}
+                                disabled={isReadOnly}
+                            >
+                                Loại
+                            </button>
                        </div>
-                   ) : (
-                       // Allow toggling result if already set (Pass/Fail)
-                       [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED].includes(recruit.status) && !isReadOnly ? (
-                           <div className="flex flex-col items-center gap-1">
-                               <div 
-                                    onClick={(e) => toggleMedExamResult(e, recruit)}
-                                    className="cursor-pointer hover:opacity-80 transition-opacity relative group inline-block"
-                                    title="Bấm để thay đổi kết quả (Thực tế đơn vị)"
-                               >
-                                   {getStatusBadge(recruit)}
-                                   <div className="absolute -top-2 -right-3 text-military-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full shadow-sm border border-military-100 p-0.5">
-                                       <Edit3 size={10} />
-                                   </div>
-                               </div>
-                           </div>
-                       ) : (
-                           getStatusBadge(recruit)
-                       )
-                   )}
+                       
+                       {/* Hiển thị trạng thái hiện tại nếu đã niêm yết/nhập ngũ để dễ nhận biết */}
+                       {[RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(recruit.status) && (
+                           <span className="text-[10px] text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-100 mt-1">
+                               Đang trong DS Niêm yết / Nhập ngũ
+                           </span>
+                       )}
+                   </div>
               </td>
               {!isReadOnly && (
                 <td className="p-4 text-center">
@@ -1105,7 +1114,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   };
 
   return (
-    // ... (rest of the component JSX remains the same)
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       
       {/* 0. LOCKED BANNER */}
@@ -1190,6 +1198,35 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                             </div>
                         </div>
 
+                         {/* Admin Filters: Province & Commune */}
+                         {isAdmin && (
+                            <>
+                                <div className="md:col-span-1">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Tỉnh / Thành phố</label>
+                                    <select
+                                        className="w-full border border-gray-300 rounded p-2 text-sm text-gray-700"
+                                        value={filters.province}
+                                        onChange={(e) => setFilters(prev => ({...prev, province: e.target.value, commune: ''}))}
+                                    >
+                                        <option value="">-- Tất cả --</option>
+                                        {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
+                                    </select>
+                                </div>
+                                <div className="md:col-span-1">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Xã / Phường</label>
+                                    <select
+                                        className="w-full border border-gray-300 rounded p-2 text-sm text-gray-700 disabled:bg-gray-100"
+                                        value={filters.commune}
+                                        onChange={(e) => setFilters(prev => ({...prev, commune: e.target.value}))}
+                                        disabled={!filters.province}
+                                    >
+                                        <option value="">-- Tất cả --</option>
+                                        {adminCommuneList.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
                         {/* Village Filter */}
                         <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 mb-1">Thôn / Ấp</label>
@@ -1217,21 +1254,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                                 ))}
                             </select>
                         </div>
-
-                        {/* Commune Filter (Admin Only) */}
-                        {isAdmin && (
-                            <div className="md:col-span-1">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Xã / Phường</label>
-                                <select
-                                    className="w-full border border-gray-300 rounded p-2 text-sm text-gray-700"
-                                    value={filters.commune}
-                                    onChange={(e) => setFilters(prev => ({...prev, commune: e.target.value}))}
-                                >
-                                    <option value="">-- Tất cả --</option>
-                                    {COMMUNES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-                        )}
 
                         <div className="md:col-span-1 flex items-end">
                             <button 

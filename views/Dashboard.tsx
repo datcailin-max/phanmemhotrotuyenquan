@@ -184,9 +184,6 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         const birthYear = parseInt(r.dob.split('-')[0]);
         const isAdult = (sessionYear - birthYear) >= 18;
         const isExcluded = [RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED].includes(r.status);
-        // Lưu ý: Những người đã qua vòng sơ tuyển (PASSED/FAILED) đều từng "Đủ ĐK Sơ tuyển"
-        // Nhưng nếu đã FAILED sơ tuyển thì tính vào mục "Tạm hoãn sơ tuyển".
-        // Ở đây đếm những người ĐỦ ĐIỀU KIỆN ĐỂ GỌI SƠ TUYỂN (tức là nguồn sạch)
         return isAdult && !isExcluded;
     }).length;
 
@@ -234,8 +231,23 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     ).length;
 
     // 12. TỔNG NGUỒN CÒN LẠI CHO NĂM SAU
-    // = Tổng nguồn hiện tại - Số đã nhập ngũ
-    const countRemainingNextYear = countTotalSource - countEnlisted;
+    // Logic mới: 
+    // = (Tổng nguồn - Miễn - Nhập ngũ chính thức) + (Thanh niên từ danh sách "Chưa đủ 18" sẽ đủ 18 tuổi vào năm sau)
+    
+    // a. Tính số lượng thanh niên sẽ đủ 18 tuổi vào năm sau (từ danh sách hiện tại)
+    const countComingOfAgeNextYear = yearRecruits.filter(r => {
+        const birthYear = parseInt(r.dob.split('-')[0]);
+        const ageCurrent = sessionYear - birthYear;
+        const ageNext = (sessionYear + 1) - birthYear;
+        // Hiện tại dưới 18, năm sau đủ 18
+        return ageCurrent < 18 && ageNext >= 18;
+    }).length;
+
+    // b. Nguồn hiện tại khả dụng (Trừ miễn và nhập ngũ chính thức, Nhập ngũ Dự bị vẫn tính là còn nguồn cho năm sau nếu chưa đi)
+    const countCurrentSourceAvailable = countTotalSource - countExempted - countEnlistedOfficial;
+    
+    // c. Tổng hợp
+    const countRemainingNextYear = countCurrentSourceAvailable + countComingOfAgeNextYear;
 
     // --- OTHER STATS (Health, Politics, etc.) ---
     const dangVien = yearRecruits.filter(r => r.details.politicalStatus === 'Dang_Vien').length;
@@ -333,6 +345,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         countExempted,
         countRemoved,
         countRemainingNextYear,
+        countComingOfAgeNextYear, // Export to use if needed
         
         dangVien, doanVien,
         healthGrade1, healthGrade2, healthGrade3, healthGrade4,
@@ -540,6 +553,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 onClick={() => onNavigate('REMAINING')}
                 hideProgress={true}
                 isLast={true}
+                detailText={`+${stats.countComingOfAgeNextYear} (Tuổi 17->18)`}
              />
          </div>
       </div>
