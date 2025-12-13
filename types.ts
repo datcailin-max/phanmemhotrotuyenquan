@@ -103,6 +103,7 @@ export interface ResearchDocument {
   url: string; // Trong thực tế là link file, ở demo có thể là mock url
   uploadDate: string;
   fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER';
+  category?: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC'; // Phân loại văn bản
 }
 
 export interface ChatMessage {

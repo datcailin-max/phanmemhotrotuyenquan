@@ -27,7 +27,10 @@ import {
   Download,
   Trash2,
   Plus,
-  File
+  File,
+  Book,
+  Scale,
+  ScrollText
 } from 'lucide-react';
 import { Recruit, User, ResearchDocument, ChatMessage, RecruitmentStatus } from './types';
 import { INITIAL_RECRUITS } from './constants';
@@ -88,8 +91,9 @@ function App() {
       } else {
           // Sample Data
           setDocuments([
-             { id: '1', title: 'Thông tư quy định tiêu chuẩn tuyển quân 2025', description: 'Quy định chi tiết về tiêu chuẩn sức khỏe, chính trị, văn hóa.', url: '#', uploadDate: '2024-10-20', fileType: 'PDF' },
-             { id: '2', title: 'Hướng dẫn rà soát chính sách miễn hoãn', description: 'Hướng dẫn các bước rà soát đối tượng miễn, tạm hoãn gọi nhập ngũ.', url: '#', uploadDate: '2024-11-05', fileType: 'WORD' }
+             { id: '1', title: 'Luật Nghĩa vụ quân sự 2015', description: 'Luật số 78/2015/QH13 quy định về nghĩa vụ quân sự.', url: '#', uploadDate: '2024-01-01', fileType: 'PDF', category: 'LUAT' },
+             { id: '2', title: 'Thông tư 148/2018/TT-BQP', description: 'Quy định tuyển chọn và gọi công dân nhập ngũ.', url: '#', uploadDate: '2024-10-20', fileType: 'PDF', category: 'THONG_TU' },
+             { id: '3', title: 'Hướng dẫn rà soát chính sách miễn hoãn 2025', description: 'Hướng dẫn chi tiết các bước rà soát cấp xã/phường.', url: '#', uploadDate: '2024-11-05', fileType: 'WORD', category: 'HUONG_DAN' }
           ]);
       }
   }, []);
@@ -319,6 +323,7 @@ function App() {
       const [newDocDesc, setNewDocDesc] = useState('');
       const [newDocUrl, setNewDocUrl] = useState(''); // Simulated file input
       const [newDocType, setNewDocType] = useState<'WORD' | 'PDF' | 'EXCEL' | 'OTHER'>('WORD');
+      const [newDocCategory, setNewDocCategory] = useState<'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC'>('HUONG_DAN');
 
       const refreshUsers = () => {
           setAllUsers(JSON.parse(localStorage.getItem('military_users') || '[]'));
@@ -376,6 +381,7 @@ function App() {
               description: newDocDesc,
               url: newDocUrl || '#',
               fileType: newDocType,
+              category: newDocCategory,
               uploadDate: new Date().toISOString().split('T')[0]
           };
           saveDocuments([...documents, newDoc]);
@@ -438,27 +444,40 @@ function App() {
                {/* DOCUMENT MANAGEMENT */}
                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                     <h2 className="text-xl font-bold text-military-700 mb-4 flex items-center gap-2">
-                      <FileText /> Cập nhật Tài liệu Nghiên cứu
+                      <FileText /> Cập nhật Tài liệu & Văn bản Pháp luật
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <form onSubmit={handleAddDocument} className="bg-gray-50 p-4 rounded border border-gray-200 h-fit">
-                            <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Thêm tài liệu mới</h4>
+                            <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Thêm văn bản mới</h4>
                             <div className="space-y-3">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Tên tài liệu / Văn bản</label>
-                                    <input required type="text" className="w-full p-2 border rounded text-sm" placeholder="VD: Hướng dẫn tuyển quân 2025" value={newDocTitle} onChange={e => setNewDocTitle(e.target.value)} />
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Tên tài liệu / Số hiệu văn bản</label>
+                                    <input required type="text" className="w-full p-2 border rounded text-sm" placeholder="VD: Luật Nghĩa vụ quân sự 2015" value={newDocTitle} onChange={e => setNewDocTitle(e.target.value)} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Phân loại văn bản</label>
+                                        <select className="w-full p-2 border rounded text-sm font-bold text-gray-700" value={newDocCategory} onChange={(e:any) => setNewDocCategory(e.target.value)}>
+                                            <option value="LUAT">Luật</option>
+                                            <option value="NGHI_DINH">Nghị định</option>
+                                            <option value="THONG_TU">Thông tư</option>
+                                            <option value="QUYET_DINH">Quyết định</option>
+                                            <option value="HUONG_DAN">Hướng dẫn</option>
+                                            <option value="KHAC">Khác</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Định dạng file</label>
+                                        <select className="w-full p-2 border rounded text-sm" value={newDocType} onChange={(e:any) => setNewDocType(e.target.value)}>
+                                            <option value="PDF">PDF (.pdf)</option>
+                                            <option value="WORD">Word (.docx)</option>
+                                            <option value="EXCEL">Excel (.xlsx)</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Mô tả / Trích yếu</label>
                                     <textarea className="w-full p-2 border rounded text-sm" placeholder="Nội dung chính của văn bản..." rows={3} value={newDocDesc} onChange={e => setNewDocDesc(e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Loại file</label>
-                                    <select className="w-full p-2 border rounded text-sm" value={newDocType} onChange={(e:any) => setNewDocType(e.target.value)}>
-                                        <option value="WORD">Word (.docx)</option>
-                                        <option value="PDF">PDF (.pdf)</option>
-                                        <option value="EXCEL">Excel (.xlsx)</option>
-                                    </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Đường dẫn tải về (Link Google Drive/SharePoint)</label>
@@ -473,12 +492,12 @@ function App() {
 
                         <div>
                             <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Danh sách tài liệu hiện có</h4>
-                            <div className="border rounded bg-white overflow-hidden">
+                            <div className="border rounded bg-white overflow-hidden max-h-[500px] overflow-y-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+                                    <thead className="bg-gray-100 text-gray-600 uppercase text-xs sticky top-0">
                                         <tr>
                                             <th className="p-3">Tên tài liệu</th>
-                                            <th className="p-3 text-center">Loại</th>
+                                            <th className="p-3 text-center">Phân loại</th>
                                             <th className="p-3 text-center">Xóa</th>
                                         </tr>
                                     </thead>
@@ -492,7 +511,23 @@ function App() {
                                                         <span className="text-xs text-gray-500 block italic mt-1 truncate max-w-xs">{doc.description}</span>
                                                     )}
                                                 </td>
-                                                <td className="p-3 text-center"><span className="text-[10px] font-bold bg-gray-200 px-2 py-1 rounded">{doc.fileType}</span></td>
+                                                <td className="p-3 text-center">
+                                                    <span className={`text-[10px] font-bold px-2 py-1 rounded block mb-1
+                                                        ${doc.category === 'LUAT' ? 'bg-red-100 text-red-700' : 
+                                                          doc.category === 'NGHI_DINH' ? 'bg-blue-100 text-blue-700' :
+                                                          doc.category === 'THONG_TU' ? 'bg-green-100 text-green-700' :
+                                                          doc.category === 'QUYET_DINH' ? 'bg-orange-100 text-orange-700' :
+                                                          'bg-gray-100 text-gray-700'
+                                                        }
+                                                    `}>
+                                                        {doc.category === 'LUAT' ? 'LUẬT' : 
+                                                         doc.category === 'NGHI_DINH' ? 'NGHỊ ĐỊNH' :
+                                                         doc.category === 'THONG_TU' ? 'THÔNG TƯ' :
+                                                         doc.category === 'QUYET_DINH' ? 'QUYẾT ĐỊNH' :
+                                                         doc.category === 'HUONG_DAN' ? 'HƯỚNG DẪN' : 'KHÁC'}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-400">{doc.fileType}</span>
+                                                </td>
                                                 <td className="p-3 text-center">
                                                     <button onClick={() => handleDeleteDocument(doc.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16}/></button>
                                                 </td>
@@ -582,7 +617,7 @@ function App() {
       return (
           <div className="p-6 m-6 bg-white rounded-lg shadow-sm border border-gray-200 min-h-[500px]">
               <h2 className="text-xl font-bold text-military-700 mb-6 flex items-center gap-2">
-                  <FileText /> Tài liệu Nghiên cứu & Văn bản
+                  <FileText /> Tài liệu Nghiên cứu & Văn bản Pháp luật
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {documents.length === 0 ? (
@@ -593,11 +628,37 @@ function App() {
                       documents.map(doc => (
                           <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-gray-50 flex flex-col justify-between">
                               <div className="flex items-start gap-3 mb-3">
-                                  <div className={`p-2 rounded shrink-0 ${doc.fileType === 'WORD' ? 'bg-blue-100 text-blue-600' : doc.fileType === 'PDF' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                      <File size={24} />
+                                  <div className={`p-2 rounded shrink-0 flex items-center justify-center w-12 h-12
+                                    ${doc.category === 'LUAT' ? 'bg-red-100 text-red-600' : 
+                                      doc.category === 'NGHI_DINH' ? 'bg-blue-100 text-blue-600' : 
+                                      doc.category === 'THONG_TU' ? 'bg-green-100 text-green-600' : 
+                                      'bg-gray-100 text-gray-600'
+                                    }
+                                  `}>
+                                      {doc.category === 'LUAT' ? <Scale size={24} /> : 
+                                       doc.category === 'NGHI_DINH' ? <ScrollText size={24} /> :
+                                       doc.category === 'THONG_TU' ? <Book size={24} /> :
+                                       <File size={24} />
+                                      }
                                   </div>
                                   <div>
-                                      <h4 className="font-bold text-gray-800 line-clamp-2 text-sm">{doc.title}</h4>
+                                      {/* CATEGORY BADGE */}
+                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase mb-1 inline-block
+                                        ${doc.category === 'LUAT' ? 'bg-red-100 text-red-700' : 
+                                          doc.category === 'NGHI_DINH' ? 'bg-blue-100 text-blue-700' :
+                                          doc.category === 'THONG_TU' ? 'bg-green-100 text-green-700' :
+                                          doc.category === 'QUYET_DINH' ? 'bg-orange-100 text-orange-700' :
+                                          'bg-gray-200 text-gray-700'
+                                        }
+                                      `}>
+                                          {doc.category === 'LUAT' ? 'LUẬT' : 
+                                           doc.category === 'NGHI_DINH' ? 'NGHỊ ĐỊNH' :
+                                           doc.category === 'THONG_TU' ? 'THÔNG TƯ' :
+                                           doc.category === 'QUYET_DINH' ? 'QUYẾT ĐỊNH' :
+                                           doc.category === 'HUONG_DAN' ? 'HƯỚNG DẪN' : 'TÀI LIỆU'}
+                                      </span>
+                                      
+                                      <h4 className="font-bold text-gray-800 line-clamp-2 text-sm leading-tight">{doc.title}</h4>
                                       <p className="text-xs text-gray-500 mt-1">Cập nhật: {doc.uploadDate}</p>
                                       {doc.description && (
                                           <p className="text-xs text-gray-600 mt-2 line-clamp-3 bg-white p-2 rounded border border-gray-100">
@@ -606,8 +667,8 @@ function App() {
                                       )}
                                   </div>
                               </div>
-                              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="w-full mt-2 py-2 bg-white border border-gray-300 rounded text-center text-sm font-bold text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2">
-                                  <Download size={14} /> Tải về / Xem
+                              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="w-full mt-2 py-2 bg-white border border-gray-300 rounded text-center text-sm font-bold text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2 transition-colors">
+                                  <Download size={14} /> Tải về ({doc.fileType})
                               </a>
                           </div>
                       ))
