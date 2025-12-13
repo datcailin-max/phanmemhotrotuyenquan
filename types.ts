@@ -95,3 +95,19 @@ export interface FilterState {
   maritalStatus: string;
   age: string;
 }
+
+export interface ResearchDocument {
+  id: string;
+  title: string;
+  description?: string; // Mô tả/Trích yếu văn bản
+  url: string; // Trong thực tế là link file, ở demo có thể là mock url
+  uploadDate: string;
+  fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER';
+}
+
+export interface ChatMessage {
+    id: string;
+    role: 'user' | 'model';
+    text: string;
+    timestamp: number;
+}

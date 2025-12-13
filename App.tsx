@@ -1,5 +1,6 @@
+
 // ... (imports remain the same)
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -19,20 +20,28 @@ import {
   Mail, 
   Lock, 
   Unlock, 
-  BellRing 
+  BellRing,
+  Bot,
+  Send,
+  FileText,
+  Download,
+  Trash2,
+  Plus,
+  File
 } from 'lucide-react';
-import { Recruit, User } from './types';
+import { Recruit, User, ResearchDocument, ChatMessage, RecruitmentStatus } from './types';
 import { INITIAL_RECRUITS } from './constants';
 import Dashboard from './views/Dashboard';
 import RecruitManagement from './views/RecruitManagement';
 import Login from './views/Login';
 import YearSelection from './views/YearSelection';
 import { api } from './api';
+import { GoogleGenAI } from "@google/genai";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessionYear, setSessionYear] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'documents'>('dashboard');
   
   // State to control which sub-tab of RecruitManagement is active
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
@@ -56,8 +65,44 @@ function App() {
   // Support Modal State
   const [showSupportModal, setShowSupportModal] = useState(false);
   
+  // Assistant Modal State
+  const [showAssistantModal, setShowAssistantModal] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+      { id: '1', role: 'model', text: 'Xin chào đồng chí! Tôi là Trợ lý tuyển quân ảo. Tôi có thể giúp gì cho đồng chí về số liệu tuyển quân tại địa phương? (Ví dụ: "Có bao nhiêu thanh niên bị miễn?", "Danh sách nhập ngũ năm nay bao nhiêu người?")', timestamp: Date.now() }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Documents State
+  const [documents, setDocuments] = useState<ResearchDocument[]>([]);
+
   // Admin Update Trigger (to refresh sidebar badge)
   const [adminUpdateTrigger, setAdminUpdateTrigger] = useState(0);
+
+  // Load Documents on start
+  useEffect(() => {
+      const savedDocs = localStorage.getItem('military_documents');
+      if (savedDocs) {
+          setDocuments(JSON.parse(savedDocs));
+      } else {
+          // Sample Data
+          setDocuments([
+             { id: '1', title: 'Thông tư quy định tiêu chuẩn tuyển quân 2025', description: 'Quy định chi tiết về tiêu chuẩn sức khỏe, chính trị, văn hóa.', url: '#', uploadDate: '2024-10-20', fileType: 'PDF' },
+             { id: '2', title: 'Hướng dẫn rà soát chính sách miễn hoãn', description: 'Hướng dẫn các bước rà soát đối tượng miễn, tạm hoãn gọi nhập ngũ.', url: '#', uploadDate: '2024-11-05', fileType: 'WORD' }
+          ]);
+      }
+  }, []);
+
+  const saveDocuments = (newDocs: ResearchDocument[]) => {
+      setDocuments(newDocs);
+      localStorage.setItem('military_documents', JSON.stringify(newDocs));
+  };
+
+  // Scroll chat to bottom
+  useEffect(() => {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, showAssistantModal]);
 
   // FETCH DATA FROM SERVER
   useEffect(() => {
@@ -187,9 +232,92 @@ function App() {
     }, 2000);
   };
 
+  // --- AI ASSISTANT LOGIC ---
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || isAiThinking || !user) return;
+
+    const userMessage = chatInput;
+    setChatInput('');
+    setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userMessage, timestamp: Date.now() }]);
+    setIsAiThinking(true);
+
+    try {
+        // 1. Prepare Data Context (Filter for current user's locality to ensure privacy/relevance)
+        const relevantRecruits = user.role === 'ADMIN' 
+            ? recruits.filter(r => r.recruitmentYear === sessionYear) 
+            : recruits.filter(r => r.recruitmentYear === sessionYear && r.address.commune === user.unit.commune);
+
+        // 2. Simplify data to save tokens (remove PII like citizenId, name)
+        const simplifiedData = relevantRecruits.map(r => ({
+            status: r.status,
+            dob: r.dob,
+            edu: r.details.education,
+            health: r.physical.healthGrade,
+            deferment: r.defermentReason || 'Không',
+            ethnicity: r.details.ethnicity,
+            village: r.address.village
+        }));
+
+        const dataContext = JSON.stringify(simplifiedData);
+
+        // 3. Call Gemini
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) {
+            throw new Error("API Key not found");
+        }
+        
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+        const systemInstruction = `Bạn là Trợ lý Tuyển quân ảo. Bạn đang hỗ trợ cán bộ tại ${user.unit.commune || 'địa phương'}. 
+        Nhiệm vụ: Trả lời câu hỏi dựa trên dữ liệu JSON được cung cấp.
+        Dữ liệu bao gồm các trường: status (trạng thái), dob (ngày sinh), edu (học vấn), health (loại sức khỏe), deferment (lý do hoãn/miễn).
+        
+        Quy tắc:
+        1. Chỉ trả lời dựa trên dữ liệu. Nếu không biết, nói không có dữ liệu.
+        2. Status key: 
+           - NGUON: Nguồn 
+           - SO_KHAM_DAT/KHONG_DAT: Sơ tuyển
+           - KHAM_TUYEN_DAT/KHONG_DAT: Khám tuyển
+           - TAM_HOAN: Tạm hoãn
+           - MIEN_KHAM: Miễn
+           - NHAP_NGU: Nhập ngũ
+        3. Trả lời ngắn gọn, súc tích, chuyên nghiệp kiểu quân đội.
+        4. Nếu hỏi về danh sách cụ thể (tên), hãy nói "Vì lý do bảo mật, tôi chỉ cung cấp số liệu thống kê".
+        
+        Dữ liệu hiện tại (Năm ${sessionYear}): ${dataContext}`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [{
+                role: 'user',
+                parts: [{ text: userMessage }]
+            }],
+            config: {
+                systemInstruction: systemInstruction,
+            }
+        });
+
+        const reply = response.text;
+        
+        setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: reply, timestamp: Date.now() }]);
+
+    } catch (error) {
+        console.error("AI Error:", error);
+        setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Xin lỗi, hệ thống đang bận hoặc chưa cấu hình API Key. Vui lòng thử lại sau.', timestamp: Date.now() }]);
+    } finally {
+        setIsAiThinking(false);
+    }
+  };
+
   const AdminPanel = () => {
       const [allUsers, setAllUsers] = useState<User[]>(JSON.parse(localStorage.getItem('military_users') || '[]'));
       const pendingUsers = allUsers.filter(u => u.pendingPassword);
+
+      // Document Management State
+      const [newDocTitle, setNewDocTitle] = useState('');
+      const [newDocDesc, setNewDocDesc] = useState('');
+      const [newDocUrl, setNewDocUrl] = useState(''); // Simulated file input
+      const [newDocType, setNewDocType] = useState<'WORD' | 'PDF' | 'EXCEL' | 'OTHER'>('WORD');
 
       const refreshUsers = () => {
           setAllUsers(JSON.parse(localStorage.getItem('military_users') || '[]'));
@@ -238,21 +366,40 @@ function App() {
           }
       };
 
+      const handleAddDocument = (e: React.FormEvent) => {
+          e.preventDefault();
+          if(!newDocTitle) return;
+          const newDoc: ResearchDocument = {
+              id: Date.now().toString(),
+              title: newDocTitle,
+              description: newDocDesc,
+              url: newDocUrl || '#',
+              fileType: newDocType,
+              uploadDate: new Date().toISOString().split('T')[0]
+          };
+          saveDocuments([...documents, newDoc]);
+          setNewDocTitle('');
+          setNewDocDesc('');
+          setNewDocUrl('');
+          alert("Đã cập nhật tài liệu thành công!");
+      };
+
+      const handleDeleteDocument = (id: string) => {
+          if(window.confirm("Xác nhận xóa tài liệu này?")) {
+              saveDocuments(documents.filter(d => d.id !== id));
+          }
+      };
+
       return (
-          <div className="p-6 bg-white m-6 rounded-lg shadow-sm border border-gray-200">
-              <h2 className="text-xl font-bold text-military-700 mb-6 flex items-center gap-2">
-                  <UserCog /> Quản trị hệ thống
-              </h2>
+          <div className="space-y-6 m-6">
               
               {/* NOTIFICATIONS SECTION */}
-              <div className="mb-8 bg-amber-50 border border-amber-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
-                  <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
-                      <BellRing size={18} className={pendingUsers.length > 0 ? "animate-bounce" : ""}/> 
-                      Thông báo & Yêu cầu ({pendingUsers.length})
-                  </h3>
-                  {pendingUsers.length === 0 ? (
-                      <p className="text-sm text-gray-500 italic ml-6">Không có yêu cầu nào cần xử lý.</p>
-                  ) : (
+              {pendingUsers.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
+                      <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
+                          <BellRing size={18} className="animate-bounce"/> 
+                          Thông báo & Yêu cầu ({pendingUsers.length})
+                      </h3>
                       <div className="overflow-x-auto mt-2 bg-white rounded border border-amber-100 shadow-sm">
                           <table className="w-full text-left border-collapse">
                               <thead className="bg-amber-100 text-xs text-amber-900 uppercase">
@@ -284,22 +431,94 @@ function App() {
                               </tbody>
                           </table>
                       </div>
-                  )}
-              </div>
+                  </div>
+              )}
+
+               {/* DOCUMENT MANAGEMENT */}
+               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h2 className="text-xl font-bold text-military-700 mb-4 flex items-center gap-2">
+                      <FileText /> Cập nhật Tài liệu Nghiên cứu
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <form onSubmit={handleAddDocument} className="bg-gray-50 p-4 rounded border border-gray-200 h-fit">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Thêm tài liệu mới</h4>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Tên tài liệu / Văn bản</label>
+                                    <input required type="text" className="w-full p-2 border rounded text-sm" placeholder="VD: Hướng dẫn tuyển quân 2025" value={newDocTitle} onChange={e => setNewDocTitle(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Mô tả / Trích yếu</label>
+                                    <textarea className="w-full p-2 border rounded text-sm" placeholder="Nội dung chính của văn bản..." rows={3} value={newDocDesc} onChange={e => setNewDocDesc(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Loại file</label>
+                                    <select className="w-full p-2 border rounded text-sm" value={newDocType} onChange={(e:any) => setNewDocType(e.target.value)}>
+                                        <option value="WORD">Word (.docx)</option>
+                                        <option value="PDF">PDF (.pdf)</option>
+                                        <option value="EXCEL">Excel (.xlsx)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Đường dẫn tải về (Link Google Drive/SharePoint)</label>
+                                    <input type="text" className="w-full p-2 border rounded text-sm" placeholder="https://..." value={newDocUrl} onChange={e => setNewDocUrl(e.target.value)} />
+                                    <p className="text-[10px] text-gray-500 italic mt-1">* Hệ thống demo sử dụng liên kết ngoài thay vì upload trực tiếp.</p>
+                                </div>
+                                <button type="submit" className="w-full py-2 bg-military-600 text-white font-bold rounded hover:bg-military-700 flex items-center justify-center gap-2">
+                                    <Plus size={16} /> Cập nhật lên hệ thống
+                                </button>
+                            </div>
+                        </form>
+
+                        <div>
+                            <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Danh sách tài liệu hiện có</h4>
+                            <div className="border rounded bg-white overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+                                        <tr>
+                                            <th className="p-3">Tên tài liệu</th>
+                                            <th className="p-3 text-center">Loại</th>
+                                            <th className="p-3 text-center">Xóa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {documents.map(doc => (
+                                            <tr key={doc.id} className="hover:bg-gray-50">
+                                                <td className="p-3">
+                                                    <div className="font-bold">{doc.title}</div>
+                                                    <span className="text-xs text-gray-400 block">{doc.uploadDate}</span>
+                                                    {doc.description && (
+                                                        <span className="text-xs text-gray-500 block italic mt-1 truncate max-w-xs">{doc.description}</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 text-center"><span className="text-[10px] font-bold bg-gray-200 px-2 py-1 rounded">{doc.fileType}</span></td>
+                                                <td className="p-3 text-center">
+                                                    <button onClick={() => handleDeleteDocument(doc.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16}/></button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {documents.length === 0 && <tr><td colSpan={3} className="p-4 text-center text-gray-400 italic">Chưa có tài liệu nào</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+               </div>
 
               {/* ALL USERS LIST */}
-              <div>
-                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                      <Users size={18} /> Danh sách tài khoản ({allUsers.length})
-                  </h3>
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                  <h2 className="text-xl font-bold text-military-700 mb-4 flex items-center gap-2">
+                      <Users /> Danh sách Cán bộ & Tài khoản ({allUsers.length})
+                  </h2>
                   <div className="overflow-x-auto border border-gray-200 rounded-lg">
                       <table className="w-full text-left border-collapse">
                           <thead className="bg-gray-100 text-xs text-gray-600 uppercase">
                               <tr>
                                   <th className="p-3 border-b">TT</th>
-                                  <th className="p-3 border-b">Tài khoản</th>
-                                  <th className="p-3 border-b">Thông tin người dùng</th>
-                                  <th className="p-3 border-b">Vai trò</th>
+                                  <th className="p-3 border-b">Đơn vị (Xã/Phường)</th>
+                                  <th className="p-3 border-b">Cán bộ phụ trách</th>
+                                  <th className="p-3 border-b">Chức vụ</th>
+                                  <th className="p-3 border-b">Số điện thoại</th>
                                   <th className="p-3 border-b text-center">Trạng thái</th>
                                   <th className="p-3 border-b text-center">Thao tác</th>
                               </tr>
@@ -309,17 +528,17 @@ function App() {
                                   <tr key={u.username} className={`hover:bg-gray-50 ${u.isLocked ? 'bg-red-50/50' : ''}`}>
                                       <td className="p-3 text-center text-gray-500">{idx + 1}</td>
                                       <td className="p-3">
-                                          <div className="font-bold font-mono text-military-700">{u.username}</div>
+                                          <div className="font-bold">{u.unit.commune || 'Cấp Huyện/Tỉnh'}</div>
+                                          <div className="text-xs text-gray-500 font-mono">{u.username}</div>
                                       </td>
-                                      <td className="p-3">
-                                          <div className="font-bold">{u.fullName}</div>
-                                          <div className="text-xs text-gray-500">{u.personalName} - {u.position}</div>
-                                          <div className="text-xs text-gray-400">{u.phoneNumber}</div>
+                                      <td className="p-3 font-medium text-gray-900">
+                                          {u.personalName || '---'}
                                       </td>
-                                      <td className="p-3">
-                                          <span className={`text-xs px-2 py-1 rounded font-bold border ${u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700 border-purple-200' : u.role === 'EDITOR' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>
-                                              {u.role}
-                                          </span>
+                                      <td className="p-3 text-gray-700">
+                                          {u.position || '---'}
+                                      </td>
+                                      <td className="p-3 text-gray-700 font-mono">
+                                          {u.phoneNumber || '---'}
                                       </td>
                                       <td className="p-3 text-center">
                                           {u.isLocked ? (
@@ -356,6 +575,45 @@ function App() {
               </div>
           </div>
       )
+  };
+
+  const DocumentsPanel = () => {
+      return (
+          <div className="p-6 m-6 bg-white rounded-lg shadow-sm border border-gray-200 min-h-[500px]">
+              <h2 className="text-xl font-bold text-military-700 mb-6 flex items-center gap-2">
+                  <FileText /> Tài liệu Nghiên cứu & Văn bản
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {documents.length === 0 ? (
+                      <div className="col-span-3 text-center py-10 text-gray-500 italic">
+                          Chưa có tài liệu nào được cập nhật. Vui lòng liên hệ Ban CHQS cấp trên.
+                      </div>
+                  ) : (
+                      documents.map(doc => (
+                          <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-gray-50 flex flex-col justify-between">
+                              <div className="flex items-start gap-3 mb-3">
+                                  <div className={`p-2 rounded shrink-0 ${doc.fileType === 'WORD' ? 'bg-blue-100 text-blue-600' : doc.fileType === 'PDF' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                      <File size={24} />
+                                  </div>
+                                  <div>
+                                      <h4 className="font-bold text-gray-800 line-clamp-2 text-sm">{doc.title}</h4>
+                                      <p className="text-xs text-gray-500 mt-1">Cập nhật: {doc.uploadDate}</p>
+                                      {doc.description && (
+                                          <p className="text-xs text-gray-600 mt-2 line-clamp-3 bg-white p-2 rounded border border-gray-100">
+                                              {doc.description}
+                                          </p>
+                                      )}
+                                  </div>
+                              </div>
+                              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="w-full mt-2 py-2 bg-white border border-gray-300 rounded text-center text-sm font-bold text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2">
+                                  <Download size={14} /> Tải về / Xem
+                              </a>
+                          </div>
+                      ))
+                  )}
+              </div>
+          </div>
+      );
   };
 
   // 1. Login Screen
@@ -425,6 +683,14 @@ function App() {
           >
             <Users size={20} className="shrink-0" />
             {(isSidebarOpen || isMobileMenuOpen) && <span>CHI TIẾT</span>}
+          </button>
+
+          <button 
+             onClick={() => { setActiveTab('documents'); setIsMobileMenuOpen(false); }}
+             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'documents' ? 'bg-white text-gray-900 border-l-4 border-amber-500 font-bold' : 'text-military-200 hover:bg-military-800'}`}
+          >
+            <FileText size={20} className="shrink-0" />
+            {(isSidebarOpen || isMobileMenuOpen) && <span>TÀI LIỆU</span>}
           </button>
 
           {user.role === 'ADMIN' && (
@@ -524,7 +790,7 @@ function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gray-50 h-full">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gray-50 h-full relative">
         <header className="h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 md:px-6 z-10 shrink-0">
           <div className="flex items-center gap-3">
              {/* Mobile Menu Button */}
@@ -535,7 +801,7 @@ function App() {
                 <Menu size={24} />
              </button>
              <h1 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-tight truncate max-w-[200px] md:max-w-none flex flex-col">
-                <span>{activeTab === 'dashboard' ? `Quy trình tuyển quân ${sessionYear}` : activeTab === 'admin' ? 'Quản trị hệ thống' : `Quản lý công dân nhập ngũ ${sessionYear}`}</span>
+                <span>{activeTab === 'dashboard' ? `Quy trình tuyển quân ${sessionYear}` : activeTab === 'admin' ? 'Quản trị hệ thống' : activeTab === 'documents' ? 'Tài liệu nghiên cứu' : `Quản lý công dân nhập ngũ ${sessionYear}`}</span>
                 {isLoading && <span className="text-[10px] text-gray-400 normal-case font-normal animate-pulse">Đang đồng bộ dữ liệu...</span>}
              </h1>
           </div>
@@ -591,8 +857,83 @@ function App() {
             />
           )}
           {activeTab === 'admin' && <AdminPanel />}
+          {activeTab === 'documents' && <DocumentsPanel />}
         </div>
+
+        {/* FLOATING ACTION BUTTON: TRỢ LÝ ẢO */}
+        <button 
+            onClick={() => setShowAssistantModal(true)}
+            className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-military-600 to-military-500 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform z-20"
+            title="Trợ lý Tuyển quân Ảo"
+        >
+            <Bot size={28} />
+        </button>
+
       </main>
+
+      {/* AI ASSISTANT MODAL */}
+      {showAssistantModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg h-[600px] flex flex-col overflow-hidden animate-in zoom-in-95">
+                 {/* Header */}
+                 <div className="bg-gradient-to-r from-military-700 to-military-600 p-4 text-white flex justify-between items-center shrink-0">
+                     <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
+                            <Bot size={24} />
+                         </div>
+                         <div>
+                             <h3 className="font-bold text-lg">Trợ lý Tuyển quân</h3>
+                             <p className="text-xs text-military-100 opacity-80">Hỗ trợ tra cứu số liệu địa phương</p>
+                         </div>
+                     </div>
+                     <button onClick={() => setShowAssistantModal(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors"><X size={20}/></button>
+                 </div>
+                 
+                 {/* Chat Area */}
+                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 custom-scrollbar">
+                     {chatMessages.map(msg => (
+                         <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                             <div className={`max-w-[80%] p-3 rounded-lg text-sm shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'}`}>
+                                 {msg.text.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>)}
+                                 <div className={`text-[10px] mt-1 opacity-70 ${msg.role === 'user' ? 'text-blue-100 text-right' : 'text-gray-400'}`}>
+                                     {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                 </div>
+                             </div>
+                         </div>
+                     ))}
+                     {isAiThinking && (
+                         <div className="flex justify-start">
+                             <div className="bg-white p-3 rounded-lg rounded-bl-none border border-gray-200 shadow-sm flex gap-1">
+                                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div>
+                                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                             </div>
+                         </div>
+                     )}
+                     <div ref={chatEndRef} />
+                 </div>
+                 
+                 {/* Input Area */}
+                 <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-gray-200 shrink-0 flex gap-2">
+                     <input 
+                        type="text" 
+                        className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-military-500 focus:ring-2 focus:ring-military-100"
+                        placeholder="Nhập câu hỏi..."
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
+                        disabled={isAiThinking}
+                     />
+                     <button 
+                        type="submit" 
+                        disabled={!chatInput.trim() || isAiThinking}
+                        className="w-10 h-10 bg-military-600 text-white rounded-full flex items-center justify-center hover:bg-military-700 disabled:bg-gray-300 transition-colors shadow-sm"
+                     >
+                         <Send size={18} className={isAiThinking ? 'opacity-0' : 'ml-0.5'} />
+                     </button>
+                 </form>
+             </div>
+          </div>
+      )}
 
       {/* Change Password Modal */}
       {showPasswordModal && (
