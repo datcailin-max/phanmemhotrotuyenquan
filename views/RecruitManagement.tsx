@@ -53,6 +53,27 @@ const HEIGHT_RANGES = [
 
 type ActionType = 'DEFER' | 'EXEMPT' | 'REMOVE' | 'DELETE' | null;
 
+// Component nhập liệu có local state để tránh bị lag/lock khi gõ phím
+const EnlistmentUnitInput = ({ value, onSave }: { value: string, onSave: (val: string) => void }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+
+    return (
+        <input 
+            type="text" 
+            className="w-full text-xs border border-gray-300 rounded p-1.5 focus:border-red-500 focus:ring-1 focus:ring-red-200" 
+            placeholder="Nhập đơn vị..." 
+            value={localValue} 
+            onChange={(e) => setLocalValue(e.target.value)} 
+            onBlur={() => { if(localValue !== (value || '')) onSave(localValue); }} 
+            onKeyDown={(e) => { if(e.key === 'Enter') { if(localValue !== (value || '')) onSave(localValue); (e.target as HTMLInputElement).blur(); } }} 
+        />
+    );
+};
+
 const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear }) => {
   const isAdmin = user.role === 'ADMIN';
   const isReadOnly = user.role === 'VIEWER' || !!user.isLocked;
@@ -205,14 +226,30 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                  r.status !== RecruitmentStatus.EXEMPTED;
       });
       if (eligibleToTransfer.length === 0) { alert(`Không tìm thấy hồ sơ nào từ năm ${prevYear} đủ điều kiện cập nhật.`); return; }
+      
       const currentYearRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
       const existingCitizenIds = new Set(currentYearRecruits.map(r => r.citizenId));
       const toCreate = eligibleToTransfer.filter(r => !existingCitizenIds.has(r.citizenId));
+      
       if (toCreate.length === 0) { alert(`Tất cả hồ sơ nguồn năm ${prevYear} đã có mặt trong năm ${sessionYear}.`); return; }
       if (!window.confirm(`Xác nhận cập nhật ${toCreate.length} hồ sơ từ năm ${prevYear}?`)) return;
+      
       let successCount = 0;
       for (const r of toCreate) {
-          const newRecruit: Recruit = { ...r, id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, recruitmentYear: sessionYear, status: RecruitmentStatus.SOURCE, defermentReason: '', enlistmentUnit: undefined, enlistmentDate: undefined, enlistmentType: undefined };
+          // QUAN TRỌNG: Loại bỏ _id, createdAt, updatedAt của Mongo cũ để tránh lỗi Duplicate Key
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
+
+          const newRecruit: Recruit = { 
+              ...cleanRecruitData, 
+              id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, 
+              recruitmentYear: sessionYear, 
+              status: RecruitmentStatus.SOURCE, 
+              defermentReason: '', 
+              enlistmentUnit: undefined, 
+              enlistmentDate: undefined, 
+              enlistmentType: undefined 
+          };
           onUpdate(newRecruit);
           successCount++;
       }
@@ -357,7 +394,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                       )}
                       {activeTabId === 'ENLISTED' && !isReadOnly && (
                           <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                              <input type="text" className="w-full text-xs border border-gray-300 rounded p-1.5 focus:border-red-500 focus:ring-1 focus:ring-red-200" placeholder="Nhập đơn vị..." value={recruit.enlistmentUnit || ''} onBlur={(e) => { if(e.target.value !== recruit.enlistmentUnit) onUpdate({...recruit, enlistmentUnit: e.target.value}); }} onChange={() => {}} onKeyDown={(e) => { if(e.key === 'Enter') { onUpdate({...recruit, enlistmentUnit: (e.target as HTMLInputElement).value}); (e.target as HTMLInputElement).blur(); } }} />
+                              <EnlistmentUnitInput 
+                                  value={recruit.enlistmentUnit || ''} 
+                                  onSave={(val) => onUpdate({...recruit, enlistmentUnit: val})} 
+                              />
                               <div className="flex bg-gray-100 rounded p-0.5 border border-gray-200">
                                   <button onClick={() => onUpdate({...recruit, enlistmentType: 'OFFICIAL'})} className={`flex-1 text-[10px] font-bold py-1 rounded transition-all ${recruit.enlistmentType !== 'RESERVE' ? 'bg-white text-red-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Chính thức</button>
                                   <button onClick={() => onUpdate({...recruit, enlistmentType: 'RESERVE'})} className={`flex-1 text-[10px] font-bold py-1 rounded transition-all ${recruit.enlistmentType === 'RESERVE' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Dự bị</button>
