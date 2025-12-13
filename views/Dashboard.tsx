@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../types';
 import { PROVINCES_VN, LOCATION_DATA } from '../constants';
@@ -71,7 +72,8 @@ const ProcessStepCard = ({ title, count, total, icon: Icon, color, onClick, isLa
                     <Icon size={20} />
                 </div>
                 <div className="text-right">
-                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{subLabel}</p>
+                     {/* Ẩn subLabel nếu không có giá trị */}
+                     {subLabel && <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{subLabel}</p>}
                      <p className={`text-2xl font-bold ${isLast ? 'text-green-700' : 'text-gray-800'}`}>{count}</p>
                 </div>
             </div>
@@ -230,24 +232,30 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         (userRole === 'ADMIN' && filterCommune ? r.address.commune === filterCommune : true)
     ).length;
 
-    // 12. TỔNG NGUỒN CÒN LẠI CHO NĂM SAU
-    // Logic mới: 
-    // = (Tổng nguồn - Miễn - Nhập ngũ chính thức) + (Thanh niên từ danh sách "Chưa đủ 18" sẽ đủ 18 tuổi vào năm sau)
+    // 12. TỔNG NGUỒN CÒN LẠI (Remaining Source)
+    // Cần khớp chính xác với Tab "DS Nguồn còn lại" trong RecruitManagement
+    // Tab này bao gồm: SOURCE, PRE_CHECK (Pass/Fail), MED_EXAM (Pass/Fail), FINALIZED, DEFERRED, EXEMPTED
+    // Loại trừ: ENLISTED, REMOVED_FROM_SOURCE
+    const remainingStatuses = [
+        RecruitmentStatus.SOURCE, 
+        RecruitmentStatus.PRE_CHECK_PASSED, 
+        RecruitmentStatus.PRE_CHECK_FAILED, 
+        RecruitmentStatus.MED_EXAM_PASSED, 
+        RecruitmentStatus.MED_EXAM_FAILED, 
+        RecruitmentStatus.FINALIZED, 
+        RecruitmentStatus.DEFERRED, 
+        RecruitmentStatus.EXEMPTED
+    ];
     
-    // a. Tính số lượng thanh niên sẽ đủ 18 tuổi vào năm sau (từ danh sách hiện tại)
+    const countRemainingNextYear = yearRecruits.filter(r => remainingStatuses.includes(r.status as RecruitmentStatus)).length;
+
+    // a. Thông tin phụ: Số lượng thanh niên sẽ đủ 18 tuổi vào năm sau (để hiển thị chơi)
     const countComingOfAgeNextYear = yearRecruits.filter(r => {
         const birthYear = parseInt(r.dob.split('-')[0]);
         const ageCurrent = sessionYear - birthYear;
         const ageNext = (sessionYear + 1) - birthYear;
-        // Hiện tại dưới 18, năm sau đủ 18
         return ageCurrent < 18 && ageNext >= 18;
     }).length;
-
-    // b. Nguồn hiện tại khả dụng (Trừ miễn và nhập ngũ chính thức, Nhập ngũ Dự bị vẫn tính là còn nguồn cho năm sau nếu chưa đi)
-    const countCurrentSourceAvailable = countTotalSource - countExempted - countEnlistedOfficial;
-    
-    // c. Tổng hợp
-    const countRemainingNextYear = countCurrentSourceAvailable + countComingOfAgeNextYear;
 
     // --- OTHER STATS (Health, Politics, etc.) ---
     const dangVien = yearRecruits.filter(r => r.details.politicalStatus === 'Dang_Vien').length;
@@ -416,7 +424,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 1. TỔNG NGUỒN THANH NIÊN */}
              <ProcessStepCard 
                 title="TỔNG NGUỒN THANH NIÊN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countTotalSource} 
                 total={stats.countTotalSource}
                 icon={Users} 
@@ -425,10 +433,10 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 hideProgress={true}
              />
              
-             {/* 2. CHƯA ĐỦ 18 */}
+             {/* 2. CHƯA ĐỦ 18 -> ĐỔI THÀNH ĐỦ 17 TUỔI TRONG NĂM */}
              <ProcessStepCard 
-                title="CHƯA ĐỦ 18 TUỔI" 
-                subLabel="SỐ THANH NIÊN"
+                title="ĐỦ 17 TUỔI TRONG NĂM" 
+                // subLabel removed
                 count={stats.countUnder18} 
                 total={stats.countTotalSource}
                 icon={Baby} 
@@ -440,7 +448,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 3. ĐỦ ĐK SƠ TUYỂN */}
              <ProcessStepCard 
                 title="ĐỦ ĐK SƠ TUYỂN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countEligiblePreCheck} 
                 total={stats.countTotalSource}
                 icon={ClipboardList} 
@@ -451,7 +459,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 4. ĐỦ ĐIỀU KIỆN KHÁM TUYỂN */}
              <ProcessStepCard 
                 title="ĐỦ ĐK KHÁM TUYỂN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countEligibleMedExam} 
                 total={stats.countTotalSource}
                 icon={Stethoscope} 
@@ -462,7 +470,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 5. ĐỦ ĐK NHẬP NGŨ */}
              <ProcessStepCard 
                 title="ĐỦ ĐK NHẬP NGŨ" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countEligibleEnlist} 
                 total={stats.countTotalSource}
                 icon={FileSignature} 
@@ -473,7 +481,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 6. SỐ LƯỢNG NHẬP NGŨ */}
              <ProcessStepCard 
                 title="SỐ LƯỢNG NHẬP NGŨ" 
-                subLabel="CHÍNH THỨC / DỰ BỊ"
+                subLabel="CHÍNH THỨC / DỰ BỊ" // Keep this one as it's specific
                 count={stats.countEnlisted} 
                 total={stats.countTotalSource}
                 icon={Flag} 
@@ -485,7 +493,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 7. TẠM HOÃN NGUỒN NĂM NAY */}
              <ProcessStepCard 
                 title="SỐ LƯỢNG TẠM HOÃN NGUỒN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countDeferredSource} 
                 total={stats.countTotalSource}
                 icon={PauseCircle} 
@@ -497,7 +505,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 8. TẠM HOÃN SƠ TUYỂN */}
              <ProcessStepCard 
                 title="SỐ LƯỢNG TẠM HOÃN SƠ TUYỂN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countDeferredPreCheck} 
                 total={stats.countTotalSource}
                 icon={UserMinus} 
@@ -509,7 +517,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 9. TẠM HOÃN KHÁM TUYỂN */}
              <ProcessStepCard 
                 title="SỐ LƯỢNG TẠM HOÃN KHÁM TUYỂN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countDeferredMedExam} 
                 total={stats.countTotalSource}
                 icon={HeartPulse} 
@@ -521,7 +529,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 10. ĐƯỢC MIỄN */}
              <ProcessStepCard 
                 title="SỐ LƯỢNG MIỄN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countExempted} 
                 total={stats.countTotalSource}
                 icon={ShieldCheck} 
@@ -533,7 +541,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 11. LOẠI KHỎI NGUỒN */}
              <ProcessStepCard 
                 title="LOẠI KHỎI NGUỒN" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countRemoved} 
                 total={0}
                 icon={UserX} 
@@ -545,7 +553,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
              {/* 12. TỔNG NGUỒN CÒN LẠI CHO NĂM SAU */}
              <ProcessStepCard 
                 title="NGUỒN CÒN LẠI" 
-                subLabel="SỐ THANH NIÊN"
+                // subLabel removed
                 count={stats.countRemainingNextYear} 
                 total={stats.countTotalSource}
                 icon={Layers} 
@@ -553,7 +561,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 onClick={() => onNavigate('REMAINING')}
                 hideProgress={true}
                 isLast={true}
-                detailText={`+${stats.countComingOfAgeNextYear} (Tuổi 17->18)`}
+                detailText={`trong đó +${stats.countComingOfAgeNextYear} (Tuổi 17->18)`}
              />
          </div>
       </div>
