@@ -297,7 +297,8 @@ function App() {
             }
         });
 
-        const reply = response.text;
+        // FIX: Handle undefined text and type mismatch
+        const reply = response.text || "Xin lỗi, không có dữ liệu trả về từ hệ thống.";
         
         setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: reply, timestamp: Date.now() }]);
 
