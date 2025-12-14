@@ -173,7 +173,12 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
   // --- MEMO: Calculate Stats ---
   const stats = useMemo(() => {
     // 1. TỔNG NGUỒN THANH NIÊN (Hiện có)
-    const countTotalSource = yearRecruits.length;
+    // Sửa lại: Tổng nguồn = Tất cả hồ sơ TRỪ người chưa đủ 18 tuổi
+    // yearRecruits đã lọc REMOVED_FROM_SOURCE
+    const countTotalSource = yearRecruits.filter(r => {
+         const birthYear = parseInt(r.dob.split('-')[0]);
+         return (sessionYear - birthYear) >= 18;
+    }).length;
 
     // 2. CHƯA ĐỦ 18
     const countUnder18 = yearRecruits.filter(r => {
@@ -415,7 +420,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                  <Activity className="text-military-600" /> Tiến độ thực hiện {sessionYear} <span className="text-military-500">- {dashboardScopeName}</span>
              </h2>
              <span className="text-xs font-semibold bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                 Tổng hồ sơ: {yearRecruits.length}
+                 Tổng hồ sơ (18+): {stats.countTotalSource}
              </span>
          </div>
          

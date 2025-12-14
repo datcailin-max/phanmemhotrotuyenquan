@@ -1,3 +1,4 @@
+
 import { Recruit, RecruitmentStatus, User } from './types';
 
 // Helper để loại bỏ dấu tiếng Việt (dùng cho tạo username/search)
@@ -19,7 +20,7 @@ export const removeVietnameseTones = (str: string) => {
     return str;
 }
 
-// --- DỮ LIỆU THÔ TỪ YÊU CẦU ---
+// --- DỮ LIỆU THÔ ---
 const RAW_COMMUNE_DATA: Record<string, string[]> = {
     "Tuyên Quang": [
         "Phường An Tường", "Phường Bình Thuận", "Phường Hà Giang 1", "Phường Hà Giang 2", "Phường Minh Xuân", "Phường Mỹ Lâm", "Phường Nông Tiến",
@@ -487,93 +488,16 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
     ]
 };
 
-// Hàm chuyển đổi từ Raw Data sang cấu trúc dữ liệu của App (Nested Object)
-const generateLocationData = () => {
-    const data: Record<string, any> = {};
-    
-    // Duyệt qua tất cả 34 tỉnh/thành
-    for (const [province, communes] of Object.entries(RAW_COMMUNE_DATA)) {
-        data[province] = {};
-        communes.forEach(commune => {
-            // Khởi tạo danh sách thôn/ấp trống cho mỗi xã
-            // Cho phép người dùng tự nhập nên không cần mock data
-            data[province][commune] = [];
-        });
-    }
-    
-    return data;
-};
+// Transform RAW_COMMUNE_DATA to structure compatible with UI (Province -> { Commune: [] })
+export const LOCATION_DATA: Record<string, Record<string, string[]>> = {};
+Object.keys(RAW_COMMUNE_DATA).forEach(province => {
+    LOCATION_DATA[province] = {};
+    RAW_COMMUNE_DATA[province].forEach(commune => {
+        LOCATION_DATA[province][commune] = []; // Village list temporarily empty
+    });
+});
 
-// --- DATA ĐỊA CHÍNH FINAL ---
-export const LOCATION_DATA = generateLocationData();
-
-// --- DANH SÁCH TỈNH THÀNH (Lấy trực tiếp từ keys) ---
 export const PROVINCES_VN = Object.keys(LOCATION_DATA);
-
-// --- DANH SÁCH TÀI KHOẢN MẪU ---
-export const MOCK_USERS: User[] = [
-  {
-    username: 'LOCNINH1', 
-    password: '1',
-    fullName: 'Ban CHQS Xã Lộc Ninh (Cán bộ)',
-    role: 'EDITOR',
-    unit: {
-      province: 'Đồng Nai',
-      commune: 'Xã Lộc Ninh'
-    }
-  },
-  {
-    username: 'ADMIN',
-    password: 'Sang25061997', // Mật khẩu Admin theo yêu cầu
-    fullName: 'QUẢN TRỊ VIÊN HỆ THỐNG',
-    role: 'ADMIN',
-    unit: {
-      province: 'Đồng Nai',
-      commune: 'Phường Trảng Dài' // Địa chỉ mặc định của Admin
-    }
-  }
-];
-
-// Cập nhật trình độ học vấn chi tiết (Từ lớp 1 đến Đại học)
-export const EDUCATIONS = [
-    "Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5",
-    "Lớp 6", "Lớp 7", "Lớp 8", "Lớp 9", 
-    "Lớp 10", "Lớp 11", "Lớp 12", 
-    "Trung cấp", "Cao đẳng", "Đại học", "Sau Đại học"
-];
-
-// Các lớp trình độ thấp (Thường là chưa tốt nghiệp THCS)
-export const LOW_EDUCATION_GRADES = ["Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5", "Lớp 6", "Lớp 7"];
-
-export const ETHNICITIES = ["Kinh", "Tày", "Thái", "Mường", "Khmer", "Hoa", "Nùng", "H'Mông"];
-export const RELIGIONS = ["Không", "Phật giáo", "Công giáo", "Tin lành", "Hòa Hảo", "Cao Đài"];
-export const MARITAL_STATUSES = ["Độc thân", "Đã kết hôn", "Ly hôn"];
-export const FAMILY_JOBS = ["Làm nông", "Công nhân", "CNVC/Viên chức", "Buôn bán/Kinh doanh", "Tự do", "Hưu trí", "Đã mất", "Khác"];
-
-// Lý do tạm hoãn nguồn (Theo Điều 41, Luật NVQS 2015)
-export const LEGAL_DEFERMENT_REASONS = [
-    "Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe",
-    "Lao động duy nhất phải trực tiếp nuôi dưỡng thân nhân không còn khả năng lao động hoặc chưa đến tuổi lao động; trong gia đình bị thiệt hại nặng về người và tài sản do tai nạn, thiên tai, dịch bệnh nguy hiểm gây ra được Ủy ban nhân dân cấp xã xác nhận",
-    "Một con của bệnh binh, người nhiễm chất độc da cam suy giảm khả năng lao động từ 61% đến 80%",
-    "Có anh, chị hoặc em ruột là hạ sĩ quan, binh sĩ đang phục vụ tại ngũ; hạ sĩ quan, chiến sĩ thực hiện nghĩa vụ tham gia Công an nhân dân",
-    "Người thuộc diện di dân, giãn dân trong 03 năm đầu đến các xã đặc biệt khó khăn theo dự án phát triển kinh tế - xã hội của Nhà nước do Ủy ban nhân dân cấp tỉnh trở lên quyết định",
-    "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật",
-    "Đang học tại cơ sở giáo dục phổ thông; đang được đào tạo trình độ đại học hệ chính quy thuộc cơ sở giáo dục đại học, trình độ cao đẳng hệ chính quy thuộc cơ sở giáo dục nghề nghiệp trong thời gian một khóa đào tạo của một trình độ đào tạo",
-    "Khác (Lý do cụ thể)"
-];
-
-// Lý do miễn gọi nhập ngũ (Theo Điều 41, Luật NVQS 2015)
-export const LEGAL_EXEMPTION_REASONS = [
-    "Con của liệt sĩ, con của thương binh hạng một",
-    "Một anh hoặc một em trai của liệt sĩ",
-    "Một con của thương binh hạng hai; một con của bệnh binh suy giảm khả năng lao động từ 81% trở lên; một con của người nhiễm chất độc da cam suy giảm khả năng lao động từ 81 % trở lên",
-    "Người làm công tác cơ yếu không phải là quân nhân, Công an nhân dân",
-    "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật từ 24 tháng trở lên",
-    "Khác (Lý do cụ thể)"
-];
-
-// Để tương thích ngược với code cũ, giữ lại biến này nhưng trỏ đến list mới
-export const SOURCE_DEFERMENT_REASONS = LEGAL_DEFERMENT_REASONS;
 
 // Helper to extract list for filters
 export const GET_ALL_COMMUNES = () => {
@@ -584,4 +508,67 @@ export const GET_ALL_COMMUNES = () => {
     return communes;
 };
 
-export const INITIAL_RECRUITS: Recruit[] = [];
+export const EDUCATIONS = [
+    "Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5", "Lớp 6", "Lớp 7", "Lớp 8", "Lớp 9", 
+    "Lớp 10", "Lớp 11", "Đang học lớp 11", "Lớp 12", "Đang học lớp 12",
+    "Trung cấp", "Cao đẳng", "Đang học CĐ", "Đại học", "Đang học ĐH", "Trên ĐH"
+];
+
+export const LOW_EDUCATION_GRADES = ["Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5", "Lớp 6"];
+
+export const ETHNICITIES = [
+    "Kinh", "Tày", "Thái", "Mường", "Khmer", "Hoa", "Nùng", "H'Mông", "Dao", "Gia Rai", 
+    "Ê Đê", "Ba Na", "Xơ Đăng", "Sán Chay", "Cơ Ho", "Chăm", "Sán Dìu", "Hrê", "Ra Glai", 
+    "Mnông", "Thổ", "Stiêng", "Khơ Mú", "Bru - Vân Kiều", "Cơ Tu", "Giáy", "Tà Ôi", "Mạ", 
+    "Giẻ-Triêng", "Co", "Chơ Ro", "Xinh Mun", "Hà Nhì", "Chu Ru", "Lào", "Kháng", "La Chí", 
+    "Phù Lá", "La Hủ", "La Ha", "Pà Thẻn", "Chứt", "Lự", "Lô Lô", "Mảng", "Cờ Lao", "Bố Y", 
+    "Cống", "Ngái", "Si La", "Pu Péo", "Brâu", "Rơ Mâm", "O Đu"
+];
+
+export const RELIGIONS = [
+    "Không", "Phật giáo", "Công giáo", "Tin lành", "Cao Đài", "Phật giáo Hòa Hảo", "Hồi giáo", 
+    "Bà La Môn", "Tứ Ân Hiếu Nghĩa", "Bửu Sơn Kỳ Hương", "Minh Sư Đạo", "Minh Lý Đạo"
+];
+
+export const MARITAL_STATUSES = ["Độc thân", "Đã kết hôn", "Ly hôn"];
+export const FAMILY_JOBS = ["Làm nông", "Công nhân", "CNVC/Viên chức", "Buôn bán/Kinh doanh", "Tự do", "Hưu trí", "Đã mất", "Khác"];
+
+export const LEGAL_DEFERMENT_REASONS = [
+    "Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe",
+    "Lao động duy nhất phải trực tiếp nuôi dưỡng thân nhân không còn khả năng lao động hoặc chưa đến tuổi lao động; trong gia đình bị thiệt hại nặng về người và tài sản do tai nạn, thiên tai, dịch bệnh nguy hiểm gây ra được Ủy ban nhân dân cấp xã xác nhận",
+    "Một con của bệnh binh, người nhiễm chất độc da cam suy giảm khả năng lao động từ 61% đến 80%",
+    "Có anh, chị hoặc em ruột là hạ sĩ quan, binh sĩ đang phục vụ tại ngũ; hạ sĩ quan, chiến sĩ thực hiện nghĩa vụ tham gia Công an nhân dân",
+    "Người thuộc diện di dân, giãn dân trong 03 năm đầu đến các xã đặc biệt khó khăn theo dự án phát triển kinh tế - xã hội của Nhà nước do Ủy ban nhân dân cấp tỉnh trở lên quyết định",
+    "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật",
+    "Đang học tại cơ sở giáo dục phổ thông; đang được đào tạo trình độ đại học hệ chính quy thuộc cơ sở giáo dục đại học, trình độ cao đẳng hệ chính quy thuộc cơ sở giáo dục nghề nghiệp trong thời gian một khóa đào tạo của một trình độ đào tạo",
+    "Đang thực hiện nghĩa vụ tham gia Dân quân thường trực"
+];
+
+// Danh sách các lý do được coi là "Chính sách" để hiển thị ô nhập văn bản chứng minh
+export const POLICY_DEFERMENT_REASONS = [
+    LEGAL_DEFERMENT_REASONS[1],
+    LEGAL_DEFERMENT_REASONS[2],
+    LEGAL_DEFERMENT_REASONS[3],
+    LEGAL_DEFERMENT_REASONS[4],
+    LEGAL_DEFERMENT_REASONS[5]
+];
+
+export const LEGAL_EXEMPTION_REASONS = [
+    "Con của liệt sĩ, con của thương binh hạng một",
+    "Một anh hoặc một em trai của liệt sĩ",
+    "Một con của thương binh hạng hai; một con của bệnh binh suy giảm khả năng lao động từ 81% trở lên; một con của người nhiễm chất độc da cam suy giảm khả năng lao động từ 81% trở lên",
+    "Người làm công tác cơ yếu không phải là quân nhân, CAND",
+    "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật từ 24 tháng trở lên"
+];
+
+export const INITIAL_RECRUITS: any[] = [];
+
+export const MOCK_USERS: User[] = [
+    {
+        username: 'ADMIN',
+        fullName: 'Ban CHQS Huyện (Admin)',
+        password: '1',
+        role: 'ADMIN',
+        unit: { province: '', commune: '' }
+    }
+];

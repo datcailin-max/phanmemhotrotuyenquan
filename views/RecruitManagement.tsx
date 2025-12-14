@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
-import { EDUCATIONS, GET_ALL_COMMUNES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN } from '../constants';
+import { EDUCATIONS, GET_ALL_COMMUNES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, POLICY_DEFERMENT_REASONS } from '../constants';
 import RecruitForm from '../components/RecruitForm';
 import { 
   Search, Plus, CheckCircle2, XCircle, FileEdit, Trash2, Stethoscope, ClipboardList, RefreshCw, Filter, ShieldOff,
   PauseCircle, Users, FileSignature, UserX, RotateCcw, Lock, Flag, Layers, ShieldCheck, Baby, Activity,
-  ArchiveRestore, Briefcase, Ruler, AlertTriangle, Check, X, ChevronRight
+  ArchiveRestore, Briefcase, Ruler, AlertTriangle, Check, X, ChevronRight, FileText, BookX, ArrowRightCircle
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -19,26 +19,29 @@ interface RecruitManagementProps {
   sessionYear: number;
 }
 
+// Updated TABS order and structure based on requirements
 const TABS = [
-  { id: 'ALL', label: 'Toàn bộ nguồn (18+)', status: null, color: 'bg-gray-600', borderColor: 'border-gray-600', textColor: 'text-gray-700', icon: Users },
-  { id: 'UNDER_18', label: 'DS đủ 17 tuổi trong năm', status: null, color: 'bg-pink-600', borderColor: 'border-pink-600', textColor: 'text-pink-700', icon: Baby },
-  { id: 'PRE_CHECK', label: 'DS Đủ ĐK Sơ tuyển', status: [RecruitmentStatus.SOURCE, RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.PRE_CHECK_FAILED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-blue-600', borderColor: 'border-blue-600', textColor: 'text-blue-700', icon: ClipboardList },
-  { id: 'MED_EXAM', label: 'DS Đủ ĐK Khám tuyển', status: [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-indigo-600', borderColor: 'border-indigo-600', textColor: 'text-indigo-700', icon: Stethoscope },
-  { id: 'FINAL', label: 'DS Đủ ĐK Nhập ngũ', status: [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.FINALIZED], color: 'bg-green-600', borderColor: 'border-green-600', textColor: 'text-green-700', icon: FileSignature },
-  { id: 'ENLISTED', label: 'Danh sách nhập ngũ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', borderColor: 'border-red-600', textColor: 'text-red-700', icon: Flag },
-  { id: 'DEFERRED_LIST', label: 'DS Tạm hoãn (Nguồn)', status: [RecruitmentStatus.DEFERRED], color: 'bg-amber-600', borderColor: 'border-amber-600', textColor: 'text-amber-700', icon: PauseCircle },
-  { id: 'POST_PRE_CHECK_DEFERRED', label: 'DS hoãn sơ khám', status: [RecruitmentStatus.PRE_CHECK_FAILED], color: 'bg-orange-600', borderColor: 'border-orange-600', textColor: 'text-orange-700', icon: Activity },
-  { id: 'POST_MED_EXAM_DEFERRED', label: 'DS hoãn khám tuyển', status: [RecruitmentStatus.MED_EXAM_FAILED], color: 'bg-red-500', borderColor: 'border-red-500', textColor: 'text-red-600', icon: Activity },
-  { id: 'EXEMPTED_LIST', label: 'Danh sách Miễn', status: [RecruitmentStatus.EXEMPTED], color: 'bg-purple-600', borderColor: 'border-purple-600', textColor: 'text-purple-700', icon: ShieldCheck },
-  { id: 'REMAINING', label: 'DS Nguồn còn lại', status: [RecruitmentStatus.SOURCE, RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.PRE_CHECK_FAILED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED], color: 'bg-teal-600', borderColor: 'border-teal-600', textColor: 'text-teal-700', icon: Layers },
-  { id: 'REMOVED', label: 'DS Loại khỏi nguồn', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-600', borderColor: 'border-gray-600', textColor: 'text-gray-700', icon: UserX },
+  { id: 'UNDER_18', label: '1. DS Đủ 17 tuổi trong năm', status: null, color: 'bg-pink-600', borderColor: 'border-pink-600', textColor: 'text-pink-700', icon: Baby },
+  { id: 'ALL', label: '2. Toàn bộ nguồn (18+)', status: null, color: 'bg-gray-600', borderColor: 'border-gray-600', textColor: 'text-gray-700', icon: Users },
+  { id: 'TT50', label: '3. DS Không tuyển chọn (TT 50)', status: [RecruitmentStatus.NOT_SELECTED_TT50], color: 'bg-slate-600', borderColor: 'border-slate-600', textColor: 'text-slate-700', icon: BookX },
+  { id: 'DEFERRED_LIST', label: '4. DS Tạm hoãn (Nguồn)', status: [RecruitmentStatus.DEFERRED], color: 'bg-amber-600', borderColor: 'border-amber-600', textColor: 'text-amber-700', icon: PauseCircle },
+  { id: 'EXEMPTED_LIST', label: '5. DS Miễn gọi nhập ngũ', status: [RecruitmentStatus.EXEMPTED], color: 'bg-purple-600', borderColor: 'border-purple-600', textColor: 'text-purple-700', icon: ShieldCheck },
+  { id: 'PRE_CHECK', label: '6. DS Đủ ĐK Sơ tuyển', status: [RecruitmentStatus.SOURCE, RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.PRE_CHECK_FAILED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-blue-600', borderColor: 'border-blue-600', textColor: 'text-blue-700', icon: ClipboardList },
+  { id: 'MED_EXAM', label: '7. DS Đủ ĐK Khám tuyển', status: [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-indigo-600', borderColor: 'border-indigo-600', textColor: 'text-indigo-700', icon: Stethoscope },
+  { id: 'FINAL', label: '8. DS Chốt hồ sơ', status: [RecruitmentStatus.FINALIZED], color: 'bg-green-600', borderColor: 'border-green-600', textColor: 'text-green-700', icon: FileSignature },
+  { id: 'ENLISTED', label: '9. DS Nhập ngũ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', borderColor: 'border-red-600', textColor: 'text-red-700', icon: Flag },
+  { id: 'REMOVED', label: '10. DS Loại khỏi nguồn', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-600', borderColor: 'border-gray-600', textColor: 'text-gray-700', icon: UserX },
+  { id: 'REMAINING', label: '11. DS Nguồn còn lại', status: null, color: 'bg-teal-600', borderColor: 'border-teal-600', textColor: 'text-teal-700', icon: Layers },
 ];
+
+// Additional helper tabs for organization (not in main list but accessible via logic if needed)
+// Keep POST_PRE_CHECK_DEFERRED and POST_MED_EXAM_DEFERRED logic internally if needed, but for now they are subsets.
 
 const DEFERRED_SUB_TABS = [
     { id: 'ALL', label: 'Tất cả' },
+    { id: 'POLICY', label: 'Về Chính sách' },
     { id: 'HEALTH', label: 'Về Sức khỏe' },
     { id: 'EDUCATION', label: 'Về Học vấn' },
-    { id: 'POLICY', label: 'Về Chính sách' },
     { id: 'DQTT', label: 'Dân quân thường trực' },
 ];
 
@@ -51,7 +54,7 @@ const HEIGHT_RANGES = [
     { value: 'ABOVE_180', label: 'Trên 180 cm' }
 ];
 
-type ActionType = 'DEFER' | 'EXEMPT' | 'REMOVE' | 'DELETE' | null;
+type ActionType = 'DEFER' | 'EXEMPT' | 'REMOVE' | 'DELETE' | 'TT50' | null;
 
 // Component nhập liệu có local state để tránh bị lag/lock khi gõ phím
 const EnlistmentUnitInput = ({ value, onSave }: { value: string, onSave: (val: string) => void }) => {
@@ -64,7 +67,7 @@ const EnlistmentUnitInput = ({ value, onSave }: { value: string, onSave: (val: s
     return (
         <input 
             type="text" 
-            className="w-full text-xs border border-gray-300 rounded p-1.5 focus:border-red-500 focus:ring-1 focus:ring-red-200" 
+            className="w-full text-xs border border-gray-300 rounded p-1.5 focus:border-red-500 focus:ring-1 focus:ring-red-200 font-bold text-gray-800" 
             placeholder="Nhập đơn vị..." 
             value={localValue} 
             onChange={(e) => setLocalValue(e.target.value)} 
@@ -74,7 +77,25 @@ const EnlistmentUnitInput = ({ value, onSave }: { value: string, onSave: (val: s
     );
 };
 
-const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear }) => {
+const EnlistmentDateInput = ({ value, onSave }: { value: string, onSave: (val: string) => void }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+
+    useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+
+    return (
+        <input 
+            type="date" 
+            className="w-full text-xs border border-gray-300 rounded p-1.5 focus:border-red-500 focus:ring-1 focus:ring-red-200" 
+            value={localValue} 
+            onChange={(e) => setLocalValue(e.target.value)} 
+            onBlur={() => { if(localValue !== (value || '')) onSave(localValue); }} 
+        />
+    );
+};
+
+const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, onUpdate, onDelete, initialTab = 'UNDER_18', onTabChange, sessionYear }) => {
   const isAdmin = user.role === 'ADMIN';
   const isReadOnly = user.role === 'VIEWER' || !!user.isLocked;
 
@@ -89,6 +110,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   const [selectedRecruit, setSelectedRecruit] = useState<Recruit | null>(null);
   const [reasonInput, setReasonInput] = useState('');
   const [customReasonInput, setCustomReasonInput] = useState('');
+  // New State for Proof Input
+  const [proofInput, setProofInput] = useState('');
 
   useEffect(() => { setActiveTabId(initialTab); }, [initialTab]);
 
@@ -129,51 +152,67 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
     const currentTab = TABS.find(t => t.id === activeTabId);
     
+    // --- SPECIAL TAB LOGIC ---
     if (activeTabId === 'UNDER_18') {
         result = result.filter(r => (sessionYear - parseInt(r.dob.split('-')[0])) < 18 && r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE);
     } else if (activeTabId === 'ALL') {
         result = result.filter(r => (sessionYear - parseInt(r.dob.split('-')[0])) >= 18 && r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE);
+    } else if (activeTabId === 'REMAINING') {
+        // DS Nguồn còn lại: SOURCE, PRE_CHECK..., MED_EXAM..., FINALIZED (Reserve), DEFERRED, EXEMPTED
+        // Loại trừ: ENLISTED (Official), REMOVED_FROM_SOURCE
+        // QUAN TRỌNG: Loại trừ 17 tuổi (chỉ lấy >= 18)
+        const remainingStatuses = [
+            RecruitmentStatus.SOURCE, 
+            RecruitmentStatus.PRE_CHECK_PASSED, 
+            RecruitmentStatus.PRE_CHECK_FAILED, 
+            RecruitmentStatus.MED_EXAM_PASSED, 
+            RecruitmentStatus.MED_EXAM_FAILED, 
+            RecruitmentStatus.FINALIZED, // Includes Reserve
+            RecruitmentStatus.DEFERRED, 
+            RecruitmentStatus.EXEMPTED,
+            RecruitmentStatus.NOT_SELECTED_TT50
+        ];
+        result = result.filter(r => {
+            const birthYear = parseInt(r.dob.split('-')[0] || '0');
+            const age = sessionYear - birthYear;
+            return remainingStatuses.includes(r.status) && 
+                   r.enlistmentType !== 'OFFICIAL' &&
+                   age >= 18; // Điều kiện mới: Không tính 17 tuổi
+        });
     } else if (currentTab?.status) {
+        // General Status Filtering based on TABS config
         result = result.filter(r => currentTab.status && currentTab.status.includes(r.status));
-        if (activeTabId === 'PRE_CHECK') {
+        
+        // Refinements per tab
+        if (activeTabId === 'PRE_CHECK' || activeTabId === 'MED_EXAM') {
             result = result.filter(r => (sessionYear - parseInt(r.dob.split('-')[0])) >= 18);
         }
+        
+        // DEFERRED Sub-tabs Logic
         if (activeTabId === 'DEFERRED_LIST' && activeDeferredSubTab !== 'ALL') {
             result = result.filter(r => {
                 const reason = (r.defermentReason || '');
-                // 1. Tạm hoãn về Sức khỏe
+                const lowerReason = reason.toLowerCase();
+
+                if (activeDeferredSubTab === 'POLICY') return POLICY_DEFERMENT_REASONS.includes(reason);
                 if (activeDeferredSubTab === 'HEALTH') {
-                    // "Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe" (Index 0)
-                    return reason === LEGAL_DEFERMENT_REASONS[0];
+                    const isLegalReason = reason === LEGAL_DEFERMENT_REASONS[0];
+                    const isCustomReason = lowerReason.includes('sức khỏe') || lowerReason.includes('bệnh') || lowerReason.includes('tật') || lowerReason.includes('bmi') || lowerReason.includes('loại 4') || lowerReason.includes('loại 5') || lowerReason.includes('loại 6');
+                    return isLegalReason || isCustomReason;
                 }
-                
-                // 2. Tạm hoãn về Học vấn
                 if (activeDeferredSubTab === 'EDUCATION') {
-                     // "Đang học tại cơ sở giáo dục phổ thông..." (Index 6)
-                     return reason === LEGAL_DEFERMENT_REASONS[6];
+                     const isLegalReason = reason === LEGAL_DEFERMENT_REASONS[6];
+                     const isCustomReason = lowerReason.includes('học vấn') || lowerReason.includes('trình độ') || lowerReason.includes('văn hóa') || lowerReason.includes('lớp');
+                     return isLegalReason || isCustomReason;
                 }
-
-                // 3. Tạm hoãn về Chính sách (Các index 1, 2, 3, 4, 5)
-                if (activeDeferredSubTab === 'POLICY') {
-                     return [
-                        LEGAL_DEFERMENT_REASONS[1], // Lao động duy nhất
-                        LEGAL_DEFERMENT_REASONS[2], // Con bệnh binh
-                        LEGAL_DEFERMENT_REASONS[3], // Có anh chị em tại ngũ
-                        LEGAL_DEFERMENT_REASONS[4], // Di dân
-                        LEGAL_DEFERMENT_REASONS[5]  // Cán bộ công chức vùng khó khăn
-                     ].includes(reason);
-                }
-
-                // 4. Dân quân thường trực
-                if (activeDeferredSubTab === 'DQTT') {
-                     return reason === LEGAL_DEFERMENT_REASONS[7];
-                }
+                if (activeDeferredSubTab === 'DQTT') return reason === LEGAL_DEFERMENT_REASONS[7];
                 
                 return true;
             });
         }
     }
 
+    // --- COMMON FILTERS ---
     if (filters.search) {
       const q = filters.search.toLowerCase();
       result = result.filter(r => r.fullName.toLowerCase().includes(q) || r.citizenId.includes(q));
@@ -211,6 +250,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
   const resetFilters = () => setFilters(initialFilters);
 
+  // Cập nhật nguồn từ năm trước (cũ)
   const handleTransferFromPreviousYear = async () => {
       if (isReadOnly) return;
       const prevYear = sessionYear - 1;
@@ -236,7 +276,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       
       let successCount = 0;
       for (const r of toCreate) {
-          // QUAN TRỌNG: Loại bỏ _id, createdAt, updatedAt của Mongo cũ để tránh lỗi Duplicate Key
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
 
@@ -246,6 +285,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
               recruitmentYear: sessionYear, 
               status: RecruitmentStatus.SOURCE, 
               defermentReason: '', 
+              defermentProof: '',
               enlistmentUnit: undefined, 
               enlistmentDate: undefined, 
               enlistmentType: undefined 
@@ -254,6 +294,81 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           successCount++;
       }
       alert(`Đã gửi yêu cầu cập nhật ${successCount} hồ sơ.`);
+  };
+
+  // Cập nhật nguồn CHO NĂM SAU (Mới)
+  const handleTransferToNextYear = async () => {
+      if (isReadOnly) return;
+      const nextYear = sessionYear + 1;
+      
+      // 1. Get potential recruits from current year
+      let currentYearRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
+      
+      // Filter by locality if not admin
+      if (!isAdmin) {
+          currentYearRecruits = currentYearRecruits.filter(r => r.address.commune === user.unit.commune);
+      } else {
+          if (filters.province) currentYearRecruits = currentYearRecruits.filter(r => r.address.province === filters.province);
+          if (filters.commune) currentYearRecruits = currentYearRecruits.filter(r => r.address.commune === filters.commune);
+      }
+
+      // 2. Filter eligible conditions
+      const eligibleToTransfer = currentYearRecruits.filter(r => {
+          const birthYear = parseInt(r.dob.split('-')[0] || '0');
+          const age = sessionYear - birthYear;
+          
+          // Condition A: 17 years old this year (turning 18 next year)
+          if (age === 17) return true;
+
+          // Condition B: Not Enlisted, Not Removed, Not Exempted
+          // Also check age >= 18 just to be safe (though <17 are not in recruits typically unless UNDER_18)
+          const isEligibleSource = age >= 18 && 
+                r.status !== RecruitmentStatus.ENLISTED && 
+                (r.status !== RecruitmentStatus.FINALIZED || r.enlistmentType === 'RESERVE') && // Allow Reserve to roll over
+                r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE && 
+                r.status !== RecruitmentStatus.EXEMPTED;
+
+          return isEligibleSource;
+      });
+
+      if (eligibleToTransfer.length === 0) { 
+          alert(`Không tìm thấy hồ sơ nào đủ điều kiện chuyển sang năm ${nextYear}.`); 
+          return; 
+      }
+
+      // 3. Check against existing next year recruits to avoid duplicates
+      const nextYearRecruits = recruits.filter(r => r.recruitmentYear === nextYear);
+      const existingCitizenIds = new Set(nextYearRecruits.map(r => r.citizenId));
+      
+      const toCreate = eligibleToTransfer.filter(r => !existingCitizenIds.has(r.citizenId));
+
+      if (toCreate.length === 0) { 
+          alert(`Tất cả hồ sơ đủ điều kiện đã có mặt trong dữ liệu năm ${nextYear}.`); 
+          return; 
+      }
+
+      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện (17 tuổi lên 18, nguồn còn lại...). Xác nhận chuyển sang nguồn năm ${nextYear}?`)) return;
+
+      let successCount = 0;
+      for (const r of toCreate) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
+
+          const newRecruit: Recruit = { 
+              ...cleanRecruitData, 
+              id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, 
+              recruitmentYear: nextYear, // SET TO NEXT YEAR
+              status: RecruitmentStatus.SOURCE, // RESET STATUS
+              defermentReason: '', 
+              defermentProof: '',
+              enlistmentUnit: undefined, 
+              enlistmentDate: undefined, 
+              enlistmentType: undefined 
+          };
+          onUpdate(newRecruit);
+          successCount++;
+      }
+      alert(`Đã chuyển thành công ${successCount} hồ sơ sang năm ${nextYear}.`);
   };
 
   const handleEdit = (recruit: Recruit) => {
@@ -265,11 +380,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
   const getStatusBadge = (status: RecruitmentStatus) => {
     switch (status) {
       case RecruitmentStatus.SOURCE: return <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-600">Nguồn</span>;
+      case RecruitmentStatus.NOT_SELECTED_TT50: return <span className="px-2 py-1 rounded text-xs font-bold bg-slate-100 text-slate-600">TT50</span>;
       case RecruitmentStatus.PRE_CHECK_PASSED: return <span className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-600">Đạt Sơ tuyển</span>;
       case RecruitmentStatus.PRE_CHECK_FAILED: return <span className="px-2 py-1 rounded text-xs font-bold bg-orange-100 text-orange-600">Rớt Sơ tuyển</span>;
       case RecruitmentStatus.MED_EXAM_PASSED: return <span className="px-2 py-1 rounded text-xs font-bold bg-indigo-100 text-indigo-600">Đạt Khám tuyển</span>;
       case RecruitmentStatus.MED_EXAM_FAILED: return <span className="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-600">Rớt Khám tuyển</span>;
-      case RecruitmentStatus.FINALIZED: return <span className="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-600">Bình cử</span>;
+      case RecruitmentStatus.FINALIZED: return <span className="px-2 py-1 rounded text-xs font-bold bg-green-100 text-green-600">Chốt hồ sơ</span>;
       case RecruitmentStatus.ENLISTED: return <span className="px-2 py-1 rounded text-xs font-bold bg-red-600 text-white">Đã nhập ngũ</span>;
       case RecruitmentStatus.DEFERRED: return <span className="px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-600">Tạm hoãn</span>;
       case RecruitmentStatus.EXEMPTED: return <span className="px-2 py-1 rounded text-xs font-bold bg-purple-100 text-purple-600">Miễn NVQS</span>;
@@ -284,6 +400,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       setActionType(type);
       setReasonInput('');
       setCustomReasonInput('');
+      setProofInput('');
       setShowActionModal(true);
   };
 
@@ -292,16 +409,27 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       let finalReason = reasonInput;
       if (actionType === 'REMOVE' || actionType === 'DELETE') {
           if (!reasonInput.trim()) { alert("Vui lòng nhập lý do cụ thể."); return; }
+      } else if (actionType === 'TT50') {
+          // No reason required usually for TT50 classification, or simple "Theo TT50"
+          finalReason = reasonInput || "Theo Thông tư 50";
       } else {
           if (reasonInput.startsWith('Khác') || !reasonInput) {
               if(!customReasonInput.trim()) { alert("Vui lòng nhập lý do cụ thể"); return; }
               finalReason = customReasonInput;
           }
       }
+
+      // Check for proof input if Policy reason
+      if (actionType === 'DEFER' && POLICY_DEFERMENT_REASONS.includes(finalReason) && !proofInput.trim()) {
+          alert("Vui lòng nhập văn bản chứng minh cho lý do chính sách này.");
+          return;
+      }
+
       switch (actionType) {
-          case 'DEFER': onUpdate({ ...selectedRecruit, status: RecruitmentStatus.DEFERRED, defermentReason: finalReason }); break;
-          case 'EXEMPT': onUpdate({ ...selectedRecruit, status: RecruitmentStatus.EXEMPTED, defermentReason: finalReason }); break;
+          case 'DEFER': onUpdate({ ...selectedRecruit, status: RecruitmentStatus.DEFERRED, defermentReason: finalReason, defermentProof: proofInput }); break;
+          case 'EXEMPT': onUpdate({ ...selectedRecruit, status: RecruitmentStatus.EXEMPTED, defermentReason: finalReason, defermentProof: proofInput }); break;
           case 'REMOVE': onUpdate({ ...selectedRecruit, status: RecruitmentStatus.REMOVED_FROM_SOURCE, defermentReason: finalReason }); break;
+          case 'TT50': onUpdate({ ...selectedRecruit, status: RecruitmentStatus.NOT_SELECTED_TT50, defermentReason: finalReason }); break;
           case 'DELETE': onDelete(selectedRecruit.id); break;
       }
       setShowActionModal(false); setSelectedRecruit(null); setActionType(null);
@@ -311,6 +439,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       const birthYear = parseInt(recruit.dob.split('-')[0] || '0');
       const age = sessionYear - birthYear;
       const isUnder18 = age < 18;
+      const healthGrade = recruit.physical.healthGrade || 0;
+      
+      const healthStyle = healthGrade === 1 ? 'bg-emerald-500' : 
+                          healthGrade === 2 ? 'bg-green-500' : 
+                          healthGrade === 3 ? 'bg-yellow-500' : 
+                          healthGrade >= 4 ? 'bg-red-500 ring-2 ring-red-200' : 'bg-gray-300';
+
       return (
           <tr key={recruit.id} className={`hover:bg-gray-50 group border-b border-gray-100 last:border-0 ${recruit.status === RecruitmentStatus.REMOVED_FROM_SOURCE ? 'bg-gray-50 opacity-60' : ''}`}>
               <td className="p-3 text-center text-gray-500 font-mono">{index + 1}</td>
@@ -318,6 +453,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                   <div className="font-bold text-gray-900 group-hover:text-military-700 transition-colors">{recruit.fullName}</div>
                   <div className="text-xs text-gray-500 font-mono">{recruit.citizenId || '---'}</div>
                   {isUnder18 && <span className="text-[10px] font-bold text-pink-600 border border-pink-200 bg-pink-50 px-1 rounded mt-1 inline-block">Chưa đủ 18 ({age}t)</span>}
+                  {/* Status Badge in Enlisted/Finalized List for context */}
+                  {activeTabId === 'FINAL' && recruit.enlistmentType === 'RESERVE' && (
+                      <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-1 rounded border border-blue-200 ml-1">Dự bị</span>
+                  )}
               </td>
               <td className="p-3">
                   <div className="text-sm font-semibold">{recruit.dob} <span className="text-gray-400 font-normal">({age} tuổi)</span></div>
@@ -325,87 +464,141 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
               </td>
               <td className="p-3">
                   <div className={`text-sm font-bold ${LOW_EDUCATION_GRADES.includes(recruit.details.education) ? 'text-orange-600' : 'text-gray-700'}`}>{recruit.details.education}</div>
+                  {recruit.details.educationPeriod && (
+                      <div className="text-[10px] text-blue-600 font-bold">{recruit.details.educationPeriod}</div>
+                  )}
                   <div className="text-xs text-gray-500">{recruit.details.job || '---'}</div>
               </td>
               <td className="p-3 text-center">
-                  {recruit.physical.healthGrade ? (
-                      <span className={`inline-block w-8 h-8 leading-8 rounded-full font-bold text-white text-sm shadow-sm ${recruit.physical.healthGrade === 1 ? 'bg-emerald-500' : recruit.physical.healthGrade === 2 ? 'bg-green-500' : recruit.physical.healthGrade === 3 ? 'bg-yellow-500' : 'bg-red-500'}`}>{recruit.physical.healthGrade}</span>
-                  ) : <span className="text-gray-300">--</span>}
-                  {recruit.physical.bmi > 0 && <div className={`text-[10px] font-bold mt-1 ${recruit.physical.bmi < 18.5 || recruit.physical.bmi > 25 ? 'text-red-500' : 'text-green-600'}`}>BMI: {recruit.physical.bmi}</div>}
-              </td>
-              <td className="p-3 text-center">
-                  {getStatusBadge(recruit.status)}
-                  {(recruit.status === RecruitmentStatus.DEFERRED || recruit.status === RecruitmentStatus.EXEMPTED || recruit.status === RecruitmentStatus.REMOVED_FROM_SOURCE) && recruit.defermentReason && (
-                      <div className="text-[10px] text-gray-500 max-w-[150px] truncate mx-auto mt-1 italic" title={recruit.defermentReason}>{recruit.defermentReason}</div>
+                  {/* Logic đặc biệt cho tab Khám tuyển: Cho phép chọn nhanh Loại sức khỏe */}
+                  {activeTabId === 'MED_EXAM' && !isReadOnly ? (
+                      <div className="flex flex-col items-center">
+                          <select 
+                              className={`text-xs font-bold border rounded p-1 text-center cursor-pointer outline-none focus:ring-2 focus:ring-indigo-300 
+                                  ${healthGrade >= 1 && healthGrade <= 3 ? 'text-green-700 border-green-300 bg-green-50' : 
+                                    healthGrade >= 4 ? 'text-red-700 border-red-300 bg-red-50' : 'text-gray-600 border-gray-300'}`}
+                              value={healthGrade}
+                              onChange={(e) => {
+                                  const grade = Number(e.target.value);
+                                  // Logic tự động:
+                                  // 1,2,3 -> Đạt -> Chuyển vào DS Chốt hồ sơ (FINALIZED)
+                                  // 4,5,6 -> Hỏi xác nhận chuyển sang Tạm hoãn
+                                  if (grade >= 4) {
+                                      if(window.confirm(`Xác nhận xếp loại sức khỏe ${grade} và chuyển hồ sơ sang danh sách Tạm hoãn "Về sức khỏe"?`)) {
+                                          onUpdate({
+                                              ...recruit,
+                                              physical: { ...recruit.physical, healthGrade: grade },
+                                              status: RecruitmentStatus.DEFERRED,
+                                              defermentReason: `Sức khỏe loại ${grade}`,
+                                              defermentProof: '' 
+                                          });
+                                      }
+                                  } else if (grade >= 1) {
+                                      onUpdate({
+                                          ...recruit,
+                                          physical: { ...recruit.physical, healthGrade: grade },
+                                          status: RecruitmentStatus.FINALIZED, // MOVED TO FINALIZED
+                                          defermentReason: ''
+                                      });
+                                  } else {
+                                      onUpdate({ ...recruit, physical: { ...recruit.physical, healthGrade: 0 } });
+                                  }
+                              }}
+                          >
+                              <option value="0">-- PL --</option>
+                              <option value="1">Loại 1</option>
+                              <option value="2">Loại 2</option>
+                              <option value="3">Loại 3</option>
+                              <option value="4">Loại 4</option>
+                              <option value="5">Loại 5</option>
+                              <option value="6">Loại 6</option>
+                          </select>
+                          {recruit.physical.bmi > 0 && <div className={`text-[9px] font-bold mt-1 ${recruit.physical.bmi < 18.5 || recruit.physical.bmi > 25 ? 'text-red-500' : 'text-gray-400'}`}>BMI: {recruit.physical.bmi}</div>}
+                      </div>
+                  ) : (
+                      <>
+                        {healthGrade > 0 ? (
+                            <span className={`inline-block w-8 h-8 leading-8 rounded-full font-bold text-white text-sm shadow-sm ${healthStyle}`}>{healthGrade}</span>
+                        ) : <span className="text-gray-300">--</span>}
+                      </>
                   )}
               </td>
+              
+              {/* STATUS OR SPECIFIC COLUMNS */}
+              {activeTabId === 'ENLISTED' ? (
+                  <>
+                      <td className="p-3 w-40">
+                          {isReadOnly ? (
+                              <span className="text-sm font-bold text-gray-800">{recruit.enlistmentUnit || '---'}</span>
+                          ) : (
+                              <EnlistmentUnitInput value={recruit.enlistmentUnit || ''} onSave={(val) => onUpdate({...recruit, enlistmentUnit: val})} />
+                          )}
+                      </td>
+                      <td className="p-3 w-32">
+                          {isReadOnly ? (
+                              <span className="text-sm text-gray-800">{recruit.enlistmentDate ? new Date(recruit.enlistmentDate).toLocaleDateString('vi-VN') : '---'}</span>
+                          ) : (
+                              <EnlistmentDateInput value={recruit.enlistmentDate || ''} onSave={(val) => onUpdate({...recruit, enlistmentDate: val})} />
+                          )}
+                      </td>
+                  </>
+              ) : (
+                  <td className="p-3 text-center">
+                      {getStatusBadge(recruit.status)}
+                      {(recruit.status === RecruitmentStatus.DEFERRED || recruit.status === RecruitmentStatus.EXEMPTED || recruit.status === RecruitmentStatus.REMOVED_FROM_SOURCE || recruit.status === RecruitmentStatus.NOT_SELECTED_TT50) && recruit.defermentReason && (
+                          <div className="text-[10px] text-gray-500 max-w-[150px] truncate mx-auto mt-1 italic" title={recruit.defermentReason}>{recruit.defermentReason}</div>
+                      )}
+                      {recruit.defermentProof && (
+                          <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 mt-1 max-w-[150px] truncate mx-auto" title={recruit.defermentProof}>
+                              MC: {recruit.defermentProof}
+                          </div>
+                      )}
+                  </td>
+              )}
+
               <td className="p-3">
-                  <div className={`flex items-center justify-center gap-2 ${activeTabId !== 'ENLISTED' ? 'opacity-0 group-hover:opacity-100 transition-opacity' : ''}`}>
+                  <div className={`flex items-center justify-center gap-2 ${activeTabId !== 'ENLISTED' && activeTabId !== 'FINAL' ? 'opacity-0 group-hover:opacity-100 transition-opacity' : ''}`}>
                       {activeTabId === 'ALL' && (
                         <>
                             <button onClick={() => handleEdit(recruit)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title={isReadOnly ? "Xem chi tiết" : "Chỉnh sửa"}>{isReadOnly ? <ClipboardList size={18} /> : <FileEdit size={18} />}</button>
                             {!isReadOnly && (
                                 <>
                                     {recruit.status !== RecruitmentStatus.REMOVED_FROM_SOURCE && recruit.status !== RecruitmentStatus.ENLISTED && (
-                                        <button onClick={() => { if (recruit.status === RecruitmentStatus.DEFERRED) { if(window.confirm(`Xác nhận đưa công dân ${recruit.fullName} ra khỏi danh sách Tạm hoãn?`)) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: ''}); } else openActionModal(recruit, 'DEFER'); }} className={`p-1.5 rounded transition-colors ${recruit.status === RecruitmentStatus.DEFERRED ? 'bg-amber-100 text-amber-700 shadow-sm ring-1 ring-amber-200' : 'text-amber-600 hover:bg-amber-50'}`} title={recruit.status === RecruitmentStatus.DEFERRED ? "Đang tạm hoãn" : "Tạm hoãn nguồn"}><PauseCircle size={18} fill={recruit.status === RecruitmentStatus.DEFERRED ? "currentColor" : "none"} /></button>
-                                    )}
-                                    {recruit.status !== RecruitmentStatus.REMOVED_FROM_SOURCE && recruit.status !== RecruitmentStatus.ENLISTED && (
-                                        <button onClick={() => { if (recruit.status === RecruitmentStatus.EXEMPTED) { if(window.confirm(`Xác nhận đưa công dân ${recruit.fullName} ra khỏi danh sách Miễn?`)) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: ''}); } else openActionModal(recruit, 'EXEMPT'); }} className={`p-1.5 rounded transition-colors ${recruit.status === RecruitmentStatus.EXEMPTED ? 'bg-purple-100 text-purple-700 shadow-sm ring-1 ring-purple-200' : 'text-purple-600 hover:bg-purple-50'}`} title={recruit.status === RecruitmentStatus.EXEMPTED ? "Đang miễn" : "Miễn NVQS"}><ShieldCheck size={18} fill={recruit.status === RecruitmentStatus.EXEMPTED ? "currentColor" : "none"} /></button>
+                                        <>
+                                            <button onClick={() => { if (recruit.status === RecruitmentStatus.DEFERRED) { if(window.confirm(`Xác nhận đưa công dân ${recruit.fullName} ra khỏi danh sách Tạm hoãn?`)) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', defermentProof: ''}); } else openActionModal(recruit, 'DEFER'); }} className={`p-1.5 rounded transition-colors ${recruit.status === RecruitmentStatus.DEFERRED ? 'bg-amber-100 text-amber-700 shadow-sm ring-1 ring-amber-200' : 'text-amber-600 hover:bg-amber-50'}`} title={recruit.status === RecruitmentStatus.DEFERRED ? "Đang tạm hoãn" : "Tạm hoãn nguồn"}><PauseCircle size={18} fill={recruit.status === RecruitmentStatus.DEFERRED ? "currentColor" : "none"} /></button>
+                                            <button onClick={() => { if (recruit.status === RecruitmentStatus.EXEMPTED) { if(window.confirm(`Xác nhận đưa công dân ${recruit.fullName} ra khỏi danh sách Miễn?`)) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', defermentProof: ''}); } else openActionModal(recruit, 'EXEMPT'); }} className={`p-1.5 rounded transition-colors ${recruit.status === RecruitmentStatus.EXEMPTED ? 'bg-purple-100 text-purple-700 shadow-sm ring-1 ring-purple-200' : 'text-purple-600 hover:bg-purple-50'}`} title={recruit.status === RecruitmentStatus.EXEMPTED ? "Đang miễn" : "Miễn NVQS"}><ShieldCheck size={18} fill={recruit.status === RecruitmentStatus.EXEMPTED ? "currentColor" : "none"} /></button>
+                                            <button onClick={() => { if (recruit.status === RecruitmentStatus.NOT_SELECTED_TT50) { if(window.confirm(`Xác nhận đưa công dân ${recruit.fullName} ra khỏi danh sách TT50?`)) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: ''}); } else openActionModal(recruit, 'TT50'); }} className={`p-1.5 rounded transition-colors ${recruit.status === RecruitmentStatus.NOT_SELECTED_TT50 ? 'bg-slate-100 text-slate-700 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-slate-50'}`} title="Không tuyển chọn (TT50)"><BookX size={18} /></button>
+                                        </>
                                     )}
                                     {recruit.status !== RecruitmentStatus.REMOVED_FROM_SOURCE ? (
                                         <button onClick={() => openActionModal(recruit, 'REMOVE')} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded" title="Loại khỏi nguồn"><UserX size={18} /></button>
                                     ) : (
-                                        <button onClick={() => { if(window.confirm("Khôi phục về danh sách nguồn?")) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: ''}) }} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded bg-teal-50 ring-1 ring-teal-200" title="Khôi phục về Nguồn"><RotateCcw size={18} /></button>
+                                        <button onClick={() => { if(window.confirm("Khôi phục về danh sách nguồn?")) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', defermentProof: ''}) }} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded bg-teal-50 ring-1 ring-teal-200" title="Khôi phục về Nguồn"><RotateCcw size={18} /></button>
                                     )}
                                     <button onClick={() => openActionModal(recruit, 'DELETE')} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Xóa vĩnh viễn"><Trash2 size={18} /></button>
                                 </>
                             )}
                         </>
                       )}
-                      {activeTabId === 'PRE_CHECK' && !isReadOnly && (
-                        <>
-                            {(recruit.status as RecruitmentStatus) === RecruitmentStatus.PRE_CHECK_FAILED ? (
-                                <button onClick={() => { if(window.confirm("Khôi phục về trạng thái Nguồn ban đầu?")) onUpdate({...recruit, status: RecruitmentStatus.SOURCE}) }} className="px-3 py-1.5 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 flex items-center gap-1 text-xs font-bold" title="Khôi phục lại Nguồn"><RotateCcw size={14} /> Khôi phục</button>
-                            ) : (
-                                <>
-                                    <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.PRE_CHECK_PASSED})} className={`p-1.5 rounded transition-colors ${recruit.status === RecruitmentStatus.PRE_CHECK_PASSED ? 'bg-blue-100 text-blue-700 font-bold ring-1 ring-blue-300' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`} title="Đạt Sơ tuyển"><CheckCircle2 size={20} fill={recruit.status === RecruitmentStatus.PRE_CHECK_PASSED ? "currentColor" : "none"} className={recruit.status === RecruitmentStatus.PRE_CHECK_PASSED ? "text-blue-600" : ""} /></button>
-                                    <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.PRE_CHECK_FAILED})} className={`p-1.5 rounded transition-colors ${(recruit.status as RecruitmentStatus) === RecruitmentStatus.PRE_CHECK_FAILED ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'}`} title="Không đạt Sơ tuyển"><XCircle size={20} fill={recruit.status === RecruitmentStatus.PRE_CHECK_FAILED ? "currentColor" : "none"} className={recruit.status === RecruitmentStatus.PRE_CHECK_FAILED ? "text-orange-600" : ""} /></button>
-                                </>
-                            )}
-                        </>
-                      )}
-                      {activeTabId === 'MED_EXAM' && !isReadOnly && (
-                        <>
-                            {(recruit.status as RecruitmentStatus) === RecruitmentStatus.MED_EXAM_FAILED ? (
-                                <button onClick={() => { if(window.confirm("Khôi phục về trạng thái Đạt Sơ tuyển (để khám lại)?")) onUpdate({...recruit, status: RecruitmentStatus.PRE_CHECK_PASSED}) }} className="px-3 py-1.5 rounded bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 flex items-center gap-1 text-xs font-bold" title="Khôi phục về Đạt Sơ tuyển"><RotateCcw size={14} /> Khôi phục</button>
-                            ) : (
-                                <>
-                                    <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.MED_EXAM_PASSED})} className={`p-1.5 rounded transition-colors ${recruit.status === RecruitmentStatus.MED_EXAM_PASSED ? 'bg-indigo-100 text-indigo-700 font-bold ring-1 ring-indigo-300' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`} title="Đạt Khám tuyển"><Stethoscope size={20} className={recruit.status === RecruitmentStatus.MED_EXAM_PASSED ? "text-indigo-600" : ""} /></button>
-                                    <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.MED_EXAM_FAILED})} className={`p-1.5 rounded transition-colors ${(recruit.status as RecruitmentStatus) === RecruitmentStatus.MED_EXAM_FAILED ? 'bg-red-100 text-red-700 font-bold' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`} title="Không đạt Khám tuyển"><AlertTriangle size={20} className={recruit.status === RecruitmentStatus.MED_EXAM_FAILED ? "text-red-600" : ""} /></button>
-                                </>
-                            )}
-                        </>
-                      )}
+                      
                       {activeTabId === 'FINAL' && !isReadOnly && (
-                        <>
-                            <button onClick={() => { if(window.confirm(`Xác nhận CHỐT danh sách nhập ngũ đối với ${recruit.fullName}?`)) onUpdate({...recruit, status: RecruitmentStatus.ENLISTED}) }} className={`px-3 py-1.5 rounded transition-colors flex items-center gap-1 text-xs font-bold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 hover:border-green-300`} title="Chốt danh sách nhập ngũ"><Check size={14} /> Chốt Nhập ngũ</button>
-                            <button onClick={() => { if(window.confirm(`Xác nhận KHÔNG CHỐT (trả về nguồn còn lại) đối với ${recruit.fullName}?`)) onUpdate({...recruit, status: RecruitmentStatus.SOURCE}) }} className={`px-3 py-1.5 rounded transition-colors flex items-center gap-1 text-xs font-bold bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100`} title="Không chốt (Trả về nguồn)"><X size={14} /> Không chốt</button>
-                        </>
+                        <div className="flex bg-gray-100 rounded p-0.5 border border-gray-200 gap-1">
+                            <button onClick={() => { if(window.confirm(`Xác nhận CHÍNH THỨC nhập ngũ đối với ${recruit.fullName}? (Chuyển sang DS Nhập ngũ)`)) onUpdate({...recruit, status: RecruitmentStatus.ENLISTED, enlistmentType: 'OFFICIAL'}) }} className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${recruit.enlistmentType === 'OFFICIAL' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>Chính thức</button>
+                            <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.FINALIZED, enlistmentType: 'RESERVE'})} className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${recruit.enlistmentType === 'RESERVE' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600'}`}>Dự bị</button>
+                        </div>
                       )}
-                      {activeTabId === 'ENLISTED' && !isReadOnly && (
-                          <div className="flex flex-col gap-2 w-full max-w-[200px]">
-                              <EnlistmentUnitInput 
-                                  value={recruit.enlistmentUnit || ''} 
-                                  onSave={(val) => onUpdate({...recruit, enlistmentUnit: val})} 
-                              />
-                              <div className="flex bg-gray-100 rounded p-0.5 border border-gray-200">
-                                  <button onClick={() => onUpdate({...recruit, enlistmentType: 'OFFICIAL'})} className={`flex-1 text-[10px] font-bold py-1 rounded transition-all ${recruit.enlistmentType !== 'RESERVE' ? 'bg-white text-red-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Chính thức</button>
-                                  <button onClick={() => onUpdate({...recruit, enlistmentType: 'RESERVE'})} className={`flex-1 text-[10px] font-bold py-1 rounded transition-all ${recruit.enlistmentType === 'RESERVE' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Dự bị</button>
-                              </div>
-                          </div>
-                      )}
-                      {['DEFERRED_LIST', 'EXEMPTED_LIST', 'REMOVED', 'POST_PRE_CHECK_DEFERRED', 'POST_MED_EXAM_DEFERRED'].includes(activeTabId || '') && !isReadOnly && (
-                           <button onClick={() => { if(window.confirm("Khôi phục hồ sơ về trạng thái Nguồn ban đầu?")) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: ''}) }} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded bg-teal-50 ring-1 ring-teal-200 flex items-center gap-1 px-2" title="Khôi phục về Nguồn"><RotateCcw size={16} /> <span className="text-xs font-bold">Khôi phục</span></button>
+
+                      {/* Other tab logics remain similar, compacted for brevity */}
+                      {['PRE_CHECK', 'MED_EXAM', 'TT50', 'DEFERRED_LIST', 'EXEMPTED_LIST', 'REMOVED', 'ENLISTED', 'REMAINING'].includes(activeTabId || '') && !isReadOnly && activeTabId !== 'FINAL' && (
+                           <>
+                                {activeTabId === 'PRE_CHECK' && (
+                                    <>
+                                        <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.PRE_CHECK_PASSED})} className={`p-1.5 rounded ${recruit.status === RecruitmentStatus.PRE_CHECK_PASSED ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-blue-600'}`}><CheckCircle2 size={18} /></button>
+                                        <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.PRE_CHECK_FAILED})} className={`p-1.5 rounded ${(recruit.status as RecruitmentStatus) === RecruitmentStatus.PRE_CHECK_FAILED ? 'bg-orange-100 text-orange-700' : 'text-gray-400 hover:text-orange-600'}`}><XCircle size={18} /></button>
+                                    </>
+                                )}
+                                <button onClick={() => { if(window.confirm("Khôi phục hồ sơ về trạng thái Nguồn ban đầu?")) onUpdate({...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', defermentProof: '', enlistmentType: undefined, enlistmentDate: undefined, enlistmentUnit: undefined}) }} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded bg-teal-50 ring-1 ring-teal-200 flex items-center gap-1 px-2" title="Khôi phục về Nguồn"><RotateCcw size={16} /></button>
+                           </>
                       )}
                   </div>
               </td>
@@ -419,8 +612,15 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           <th className="p-3 border-b">Họ tên / CCCD</th>
           <th className="p-3 border-b">Ngày sinh / Địa chỉ</th>
           <th className="p-3 border-b">Học vấn / Nghề nghiệp</th>
-          <th className="p-3 border-b text-center">Sức khỏe</th>
-          <th className="p-3 border-b text-center">Trạng thái</th>
+          <th className="p-3 border-b text-center">Sức khỏe {activeTabId === 'MED_EXAM' && '(Phân loại)'}</th>
+          {activeTabId === 'ENLISTED' ? (
+              <>
+                  <th className="p-3 border-b text-left">Đơn vị nhập ngũ</th>
+                  <th className="p-3 border-b text-left">Ngày nhập ngũ</th>
+              </>
+          ) : (
+              <th className="p-3 border-b text-center">Trạng thái</th>
+          )}
           <th className="p-3 border-b text-center w-32">Thao tác</th>
       </tr>
   );
@@ -429,16 +629,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {!!user.isLocked && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-3 shadow-sm mb-4"><Lock size={20} className="shrink-0" /><div><p className="font-bold text-sm">Tài khoản đã bị vô hiệu hóa chức năng nhập liệu</p><p className="text-xs">Bạn chỉ có thể xem dữ liệu. Vui lòng liên hệ Quản trị viên để được mở khóa.</p></div></div>}
       <div className="flex flex-col lg:flex-row gap-6">
-          <div className="lg:w-64 shrink-0">
-              <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200 sticky top-4">
-                  <div className="flex lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+          <div className="lg:w-72 shrink-0">
+              <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200 sticky top-4 max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar">
+                  <div className="flex lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
                       {TABS.map(tab => {
                           const isActive = activeTabId === tab.id;
                           const Icon = tab.icon;
                           return (
-                              <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap w-full text-left group ${isActive ? `${tab.color} text-white shadow-md` : 'bg-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
+                              <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-bold transition-all whitespace-nowrap w-full text-left group border ${isActive ? `${tab.color} ${tab.borderColor} text-white shadow-md` : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}>
                                   <Icon size={18} className={!isActive ? "text-gray-400 group-hover:text-gray-600" : ""} /> 
-                                  <span className="flex-1">{tab.label}</span>
+                                  <span className="flex-1 truncate">{tab.label}</span>
                                   {isActive && <ChevronRight size={16} className="hidden lg:block opacity-50" />}
                               </button>
                           );
@@ -450,12 +650,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div><h2 className="text-lg font-bold text-gray-900 uppercase">{TABS.find(t => t.id === activeTabId)?.label}</h2><p className="text-xs text-gray-500">Quản lý danh sách và hồ sơ chi tiết</p></div>
                   {!isReadOnly && activeTabId === 'ALL' && (
-                      <div className="flex gap-2 w-full md:w-auto">
-                          <button onClick={handleTransferFromPreviousYear} className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 shadow-md font-bold text-sm transition-transform active:scale-95 w-full md:w-auto justify-center"><ArchiveRestore size={18} /> Cập nhật nguồn {sessionYear - 1}</button>
-                          <button onClick={() => { setEditingRecruit(undefined); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-military-600 text-white rounded-lg hover:bg-military-700 shadow-md font-bold text-sm transition-transform active:scale-95 w-full md:w-auto justify-center"><Plus size={18} /> Bổ sung nguồn</button>
+                      <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                          <button onClick={handleTransferFromPreviousYear} className="flex items-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 shadow-md font-bold text-xs transition-transform active:scale-95"><ArchiveRestore size={16} /> Cập nhật nguồn {sessionYear - 1}</button>
+                          <button onClick={handleTransferToNextYear} className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-md font-bold text-xs transition-transform active:scale-95"><ArrowRightCircle size={16} /> Chuyển nguồn sang {sessionYear + 1}</button>
+                          <button onClick={() => { setEditingRecruit(undefined); setShowForm(true); }} className="flex items-center gap-2 px-3 py-2 bg-military-600 text-white rounded-lg hover:bg-military-700 shadow-md font-bold text-xs transition-transform active:scale-95"><Plus size={16} /> Bổ sung nguồn</button>
                       </div>
                   )}
               </div>
+              {/* ... (Rest of the component remains the same) */}
               {activeTabId === 'DEFERRED_LIST' && (
                   <div className="flex flex-wrap gap-2 mb-4 bg-amber-50 p-2 rounded-lg border border-amber-100">
                       {DEFERRED_SUB_TABS.map(sub => (
@@ -525,23 +727,71 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       {showActionModal && actionType && selectedRecruit && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
               <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-                  <h3 className={`text-lg font-bold mb-2 flex items-center gap-2 ${actionType === 'DEFER' ? 'text-amber-700' : actionType === 'EXEMPT' ? 'text-purple-700' : actionType === 'REMOVE' ? 'text-orange-700' : 'text-red-700'}`}>{actionType === 'DEFER' && <PauseCircle />}{actionType === 'EXEMPT' && <ShieldCheck />}{actionType === 'REMOVE' && <UserX />}{actionType === 'DELETE' && <AlertTriangle />}{actionType === 'DEFER' && 'Xét duyệt Tạm hoãn'}{actionType === 'EXEMPT' && 'Xét duyệt Miễn NVQS'}{actionType === 'REMOVE' && 'Loại khỏi nguồn'}{actionType === 'DELETE' && 'Xóa vĩnh viễn hồ sơ'}</h3>
+                  <h3 className={`text-lg font-bold mb-2 flex items-center gap-2 ${actionType === 'DEFER' ? 'text-amber-700' : actionType === 'EXEMPT' ? 'text-purple-700' : actionType === 'REMOVE' ? 'text-orange-700' : actionType === 'TT50' ? 'text-slate-700' : 'text-red-700'}`}>
+                      {actionType === 'DEFER' && <PauseCircle />}
+                      {actionType === 'EXEMPT' && <ShieldCheck />}
+                      {actionType === 'REMOVE' && <UserX />}
+                      {actionType === 'TT50' && <BookX />}
+                      {actionType === 'DELETE' && <AlertTriangle />}
+                      {actionType === 'DEFER' && 'Xét duyệt Tạm hoãn'}
+                      {actionType === 'EXEMPT' && 'Xét duyệt Miễn NVQS'}
+                      {actionType === 'REMOVE' && 'Loại khỏi nguồn'}
+                      {actionType === 'TT50' && 'Không tuyển chọn (TT50)'}
+                      {actionType === 'DELETE' && 'Xóa vĩnh viễn hồ sơ'}
+                  </h3>
                   <p className="text-sm text-gray-600 mb-4">Đối tượng: <strong>{selectedRecruit.fullName}</strong> - Năm sinh: {selectedRecruit.dob.split('-')[0]}</p>
                   <div className="space-y-4 mb-6">
                       {(actionType === 'DEFER' || actionType === 'EXEMPT') && (
                           <div className="space-y-2">
-                              <p className="text-xs font-bold uppercase text-gray-500">Chọn lý do pháp lý:</p>
-                              {(actionType === 'DEFER' ? LEGAL_DEFERMENT_REASONS : LEGAL_EXEMPTION_REASONS).map((reason, idx) => (
-                                  <label key={idx} className={`flex items-start gap-3 p-3 border rounded cursor-pointer transition-colors ${actionType === 'DEFER' ? 'hover:bg-amber-50' : 'hover:bg-purple-50'}`}><input type="radio" name="exceptionReason" className={`mt-1 ${actionType === 'DEFER' ? 'text-amber-600 focus:ring-amber-500' : 'text-purple-600 focus:ring-purple-500'}`} checked={reasonInput === reason} onChange={() => setReasonInput(reason)} /><span className="text-sm font-medium text-gray-800 leading-relaxed">{reason}</span></label>
-                              ))}
-                              {reasonInput.startsWith('Khác') && (<div className="pl-8 animate-in fade-in slide-in-from-top-1"><input type="text" autoFocus className={`w-full border rounded p-2 text-sm outline-none ${actionType === 'DEFER' ? 'border-amber-300 focus:ring-2 focus:ring-amber-500' : 'border-purple-300 focus:ring-2 focus:ring-purple-500'}`} placeholder="Nhập lý do cụ thể..." value={customReasonInput} onChange={(e) => setCustomReasonInput(e.target.value)} /></div>)}
+                              <p className="text-xs font-bold uppercase text-gray-500">Chọn lý do pháp lý hoặc nhập lý do:</p>
+                              {/* Reason Input with Suggestions */}
+                              <div className="relative">
+                                  <input 
+                                      list="action-reason-suggestions"
+                                      type="text"
+                                      placeholder="Chọn hoặc nhập lý do cụ thể..."
+                                      className={`w-full p-3 border rounded text-sm focus:ring-2 outline-none ${actionType === 'DEFER' ? 'border-amber-300 focus:ring-amber-500' : 'border-purple-300 focus:ring-purple-500'}`}
+                                      value={reasonInput}
+                                      onChange={(e) => setReasonInput(e.target.value)}
+                                  />
+                                  <datalist id="action-reason-suggestions">
+                                      {(actionType === 'DEFER' ? LEGAL_DEFERMENT_REASONS : LEGAL_EXEMPTION_REASONS).map((reason, idx) => (
+                                          <option key={idx} value={reason} />
+                                      ))}
+                                  </datalist>
+                              </div>
+                              <p className="text-[10px] text-gray-500 italic">* Cho phép nhập lý do sức khỏe cụ thể (VD: Gãy tay, Cận thị...)</p>
+                              
+                              {/* Show Proof Input if Policy Reason detected in Input */}
+                              {actionType === 'DEFER' && POLICY_DEFERMENT_REASONS.includes(reasonInput) && (
+                                  <div className="mt-2 animate-in fade-in slide-in-from-top-1">
+                                      <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                                          <FileText size={12} /> Văn bản chứng minh (Bắt buộc):
+                                      </label>
+                                      <input 
+                                          type="text"
+                                          required
+                                          placeholder="VD: Theo Quyết định số 123/QĐ-UBND..."
+                                          className="w-full p-2 border border-amber-300 rounded text-sm focus:ring-2 focus:ring-amber-500 bg-white"
+                                          value={proofInput}
+                                          onChange={(e) => setProofInput(e.target.value)}
+                                      />
+                                  </div>
+                              )}
                           </div>
                       )}
                       {(actionType === 'REMOVE' || actionType === 'DELETE') && (
                           <div><label className="block text-sm font-bold text-gray-700 mb-2">{actionType === 'REMOVE' ? 'Lý do loại khỏi nguồn:' : 'Lý do xóa vĩnh viễn (Bắt buộc):'}</label><textarea required rows={4} className={`w-full border rounded p-3 text-sm focus:ring-2 ${actionType === 'REMOVE' ? 'border-orange-300 focus:ring-orange-500' : 'border-red-300 focus:ring-red-500'}`} placeholder={actionType === 'REMOVE' ? "VD: Chuyển hộ khẩu đi nơi khác, chết, sai sót dữ liệu..." : "Nhập lý do xóa để lưu vết hệ thống..."} value={reasonInput} onChange={(e) => setReasonInput(e.target.value)}></textarea>{actionType === 'DELETE' && <p className="text-xs text-red-500 mt-2 italic flex items-center gap-1"><AlertTriangle size={12}/> Cảnh báo: Hành động này không thể hoàn tác!</p>}</div>
                       )}
+                      {actionType === 'TT50' && (
+                          <div>
+                              <p className="text-sm text-gray-700 mb-2">Xác nhận chuyển công dân vào danh sách <b>Không tuyển chọn chưa gọi nhập ngũ theo Thông tư 50</b>?</p>
+                              <label className="block text-xs font-bold text-gray-500 mb-1">Ghi chú (Tùy chọn):</label>
+                              <input type="text" className="w-full p-2 border rounded text-sm" placeholder="VD: Theo TT50" value={reasonInput} onChange={e => setReasonInput(e.target.value)} />
+                          </div>
+                      )}
                   </div>
-                  <div className="flex justify-end gap-3 border-t pt-4"><button onClick={() => setShowActionModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-bold">Hủy bỏ</button><button onClick={confirmAction} className={`px-4 py-2 text-white rounded font-bold shadow-sm ${actionType === 'DEFER' ? 'bg-amber-600 hover:bg-amber-700' : actionType === 'EXEMPT' ? 'bg-purple-600 hover:bg-purple-700' : actionType === 'REMOVE' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-red-600 hover:bg-red-700'}`}>Xác nhận</button></div>
+                  <div className="flex justify-end gap-3 border-t pt-4"><button onClick={() => setShowActionModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-bold">Hủy bỏ</button><button onClick={confirmAction} className={`px-4 py-2 text-white rounded font-bold shadow-sm ${actionType === 'DEFER' ? 'bg-amber-600 hover:bg-amber-700' : actionType === 'EXEMPT' ? 'bg-purple-600 hover:bg-purple-700' : actionType === 'REMOVE' ? 'bg-orange-600 hover:bg-orange-700' : actionType === 'TT50' ? 'bg-slate-600 hover:bg-slate-700' : 'bg-red-600 hover:bg-red-700'}`}>Xác nhận</button></div>
               </div>
           </div>
       )}

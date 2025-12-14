@@ -1,11 +1,12 @@
 
 export enum RecruitmentStatus {
   SOURCE = 'NGUON', // Nguồn công dân (Mới nhập)
+  NOT_SELECTED_TT50 = 'KHONG_TUYEN_CHON_TT50', // Không tuyển chọn, chưa gọi nhập ngũ (TT50)
   PRE_CHECK_PASSED = 'SO_KHAM_DAT', // Đạt sơ khám
   PRE_CHECK_FAILED = 'SO_KHAM_KHONG_DAT', // Không đạt sơ khám
   MED_EXAM_PASSED = 'KHAM_TUYEN_DAT', // Đạt khám tuyển
   MED_EXAM_FAILED = 'KHAM_TUYEN_KHONG_DAT', // Không đạt khám tuyển
-  FINALIZED = 'BINH_CU_CONG_KHAI', // Danh sách bình cử công khai
+  FINALIZED = 'BINH_CU_CONG_KHAI', // Danh sách bình cử công khai / Chốt hồ sơ
   ENLISTED = 'NHAP_NGU', // Đã chốt và phát lệnh nhập ngũ
   DEFERRED = 'TAM_HOAN', // Tạm hoãn
   EXEMPTED = 'MIEN_KHAM', // Miễn làm NVQS
@@ -63,6 +64,7 @@ export interface Recruit {
   };
   details: {
     education: string; // Trình độ học vấn
+    educationPeriod?: string; // Niên khóa (ví dụ: 2020-2022)
     ethnicity: string; // Dân tộc
     religion: string; // Tôn giáo
     maritalStatus: string; // Tình trạng hôn nhân
@@ -78,6 +80,7 @@ export interface Recruit {
   };
   status: RecruitmentStatus;
   defermentReason?: string; // Lý do tạm hoãn, miễn HOẶC lý do không đạt sức khỏe
+  defermentProof?: string; // Văn bản chứng minh (cho lý do chính sách)
   enlistmentUnit?: string; // Đơn vị nhập ngũ (khi đã chốt)
   enlistmentDate?: string; // Ngày nhập ngũ
   enlistmentType?: 'OFFICIAL' | 'RESERVE'; // 'OFFICIAL': Chính thức, 'RESERVE': Dự bị

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User } from '../types';
-import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS } from '../constants';
-import { X, Save, User as UserIcon, Users, MapPin, Home, Activity, Info, Tent, Calendar } from 'lucide-react';
+import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, POLICY_DEFERMENT_REASONS } from '../constants';
+import { X, Save, User as UserIcon, Users, MapPin, Home, Activity, Info, Tent, Calendar, FileText } from 'lucide-react';
 
 interface RecruitFormProps {
   initialData?: Recruit;
@@ -37,6 +38,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
     physical: { height: 0, weight: 0, bmi: 0, healthGrade: 0 },
     details: {
       education: 'Lớp 12', // Default reasonable value
+      educationPeriod: '',
       ethnicity: 'Kinh',
       religion: 'Không',
       maritalStatus: 'Độc thân',
@@ -54,7 +56,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
     recruitmentYear: sessionYear, // Mặc định theo sessionYear
     enlistmentUnit: '',
     enlistmentDate: '',
-    defermentReason: ''
+    defermentReason: '',
+    defermentProof: ''
   });
 
   // Check if locality is fixed based on user login
@@ -95,7 +98,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
         details: {
             ...initialData.details,
             politicalStatus: initialData.details.politicalStatus || 'None', // Default to None if undefined
-            partyEntryDate: initialData.details.partyEntryDate || ''
+            partyEntryDate: initialData.details.partyEntryDate || '',
+            educationPeriod: initialData.details.educationPeriod || ''
         },
         physical: {
             ...initialData.physical,
@@ -103,7 +107,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
         },
         enlistmentUnit: initialData.enlistmentUnit || '',
         enlistmentDate: initialData.enlistmentDate || '',
-        defermentReason: initialData.defermentReason || ''
+        defermentReason: initialData.defermentReason || '',
+        defermentProof: initialData.defermentProof || ''
       });
     } else {
         // Ensure new records allow follow sessionYear
@@ -160,22 +165,37 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
       );
   }, [formData.hometown.commune, hometownCommuneList]);
 
-  // Auto calculate BMI ONLY - Do NOT suggest Health Grade
+  // --- LOGIC TỰ ĐỘNG CHUYỂN TRẠNG THÁI ---
+  
+  // 1. Logic BMI: Tự động tính BMI và kiểm tra điều kiện hoãn
   useEffect(() => {
     if (formData.physical.height > 0 && formData.physical.weight > 0) {
       const heightInM = formData.physical.height / 100;
       const bmi = parseFloat((formData.physical.weight / (heightInM * heightInM)).toFixed(2));
       
-      // Update BMI only, keep healthGrade as is (user must select)
-      setFormData(prev => ({ 
-          ...prev, 
-          physical: { 
-              ...prev.physical, 
-              bmi
-          } 
-      }));
+      setFormData(prev => {
+          // Điều kiện BMI < 18 hoặc BMI > 29.9 -> Tự động hoãn
+          const isBadBMI = bmi < 18 || bmi > 29.9;
+          
+          let newStatus = prev.status;
+          let newReason = prev.defermentReason;
+
+          if (isBadBMI && prev.status !== RecruitmentStatus.ENLISTED && prev.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) {
+              newStatus = RecruitmentStatus.DEFERRED;
+              // Nếu chưa có lý do hoặc lý do cũ là lý do sức khỏe mặc định, cập nhật lý do mới
+              if (!newReason || newReason.includes("BMI")) {
+                   newReason = `Sức khỏe không đạt (BMI=${bmi})`;
+              }
+          }
+          
+          return { 
+              ...prev, 
+              physical: { ...prev.physical, bmi },
+              status: newStatus,
+              defermentReason: newReason
+          };
+      });
     } else {
-        // Reset if invalid input
         if(formData.physical.bmi !== 0) {
              setFormData(prev => ({ ...prev, physical: { ...prev.physical, bmi: 0 } }));
         }
@@ -187,24 +207,41 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
       const newData = { ...prev };
       const parts = field.split('.');
       
-      if (parts.length === 1) {
-         // @ts-ignore
-         newData[parts[0]] = value;
-      } else if (parts.length === 2) {
-         // @ts-ignore
-         newData[parts[0]] = { ...newData[parts[0]], [parts[1]]: value };
-      } else if (parts.length === 3) {
-         // @ts-ignore
-         newData[parts[0]] = {
-            // @ts-ignore
-            ...newData[parts[0]],
-            [parts[1]]: {
-                // @ts-ignore
-                ...newData[parts[0]][parts[1]],
-                [parts[2]]: value
-            }
-         };
+      // Update value logic (deep copy)
+      let target = newData;
+      for (let i = 0; i < parts.length - 1; i++) {
+        // @ts-ignore
+        target = target[parts[i]] = { ...target[parts[i]] };
       }
+      // @ts-ignore
+      target[parts[parts.length - 1]] = value;
+
+      // --- LOGIC 2: KIỂM TRA LOẠI SỨC KHỎE (4, 5, 6) -> Tự động chuyển Tạm hoãn ---
+      if (field === 'physical.healthGrade') {
+          const grade = Number(value);
+          // Trường hợp loại 4,5,6 tiếp tục chuyển về danh sách “tạm hoãn sức khỏe”.
+          if (grade >= 4 && newData.status !== RecruitmentStatus.ENLISTED && newData.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) {
+              newData.status = RecruitmentStatus.DEFERRED;
+              // Cập nhật lý do để lọt vào filter Sức khỏe
+              newData.defermentReason = `Sức khỏe loại ${grade}`;
+          }
+      }
+
+      // --- LOGIC 3: KIỂM TRA TRÌNH ĐỘ HỌC VẤN THẤP (< Lớp 7) ---
+      if (field === 'details.education') {
+          if (LOW_EDUCATION_GRADES.includes(value) && newData.status !== RecruitmentStatus.ENLISTED && newData.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) {
+              newData.status = RecruitmentStatus.DEFERRED;
+              newData.defermentReason = "Trình độ văn hóa thấp (Chưa hết lớp 7)";
+              // Clear period if switching away from higher ed
+              newData.details.educationPeriod = '';
+          } else {
+              // Clear period logic for standard cases
+              if (value !== 'Đang học CĐ' && value !== 'Đang học ĐH') {
+                  newData.details.educationPeriod = '';
+              }
+          }
+      }
+
       return newData;
     });
   };
@@ -234,10 +271,25 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
         alert("Vui lòng nhập lý do " + (formData.status === RecruitmentStatus.DEFERRED ? "tạm hoãn" : "miễn"));
         return;
     }
+
+    // Validation: Proof required for Policy reasons
+    if (formData.status === RecruitmentStatus.DEFERRED && POLICY_DEFERMENT_REASONS.includes(formData.defermentReason || '')) {
+        if (!formData.defermentProof || formData.defermentProof.trim() === '') {
+            alert("Vui lòng nhập văn bản chứng minh cho trường hợp hoãn về chính sách (VD: Số quyết định, ngày tháng...)");
+            return;
+        }
+    }
     
     // Validation: Require Party Date if Party Member
     if (formData.details.politicalStatus === 'Dang_Vien' && !formData.details.partyEntryDate) {
         alert("Vui lòng nhập ngày vào Đảng");
+        return;
+    }
+
+    // Validation: Require Education Period if studying CĐ/ĐH
+    const isStudyingHigherEd = formData.details.education === 'Đang học CĐ' || formData.details.education === 'Đang học ĐH';
+    if (isStudyingHigherEd && !formData.details.educationPeriod) {
+        alert("Vui lòng nhập Niên khóa (VD: 2023-2027) cho trường hợp đang đi học.");
         return;
     }
 
@@ -250,6 +302,9 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
       : formData.status === RecruitmentStatus.EXEMPTED 
           ? LEGAL_EXEMPTION_REASONS 
           : [];
+
+  const isStudyingHigherEd = formData.details.education === 'Đang học CĐ' || formData.details.education === 'Đang học ĐH';
+  const isPolicyReason = POLICY_DEFERMENT_REASONS.includes(formData.defermentReason || '');
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -524,12 +579,29 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
                     <select 
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-gray-900"
                         value={formData.details.education}
-                        onChange={(e) => handleChange('details.education', e.target.value)}
+                        onChange={(e) => {
+                            handleChange('details.education', e.target.value);
+                        }}
                     >
                         {EDUCATIONS.map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
                   </div>
-                  <div>
+                  
+                  {isStudyingHigherEd && (
+                      <div className="animate-in fade-in slide-in-from-top-1">
+                          <label className="block text-sm font-bold text-blue-700">Niên khóa (Bắt buộc)</label>
+                          <input 
+                              type="text" 
+                              required
+                              placeholder="VD: 2023-2027"
+                              className="mt-1 block w-full rounded-md border-blue-300 shadow-sm border p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
+                              value={formData.details.educationPeriod || ''}
+                              onChange={(e) => handleChange('details.educationPeriod', e.target.value)}
+                          />
+                      </div>
+                  )}
+
+                  <div className={isStudyingHigherEd ? "col-span-2" : ""}>
                     <label className="block text-sm font-bold text-gray-700">Công việc (Nhập tay)</label>
                     <input 
                         type="text" 
@@ -664,25 +736,40 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, user, onSubmit, 
                           <label className={`block text-sm font-bold mb-1 ${formData.status === RecruitmentStatus.DEFERRED ? 'text-amber-800' : 'text-purple-800'}`}>
                               Lý do {formData.status === RecruitmentStatus.DEFERRED ? 'Tạm hoãn' : 'Miễn'}:
                           </label>
-                          <select
-                            required
-                            className={`w-full p-2 border rounded text-sm focus:ring-2 ${formData.status === RecruitmentStatus.DEFERRED ? 'border-amber-300 focus:ring-amber-500' : 'border-purple-300 focus:ring-purple-500'}`}
-                            value={legalReasons.includes(formData.defermentReason || '') ? formData.defermentReason : 'Other'}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                if (val !== 'Other') handleChange('defermentReason', val);
-                                else handleChange('defermentReason', ''); // Clear for typing if we supported custom typing here, but dropdown is stricter
-                            }}
-                          >
-                              <option value="">-- Chọn lý do pháp lý --</option>
-                              {legalReasons.map((reason, idx) => (
-                                  <option key={idx} value={reason}>{reason}</option>
-                              ))}
-                          </select>
-                          {/* If current reason is not in the list (e.g. legacy data), show it */}
-                          {!legalReasons.includes(formData.defermentReason || '') && formData.defermentReason && (
-                              <div className="mt-2 text-xs italic text-gray-500">
-                                  Lý do hiện tại: {formData.defermentReason}
+                          <div className="relative">
+                            <input 
+                                list="reason-suggestions"
+                                required
+                                type="text"
+                                placeholder="Chọn hoặc nhập lý do cụ thể..."
+                                className={`w-full p-2 border rounded text-sm focus:ring-2 ${formData.status === RecruitmentStatus.DEFERRED ? 'border-amber-300 focus:ring-amber-500' : 'border-purple-300 focus:ring-purple-500'}`}
+                                value={formData.defermentReason || ''}
+                                onChange={(e) => handleChange('defermentReason', e.target.value)}
+                            />
+                            <datalist id="reason-suggestions">
+                                {legalReasons.map((reason, idx) => (
+                                    <option key={idx} value={reason} />
+                                ))}
+                            </datalist>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-1 italic">
+                              * Có thể chọn lý do pháp lý hoặc nhập lý do sức khỏe cụ thể (VD: Cận thị 5 độ, Gãy tay...)
+                          </p>
+
+                          {/* Policy Proof Input - Show ONLY if a policy reason is selected */}
+                          {isPolicyReason && (
+                              <div className="mt-3 animate-in fade-in slide-in-from-top-1">
+                                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                                      <FileText size={12} /> Văn bản chứng minh (Bắt buộc):
+                                  </label>
+                                  <input 
+                                      type="text"
+                                      required
+                                      placeholder="VD: Theo Quyết định số 123/QĐ-UBND ngày 20/10/2024..."
+                                      className="w-full p-2 border border-amber-300 rounded text-sm focus:ring-2 focus:ring-amber-500 bg-white"
+                                      value={formData.defermentProof || ''}
+                                      onChange={(e) => handleChange('defermentProof', e.target.value)}
+                                  />
                               </div>
                           )}
                       </div>

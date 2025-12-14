@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 
 const recruitSchema = new mongoose.Schema({
@@ -26,6 +27,7 @@ const recruitSchema = new mongoose.Schema({
   },
   details: {
     education: String,
+    educationPeriod: String,
     ethnicity: String,
     religion: String,
     maritalStatus: String,
@@ -53,6 +55,7 @@ const recruitSchema = new mongoose.Schema({
   },
   status: { type: String, required: true },
   defermentReason: String,
+  defermentProof: String, // Văn bản chứng minh (cho lý do chính sách)
   enlistmentUnit: String,
   enlistmentType: String, // 'OFFICIAL' or 'RESERVE'
   recruitmentYear: { type: Number, required: true }
