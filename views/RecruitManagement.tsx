@@ -218,6 +218,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
                 if (activeDeferredSubTab === 'POLICY') return POLICY_DEFERMENT_REASONS.includes(reason);
                 if (activeDeferredSubTab === 'HEALTH') {
+                    // Exclude Policy reasons that might contain keywords like "bệnh" (disease) e.g. "dịch bệnh"
+                    if (POLICY_DEFERMENT_REASONS.includes(reason)) return false;
+
                     const isLegalReason = reason === LEGAL_DEFERMENT_REASONS[0];
                     const isCustomReason = lowerReason.includes('sức khỏe') || lowerReason.includes('bệnh') || lowerReason.includes('tật') || lowerReason.includes('bmi') || lowerReason.includes('loại 4') || lowerReason.includes('loại 5') || lowerReason.includes('loại 6');
                     return isLegalReason || isCustomReason;
@@ -352,7 +355,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                 r.status !== RecruitmentStatus.ENLISTED && 
                 (r.status !== RecruitmentStatus.FINALIZED || r.enlistmentType === 'RESERVE') && 
                 r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE && 
-                r.status !== RecruitmentStatus.EXEMPTED &&
+                // r.status !== RecruitmentStatus.EXEMPTED && // Removed this line to allow exempted recruits to transfer
                 r.status !== RecruitmentStatus.NOT_ALLOWED_REGISTRATION &&
                 r.status !== RecruitmentStatus.EXEMPT_REGISTRATION;
 
@@ -374,20 +377,25 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           return; 
       }
 
-      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện (17 tuổi lên 18, nguồn còn lại...). Xác nhận chuyển sang nguồn năm ${nextYear}?`)) return;
+      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện (17 tuổi lên 18, nguồn còn lại, được miễn...). Xác nhận chuyển sang nguồn năm ${nextYear}?`)) return;
 
       let successCount = 0;
       for (const r of toCreate) {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
 
+          // Check if current status is Exempted
+          const isExempted = r.status === RecruitmentStatus.EXEMPTED;
+
           const newRecruit: Recruit = { 
               ...cleanRecruitData, 
               id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, 
               recruitmentYear: nextYear, 
-              status: RecruitmentStatus.SOURCE, 
-              defermentReason: '', 
-              defermentProof: '',
+              // If previously exempted, keep as exempted. Otherwise reset to Source.
+              status: isExempted ? RecruitmentStatus.EXEMPTED : RecruitmentStatus.SOURCE, 
+              // If exempted, keep the reason. Otherwise clear.
+              defermentReason: isExempted ? (r.defermentReason || '') : '', 
+              defermentProof: isExempted ? (r.defermentProof || '') : '',
               enlistmentUnit: undefined, 
               enlistmentDate: undefined, 
               enlistmentType: undefined 
