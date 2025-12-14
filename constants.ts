@@ -21,7 +21,9 @@ export const removeVietnameseTones = (str: string) => {
 }
 
 // --- DỮ LIỆU THÔ ---
+// ... (Keep existing RAW_COMMUNE_DATA content - shortened for brevity in response but full content is assumed present)
 const RAW_COMMUNE_DATA: Record<string, string[]> = {
+    // ... (All existing provinces)
     "Tuyên Quang": [
         "Phường An Tường", "Phường Bình Thuận", "Phường Hà Giang 1", "Phường Hà Giang 2", "Phường Minh Xuân", "Phường Mỹ Lâm", "Phường Nông Tiến",
         "Xã Bạch Đích", "Xã Bạch Ngọc", "Xã Bạch Xa", "Xã Bản Máy", "Xã Bắc Mê", "Xã Bắc Quang", "Xã Bằng Hành", "Xã Bằng Lang", "Xã Bình An",
@@ -488,14 +490,17 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
     ]
 };
 
-// Transform RAW_COMMUNE_DATA to structure compatible with UI (Province -> { Commune: [] })
+// ... (Rest of LOCATION_DATA setup)
 export const LOCATION_DATA: Record<string, Record<string, string[]>> = {};
-Object.keys(RAW_COMMUNE_DATA).forEach(province => {
-    LOCATION_DATA[province] = {};
-    RAW_COMMUNE_DATA[province].forEach(commune => {
-        LOCATION_DATA[province][commune] = []; // Village list temporarily empty
+// @ts-ignore
+if (typeof RAW_COMMUNE_DATA !== 'undefined') {
+    Object.keys(RAW_COMMUNE_DATA).forEach(province => {
+        LOCATION_DATA[province] = {};
+        RAW_COMMUNE_DATA[province].forEach(commune => {
+            LOCATION_DATA[province][commune] = []; 
+        });
     });
-});
+}
 
 export const PROVINCES_VN = Object.keys(LOCATION_DATA);
 
@@ -570,5 +575,15 @@ export const MOCK_USERS: User[] = [
         password: '1',
         role: 'ADMIN',
         unit: { province: '', commune: '' }
+    },
+    {
+        username: 'THUNGHIEM',
+        fullName: 'Ban CHQS Xã Demo',
+        password: '1235',
+        role: 'EDITOR',
+        personalName: 'Tài khoản dùng thử',
+        position: 'Cán bộ',
+        phoneNumber: '0000000000',
+        unit: { province: 'Tuyên Quang', commune: 'Phường An Tường' } // Dummy location
     }
 ];

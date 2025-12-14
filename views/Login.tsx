@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShieldAlert, LogIn, Key, UserCheck, UserPlus, Check, Eye, Edit3, MapPin, Phone, Briefcase, User as UserIcon } from 'lucide-react';
+import { ShieldAlert, LogIn, Key, UserCheck, UserPlus, Check, Eye, Edit3, MapPin, Phone, Briefcase, User as UserIcon, HelpCircle } from 'lucide-react';
 import { MOCK_USERS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones } from '../constants';
 import { User, UserRole } from '../types';
 
@@ -8,7 +9,7 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [mode, setMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT'>('LOGIN');
   
   // Login State
   const [username, setUsername] = useState('');
@@ -29,6 +30,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const [regAccountType, setRegAccountType] = useState<'1' | '2'>('1'); // 1: Editor, 2: Viewer
   const [successInfo, setSuccessInfo] = useState<{user: string, pass: string} | null>(null);
+
+  // Forgot Password State
+  const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotMsg, setForgotMsg] = useState('');
 
   // Derived Location Lists for Register
   const provinceList = PROVINCES_VN; // Use full list now
@@ -96,11 +101,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         return u;
     });
 
-    // Initialize if empty
-    if (!savedUsersStr || users.length === 0) {
-        users = MOCK_USERS;
-        hasChanges = true;
-    }
+    // Initialize with MOCK_USERS if needed or merge THUNGHIEM
+    MOCK_USERS.forEach(mockUser => {
+        if (!users.find(u => u.username === mockUser.username)) {
+            users.push(mockUser);
+            hasChanges = true;
+        }
+    });
 
     // Save back if fixed or initialized
     if (hasChanges) {
@@ -173,6 +180,27 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setRegAccountType('1');
   };
 
+  const handleForgotPassword = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!forgotUsername.trim()) return;
+
+      const users = getUsers();
+      const userIndex = users.findIndex(u => u.username === forgotUsername.trim());
+
+      if (userIndex !== -1) {
+          if (users[userIndex].role === 'ADMIN') {
+              setForgotMsg("Không thể yêu cầu reset mật khẩu cho ADMIN theo cách này.");
+              return;
+          }
+          // Set resetRequested flag
+          users[userIndex].resetRequested = true;
+          localStorage.setItem('military_users', JSON.stringify(users));
+          setForgotMsg("Đã gửi yêu cầu cấp lại mật khẩu tới Quản trị viên. Vui lòng liên hệ cấp trên để nhận mật khẩu mới.");
+      } else {
+          setForgotMsg("Không tìm thấy tài khoản này trong hệ thống.");
+      }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-military-900 overflow-hidden">
       
@@ -237,13 +265,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         <div className="flex border-b border-gray-200 bg-gray-50/50">
             <button 
-                onClick={() => { setMode('LOGIN'); setError(''); }}
+                onClick={() => { setMode('LOGIN'); setError(''); setForgotMsg(''); }}
                 className={`flex-1 py-3 font-bold text-xs uppercase tracking-wider transition-all ${mode === 'LOGIN' ? 'text-military-700 border-b-2 border-military-600 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
                 Đăng nhập
             </button>
             <button 
-                onClick={() => { setMode('REGISTER'); setError(''); }}
+                onClick={() => { setMode('REGISTER'); setError(''); setForgotMsg(''); }}
                  className={`flex-1 py-3 font-bold text-xs uppercase tracking-wider transition-all ${mode === 'REGISTER' ? 'text-military-700 border-b-2 border-military-600 bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
                 Đăng ký mới
@@ -257,7 +285,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
             )}
 
-            {mode === 'LOGIN' ? (
+            {mode === 'LOGIN' && (
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Tài khoản</label>
@@ -291,6 +319,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                         </div>
+                        <div className="text-right mt-2">
+                           <button type="button" onClick={() => setMode('FORGOT')} className="text-xs text-military-600 hover:text-military-800 hover:underline font-medium">Quên mật khẩu?</button>
+                        </div>
                     </div>
 
                     <button 
@@ -300,7 +331,44 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <LogIn className="mr-2 h-5 w-5" /> Đăng nhập hệ thống
                     </button>
                 </form>
-            ) : (
+            )}
+
+            {mode === 'FORGOT' && (
+                <div className="space-y-4 animate-in slide-in-from-right-2">
+                    <h3 className="text-sm font-bold text-gray-700 text-center uppercase mb-2">Yêu cầu cấp lại mật khẩu</h3>
+                    {forgotMsg ? (
+                        <div className={`p-3 rounded-md text-sm border text-center ${forgotMsg.includes("Đã gửi") ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                            {forgotMsg}
+                        </div>
+                    ) : (
+                        <form onSubmit={handleForgotPassword} className="space-y-4">
+                            <p className="text-xs text-gray-500">Nhập tên tài khoản của đơn vị. Yêu cầu sẽ được gửi tới Admin để xét duyệt cấp lại mật khẩu.</p>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Tài khoản</label>
+                                <input 
+                                    type="text" 
+                                    required
+                                    className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-military-500 text-gray-900"
+                                    placeholder="Nhập tài khoản cần khôi phục..."
+                                    value={forgotUsername}
+                                    onChange={(e) => setForgotUsername(e.target.value)}
+                                />
+                            </div>
+                            <button 
+                                type="submit" 
+                                className="w-full py-2 bg-amber-500 text-white rounded font-bold hover:bg-amber-600 shadow-sm"
+                            >
+                                Gửi yêu cầu
+                            </button>
+                        </form>
+                    )}
+                    <button onClick={() => { setMode('LOGIN'); setForgotMsg(''); }} className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium">
+                        Quay lại đăng nhập
+                    </button>
+                </div>
+            )}
+
+            {mode === 'REGISTER' && (
                 <form onSubmit={handleRegister} className="space-y-4">
                      <div className="bg-blue-50 p-3 rounded text-xs text-blue-800 mb-2 border border-blue-100 shadow-sm">
                         <ul className="list-disc pl-4 space-y-1">

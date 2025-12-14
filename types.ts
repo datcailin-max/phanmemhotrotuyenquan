@@ -27,8 +27,18 @@ export interface User {
     province: string;
     commune: string;
   };
-  pendingPassword?: string; // Mật khẩu mới đang chờ duyệt
+  pendingPassword?: string; // Mật khẩu mới đang chờ duyệt (Đổi MK)
+  resetRequested?: boolean; // Yêu cầu cấp lại mật khẩu (Quên MK)
   isLocked?: boolean; // Vô hiệu hóa nhập dữ liệu
+}
+
+export interface Feedback {
+    id: string;
+    username: string;
+    unitName: string;
+    content: string;
+    timestamp: number;
+    isRead: boolean;
 }
 
 export interface FamilyMember {
