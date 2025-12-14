@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../types';
 import { PROVINCES_VN, LOCATION_DATA } from '../constants';
@@ -177,7 +176,10 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     // yearRecruits đã lọc REMOVED_FROM_SOURCE
     const countTotalSource = yearRecruits.filter(r => {
          const birthYear = parseInt(r.dob.split('-')[0]);
-         return (sessionYear - birthYear) >= 18;
+         const isAdult = (sessionYear - birthYear) >= 18;
+         // Exclude special lists from the Total Count
+         const isExcluded = [RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(r.status);
+         return isAdult && !isExcluded;
     }).length;
 
     // 2. CHƯA ĐỦ 18
@@ -190,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     const countEligiblePreCheck = yearRecruits.filter(r => {
         const birthYear = parseInt(r.dob.split('-')[0]);
         const isAdult = (sessionYear - birthYear) >= 18;
-        const isExcluded = [RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED].includes(r.status);
+        const isExcluded = [RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(r.status);
         return isAdult && !isExcluded;
     }).length;
 

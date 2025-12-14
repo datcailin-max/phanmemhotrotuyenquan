@@ -32,7 +32,8 @@ import {
   Scale,
   ScrollText,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  UserPlus
 } from 'lucide-react';
 import { Recruit, User, ResearchDocument, ChatMessage, RecruitmentStatus, Feedback } from './types';
 import { INITIAL_RECRUITS } from './constants';
@@ -265,9 +266,14 @@ function App() {
     setIsAiThinking(true);
 
     try {
-        const relevantRecruits = user.role === 'ADMIN' 
-            ? recruits.filter(r => r.recruitmentYear === sessionYear) 
-            : recruits.filter(r => r.recruitmentYear === sessionYear && r.address.commune === user.unit.commune);
+        let relevantRecruits = recruits;
+        if (user.role === 'PROVINCE_ADMIN') {
+            relevantRecruits = recruits.filter(r => r.recruitmentYear === sessionYear && r.address.province === user.unit.province);
+        } else if (user.role !== 'ADMIN') {
+            relevantRecruits = recruits.filter(r => r.recruitmentYear === sessionYear && r.address.commune === user.unit.commune);
+        } else {
+            relevantRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
+        }
 
         const simplifiedData = relevantRecruits.map(r => ({
             status: r.status,
@@ -284,7 +290,7 @@ function App() {
         if (!apiKey) throw new Error("API Key not found");
         
         const ai = new GoogleGenAI({ apiKey: apiKey });
-        const systemInstruction = `Bạn là Trợ lý Tuyển quân ảo. Bạn đang hỗ trợ cán bộ tại ${user.unit.commune || 'địa phương'}. 
+        const systemInstruction = `Bạn là Trợ lý Tuyển quân ảo. Bạn đang hỗ trợ cán bộ tại ${user.role === 'ADMIN' ? 'Huyện/Tỉnh' : user.unit.commune || user.unit.province}. 
         Nhiệm vụ: Trả lời câu hỏi dựa trên dữ liệu JSON được cung cấp.
         Dữ liệu bao gồm các trường: status (trạng thái), dob (ngày sinh), edu (học vấn), health (loại sức khỏe), deferment (lý do hoãn/miễn).
         
@@ -322,6 +328,8 @@ function App() {
       const [allUsers, setAllUsers] = useState<User[]>(JSON.parse(localStorage.getItem('military_users') || '[]'));
       const pendingUsers = allUsers.filter(u => u.pendingPassword);
       const resetRequestUsers = allUsers.filter(u => u.resetRequested);
+      // Users pending approval
+      const unapprovedUsers = allUsers.filter(u => !u.isApproved);
 
       // Document Management State
       const [newDocTitle, setNewDocTitle] = useState('');
@@ -333,6 +341,16 @@ function App() {
       const refreshUsers = () => {
           setAllUsers(JSON.parse(localStorage.getItem('military_users') || '[]'));
           setAdminUpdateTrigger(prev => prev + 1);
+      };
+
+      const approveUserRegistration = (username: string) => {
+          const updatedUsers = allUsers.map(u => {
+              if (u.username === username) return { ...u, isApproved: true };
+              return u;
+          });
+          localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+          refreshUsers();
+          alert(`Đã duyệt tài khoản ${username}`);
       };
 
       const approvePassword = (username: string) => {
@@ -427,8 +445,36 @@ function App() {
           <div className="space-y-6 m-6">
               
               {/* NOTIFICATIONS SECTION */}
-              {(pendingUsers.length > 0 || resetRequestUsers.length > 0) && (
+              {(pendingUsers.length > 0 || resetRequestUsers.length > 0 || unapprovedUsers.length > 0) && (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* New User Approval */}
+                      {unapprovedUsers.length > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2 col-span-1 lg:col-span-2">
+                              <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
+                                  <UserPlus size={18} className="animate-pulse"/> Duyệt tài khoản đăng ký mới
+                              </h3>
+                              <div className="overflow-x-auto mt-2 bg-white rounded border border-blue-100 shadow-sm">
+                                  <table className="w-full text-left text-sm">
+                                      <thead className="bg-blue-100 text-xs text-blue-900 uppercase">
+                                          <tr><th className="p-2">Tài khoản</th><th className="p-2">Đơn vị</th><th className="p-2">Người đăng ký</th><th className="p-2 text-center">Xử lý</th></tr>
+                                      </thead>
+                                      <tbody>
+                                          {unapprovedUsers.map(u => (
+                                              <tr key={u.username} className="border-b border-gray-100 last:border-0">
+                                                  <td className="p-2 font-bold">{u.username}</td>
+                                                  <td className="p-2">{u.fullName}</td>
+                                                  <td className="p-2">{u.personalName} ({u.phoneNumber})</td>
+                                                  <td className="p-2 text-center">
+                                                      <button onClick={() => approveUserRegistration(u.username)} className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-blue-700 flex items-center gap-1 mx-auto"><Check size={14} /> Duyệt</button>
+                                                  </td>
+                                              </tr>
+                                          ))}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+                      )}
+
                       {/* Password Change Requests */}
                       {pendingUsers.length > 0 && (
                           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
@@ -548,15 +594,16 @@ function App() {
                   <div className="overflow-x-auto border border-gray-200 rounded-lg max-h-[500px] overflow-y-auto">
                       <table className="w-full text-left border-collapse">
                           <thead className="bg-gray-100 text-xs text-gray-600 uppercase sticky top-0">
-                              <tr><th className="p-3">TT</th><th className="p-3">Đơn vị</th><th className="p-3">Cán bộ</th><th className="p-3">SĐT</th><th className="p-3 text-center">Trạng thái</th><th className="p-3 text-center">Thao tác</th></tr>
+                              <tr><th className="p-3">TT</th><th className="p-3">Đơn vị</th><th className="p-3">Cán bộ</th><th className="p-3">SĐT</th><th className="p-3 text-center">Vai trò</th><th className="p-3 text-center">Trạng thái</th><th className="p-3 text-center">Thao tác</th></tr>
                           </thead>
                           <tbody className="text-sm divide-y divide-gray-100">
                               {allUsers.map((u, idx) => (
                                   <tr key={u.username} className={`hover:bg-gray-50 ${u.isLocked ? 'bg-red-50/50' : ''}`}>
                                       <td className="p-3 text-center text-gray-500">{idx + 1}</td>
-                                      <td className="p-3"><div className="font-bold">{u.unit.commune || 'ADMIN'}</div><div className="text-xs text-gray-500 font-mono">{u.username}</div></td>
+                                      <td className="p-3"><div className="font-bold">{u.fullName}</div><div className="text-xs text-gray-500 font-mono">{u.username}</div></td>
                                       <td className="p-3 font-medium">{u.personalName || '---'}</td>
                                       <td className="p-3 font-mono">{u.phoneNumber || '---'}</td>
+                                      <td className="p-3 text-center text-xs font-bold text-gray-600">{u.role === 'PROVINCE_ADMIN' ? 'Cấp Tỉnh' : u.role === 'ADMIN' ? 'ADMIN' : 'Cấp Xã'}</td>
                                       <td className="p-3 text-center">{u.isLocked ? <span className="text-xs font-bold text-red-600">Đã khóa</span> : <span className="text-xs font-bold text-green-600">Hoạt động</span>}</td>
                                       <td className="p-3"><div className="flex items-center justify-center gap-2"><button onClick={() => toggleLockUser(u.username, u.isLocked)} className={`p-1.5 rounded ${u.isLocked ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`} disabled={u.role === 'ADMIN'}>{u.isLocked ? <Unlock size={16}/> : <Lock size={16}/>}</button><button onClick={() => resetUserPassword(u.username)} className="p-1.5 rounded bg-amber-100 text-amber-700"><Key size={16}/></button></div></td>
                                   </tr>
@@ -601,7 +648,7 @@ function App() {
   const pendingRequestsCount = (() => {
       if (user.role !== 'ADMIN') return 0;
       const allUsers: User[] = JSON.parse(localStorage.getItem('military_users') || '[]');
-      return allUsers.filter(u => u.pendingPassword || u.resetRequested).length;
+      return allUsers.filter(u => u.pendingPassword || u.resetRequested || !u.isApproved).length;
   })();
 
   const SidebarContent = () => (
@@ -697,7 +744,7 @@ function App() {
                 <div className="w-8 h-8 rounded-full bg-military-600 flex items-center justify-center text-white font-bold border border-military-700 shrink-0">{user.username.substring(0,2).toUpperCase()}</div>
                 <div className="text-sm hidden md:block">
                     <p className="font-bold text-gray-900">{user.role === 'ADMIN' ? 'QUẢN TRỊ VIÊN' : user.fullName}</p>
-                    <p className="text-xs text-gray-600">{user.role === 'ADMIN' ? 'Cấp Huyện/Tỉnh' : `${user.unit.commune}, ${user.unit.province}`}</p>
+                    <p className="text-xs text-gray-600">{user.role === 'ADMIN' ? 'Cấp Huyện/Tỉnh' : user.role === 'PROVINCE_ADMIN' ? 'Bộ CHQS Tỉnh' : `${user.unit.commune}, ${user.unit.province}`}</p>
                 </div>
              </div>
           </div>

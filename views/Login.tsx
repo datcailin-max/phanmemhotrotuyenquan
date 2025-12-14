@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShieldAlert, LogIn, Key, UserCheck, UserPlus, Check, Eye, Edit3, MapPin, Phone, Briefcase, User as UserIcon, HelpCircle } from 'lucide-react';
+import { ShieldAlert, LogIn, Key, UserCheck, UserPlus, Check, Eye, Edit3, MapPin, Phone, Briefcase, User as UserIcon, HelpCircle, Landmark } from 'lucide-react';
 import { MOCK_USERS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones } from '../constants';
 import { User, UserRole } from '../types';
 
@@ -17,6 +17,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
 
   // Register State
+  const [regLevel, setRegLevel] = useState<'COMMUNE' | 'PROVINCE'>('COMMUNE');
   const [regProvince, setRegProvince] = useState('');
   const [regCommune, setRegCommune] = useState('');
   const [showCommuneSuggestions, setShowCommuneSuggestions] = useState(false);
@@ -64,27 +65,24 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [wrapperRef]);
 
-  // Auto-generate username when Commune or Account Type changes
+  // Auto-generate username logic
   useEffect(() => {
-    if (regCommune) {
-        // 1. Remove "Xã " or "Phường " prefix
+    if (regLevel === 'COMMUNE' && regCommune) {
         const rawName = regCommune.replace(/^(Xã|Phường)\s+/i, '');
-        // 2. Remove accents
         const noToneName = removeVietnameseTones(rawName);
-        // 3. Uppercase and Remove spaces
         const cleanName = noToneName.toUpperCase().replace(/\s+/g, '');
-        
-        // 4. Add Suffix based on type
         setRegUsername(cleanName + regAccountType);
-        
-        // Auto set display name if empty or default
         const roleDesc = regAccountType === '1' ? '(Cán bộ chuyên môn)' : '(Chỉ huy đơn vị)';
         setRegUnitName(`Ban CHQS ${regCommune} ${roleDesc}`);
-        
+    } else if (regLevel === 'PROVINCE' && regProvince) {
+        const noToneName = removeVietnameseTones(regProvince);
+        const cleanName = noToneName.toUpperCase().replace(/\s+/g, '');
+        setRegUsername(cleanName);
+        setRegUnitName(`Bộ CHQS Tỉnh ${regProvince}`);
     } else {
         setRegUsername('');
     }
-  }, [regCommune, regAccountType]);
+  }, [regCommune, regAccountType, regLevel, regProvince]);
 
   // Load users from LS or init
   const getUsers = () => {
@@ -97,6 +95,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         if (!u.role) {
             hasChanges = true;
             return { ...u, role: u.username === 'ADMIN' ? 'ADMIN' : 'EDITOR' };
+        }
+        if (u.isApproved === undefined) {
+            hasChanges = true;
+            return { ...u, isApproved: true }; // Existing users are approved by default
         }
         return u;
     });
@@ -123,6 +125,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const user = users.find((u: any) => u.username === username && u.password === password);
     
     if (user) {
+        if (!user.isApproved && user.role !== 'ADMIN') {
+            setError('Tài khoản chưa được duyệt đăng ký bởi ADMIN, vui lòng liên hệ người hỗ trợ: 4/Thới Hạ Sang, zalo: 0334429954');
+            return;
+        }
         onLogin(user);
     } else {
         setError('Tên đăng nhập hoặc mật khẩu không đúng');
@@ -131,7 +137,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regProvince || !regCommune || !regUsername || !regUnitName || !regPersonalName || !regPosition || !regPhone) {
+    if (!regProvince || (!regCommune && regLevel === 'COMMUNE') || !regUsername || !regUnitName || !regPersonalName || !regPosition || !regPhone) {
         setError("Vui lòng nhập đầy đủ thông tin");
         return;
     }
@@ -144,7 +150,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         return;
     }
 
-    const newRole: UserRole = regAccountType === '1' ? 'EDITOR' : 'VIEWER';
+    let newRole: UserRole;
+    if (regLevel === 'PROVINCE') {
+        newRole = 'PROVINCE_ADMIN';
+    } else {
+        newRole = regAccountType === '1' ? 'EDITOR' : 'VIEWER';
+    }
 
     const newUser: User = {
         username: regUsername,
@@ -156,8 +167,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         role: newRole,
         unit: {
             province: regProvince,
-            commune: regCommune
-        }
+            commune: regLevel === 'COMMUNE' ? regCommune : ''
+        },
+        isApproved: false // Requires approval
     };
 
     users.push(newUser);
@@ -241,8 +253,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <Check className="text-green-600 w-8 h-8" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">Đăng ký thành công!</h2>
-                <p className="text-gray-600 mb-6 text-sm">Vui lòng ghi nhớ thông tin đăng nhập bên dưới:</p>
-                
+                <div className="bg-yellow-50 border border-yellow-200 p-3 rounded mb-4 text-xs text-yellow-800">
+                    Tài khoản cần được ADMIN duyệt trước khi đăng nhập.
+                </div>
                 <div className="bg-gray-100 p-4 rounded-lg w-full mb-6 border border-gray-200">
                     <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
                         <span className="text-xs font-bold text-gray-500 uppercase">Tài khoản</span>
@@ -280,8 +293,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         <div className="p-8 max-h-[500px] overflow-y-auto custom-scrollbar">
             {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200 flex items-center gap-2 mb-4 animate-in slide-in-from-top-2">
-                    <ShieldAlert size={16} /> {error}
+                <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200 flex flex-col gap-1 mb-4 animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2"><ShieldAlert size={16} className="shrink-0"/> <span className="font-bold">Lỗi đăng nhập</span></div>
+                    <div className="text-xs ml-6">{error}</div>
                 </div>
             )}
 
@@ -373,9 +387,28 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                      <div className="bg-blue-50 p-3 rounded text-xs text-blue-800 mb-2 border border-blue-100 shadow-sm">
                         <ul className="list-disc pl-4 space-y-1">
                             <li>Mật khẩu mặc định: <b className="font-mono text-red-600">1</b></li>
-                            <li>Dữ liệu chỉ lưu trên máy cá nhân (không lưu Online)</li>
+                            <li>Dữ liệu cần ADMIN duyệt mới có thể đăng nhập</li>
                         </ul>
                     </div>
+
+                    {/* Level Selection */}
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                        <button
+                            type="button"
+                            onClick={() => { setRegLevel('COMMUNE'); setRegCommune(''); }}
+                            className={`flex items-center justify-center p-2 rounded text-xs font-bold border ${regLevel === 'COMMUNE' ? 'bg-military-600 text-white border-military-700' : 'bg-white text-gray-600 border-gray-300'}`}
+                        >
+                            <MapPin size={14} className="mr-1"/> Cấp Xã / Phường
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setRegLevel('PROVINCE'); setRegCommune(''); }}
+                            className={`flex items-center justify-center p-2 rounded text-xs font-bold border ${regLevel === 'PROVINCE' ? 'bg-red-700 text-white border-red-800' : 'bg-white text-gray-600 border-gray-300'}`}
+                        >
+                            <Landmark size={14} className="mr-1"/> Cấp Tỉnh (Bộ CHQS)
+                        </button>
+                    </div>
+
                      <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Chọn Tỉnh / Thành phố</label>
                         <select 
@@ -389,69 +422,73 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         </select>
                     </div>
 
-                    <div className="relative" ref={wrapperRef}>
-                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Xã / Phường</label>
-                        <input
-                            type="text"
-                            required
-                            disabled={!regProvince}
-                            placeholder={!regProvince ? "Vui lòng chọn Tỉnh trước" : "Nhập tên Xã/Phường (có gợi ý)..."}
-                            className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-military-500 text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
-                            value={regCommune}
-                            onChange={(e) => {
-                                setRegCommune(e.target.value);
-                                setShowCommuneSuggestions(true);
-                            }}
-                            onFocus={() => setShowCommuneSuggestions(true)}
-                        />
-                        {/* Suggestions Dropdown */}
-                        {showCommuneSuggestions && regProvince && (
-                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto custom-scrollbar">
-                                {communeList.length === 0 ? (
-                                    <div className="px-3 py-2 text-sm text-gray-500 italic">Không có dữ liệu gợi ý cho tỉnh này. Vui lòng tự nhập.</div>
-                                ) : filteredCommunes.length > 0 ? (
-                                    filteredCommunes.map((c, index) => (
-                                        <div 
-                                            key={index}
-                                            className="px-3 py-2 text-sm text-gray-800 hover:bg-military-50 cursor-pointer flex items-center gap-2 border-b border-gray-50 last:border-0"
-                                            onClick={() => {
-                                                setRegCommune(c);
-                                                setShowCommuneSuggestions(false);
-                                            }}
-                                        >
-                                            <MapPin size={12} className="text-military-400" />
-                                            {c}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="px-3 py-2 text-sm text-gray-500 italic">Không tìm thấy kết quả phù hợp</div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Account Type Selection */}
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Loại tài khoản</label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setRegAccountType('1')}
-                                className={`flex flex-col items-center justify-center p-2 rounded border-2 transition-all ${regAccountType === '1' ? 'border-military-600 bg-military-50 text-military-700 shadow-sm' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-                            >
-                                <Edit3 size={20} className="mb-1"/>
-                                <span className="text-xs font-bold text-center">TK 1<br/>(Nhập liệu)</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setRegAccountType('2')}
-                                className={`flex flex-col items-center justify-center p-2 rounded border-2 transition-all ${regAccountType === '2' ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-                            >
-                                <Eye size={20} className="mb-1"/>
-                                <span className="text-xs font-bold text-center">TK 2<br/>(Chỉ xem)</span>
-                            </button>
+                    {regLevel === 'COMMUNE' && (
+                        <div className="relative" ref={wrapperRef}>
+                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Xã / Phường</label>
+                            <input
+                                type="text"
+                                required
+                                disabled={!regProvince}
+                                placeholder={!regProvince ? "Vui lòng chọn Tỉnh trước" : "Nhập tên Xã/Phường (có gợi ý)..."}
+                                className="block w-full py-2 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-military-500 text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
+                                value={regCommune}
+                                onChange={(e) => {
+                                    setRegCommune(e.target.value);
+                                    setShowCommuneSuggestions(true);
+                                }}
+                                onFocus={() => setShowCommuneSuggestions(true)}
+                            />
+                            {/* Suggestions Dropdown */}
+                            {showCommuneSuggestions && regProvince && (
+                                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto custom-scrollbar">
+                                    {communeList.length === 0 ? (
+                                        <div className="px-3 py-2 text-sm text-gray-500 italic">Không có dữ liệu gợi ý cho tỉnh này. Vui lòng tự nhập.</div>
+                                    ) : filteredCommunes.length > 0 ? (
+                                        filteredCommunes.map((c, index) => (
+                                            <div 
+                                                key={index}
+                                                className="px-3 py-2 text-sm text-gray-800 hover:bg-military-50 cursor-pointer flex items-center gap-2 border-b border-gray-50 last:border-0"
+                                                onClick={() => {
+                                                    setRegCommune(c);
+                                                    setShowCommuneSuggestions(false);
+                                                }}
+                                            >
+                                                <MapPin size={12} className="text-military-400" />
+                                                {c}
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="px-3 py-2 text-sm text-gray-500 italic">Không tìm thấy kết quả phù hợp</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    </div>
+                    )}
+
+                    {/* Account Type Selection - Only for Commune */}
+                    {regLevel === 'COMMUNE' && (
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Loại tài khoản</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setRegAccountType('1')}
+                                    className={`flex flex-col items-center justify-center p-2 rounded border-2 transition-all ${regAccountType === '1' ? 'border-military-600 bg-military-50 text-military-700 shadow-sm' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                >
+                                    <Edit3 size={20} className="mb-1"/>
+                                    <span className="text-xs font-bold text-center">TK 1<br/>(Nhập liệu)</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setRegAccountType('2')}
+                                    className={`flex flex-col items-center justify-center p-2 rounded border-2 transition-all ${regAccountType === '2' ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                >
+                                    <Eye size={20} className="mb-1"/>
+                                    <span className="text-xs font-bold text-center">TK 2<br/>(Chỉ xem)</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
                         <h4 className="text-xs font-bold text-gray-700 uppercase border-b border-gray-200 pb-1">Thông tin cá nhân</h4>
@@ -519,7 +556,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         disabled={!regUsername}
                         className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-lg text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:-translate-y-0.5 uppercase tracking-wide disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none"
                     >
-                        <UserPlus className="mr-2 h-5 w-5" /> Xác nhận đăng ký
+                        <UserPlus className="mr-2 h-5 w-5" /> Đăng ký
                     </button>
                 </form>
             )}

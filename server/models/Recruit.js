@@ -58,7 +58,13 @@ const recruitSchema = new mongoose.Schema({
   defermentProof: String, // Văn bản chứng minh (cho lý do chính sách)
   enlistmentUnit: String,
   enlistmentType: String, // 'OFFICIAL' or 'RESERVE'
-  recruitmentYear: { type: Number, required: true }
+  recruitmentYear: { type: Number, required: true },
+  attachments: [{
+    name: String,
+    url: String,
+    type: String,
+    uploadDate: String
+  }]
 }, { timestamps: true });
 
 const Recruit = mongoose.model('Recruit', recruitSchema);

@@ -1,6 +1,8 @@
 
 export enum RecruitmentStatus {
-  SOURCE = 'NGUON', // Nguồn công dân (Mới nhập)
+  NOT_ALLOWED_REGISTRATION = 'KHONG_DUOC_DANG_KY', // 1. Không được đăng ký NVQS
+  EXEMPT_REGISTRATION = 'MIEN_DANG_KY', // 2. Miễn đăng ký NVQS
+  SOURCE = 'NGUON', // Nguồn công dân (Mới nhập) / Đăng ký lần đầu
   NOT_SELECTED_TT50 = 'KHONG_TUYEN_CHON_TT50', // Không tuyển chọn, chưa gọi nhập ngũ (TT50)
   PRE_CHECK_PASSED = 'SO_KHAM_DAT', // Đạt sơ khám
   PRE_CHECK_FAILED = 'SO_KHAM_KHONG_DAT', // Không đạt sơ khám
@@ -9,11 +11,11 @@ export enum RecruitmentStatus {
   FINALIZED = 'BINH_CU_CONG_KHAI', // Danh sách bình cử công khai / Chốt hồ sơ
   ENLISTED = 'NHAP_NGU', // Đã chốt và phát lệnh nhập ngũ
   DEFERRED = 'TAM_HOAN', // Tạm hoãn
-  EXEMPTED = 'MIEN_KHAM', // Miễn làm NVQS
+  EXEMPTED = 'MIEN_KHAM', // Miễn làm NVQS (Khác với miễn đăng ký)
   REMOVED_FROM_SOURCE = 'LOAI_KHOI_NGUON' // Đã loại khỏi nguồn (Soft delete)
 }
 
-export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER';
+export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER' | 'PROVINCE_ADMIN';
 
 export interface User {
   username: string;
@@ -25,11 +27,12 @@ export interface User {
   role: UserRole;
   unit: {
     province: string;
-    commune: string;
+    commune: string; // Nếu là cấp Tỉnh thì commune để trống
   };
   pendingPassword?: string; // Mật khẩu mới đang chờ duyệt (Đổi MK)
   resetRequested?: boolean; // Yêu cầu cấp lại mật khẩu (Quên MK)
   isLocked?: boolean; // Vô hiệu hóa nhập dữ liệu
+  isApproved?: boolean; // Đã được Admin duyệt hay chưa
 }
 
 export interface Feedback {
@@ -46,6 +49,13 @@ export interface FamilyMember {
   birthYear?: string; // Năm sinh
   job: string; // Nhập tay
   phoneNumber: string;
+}
+
+export interface RecruitAttachment {
+  name: string;
+  url: string; // Base64 string
+  type: string; // 'application/pdf'
+  uploadDate: string;
 }
 
 export interface Recruit {
@@ -95,6 +105,7 @@ export interface Recruit {
   enlistmentDate?: string; // Ngày nhập ngũ
   enlistmentType?: 'OFFICIAL' | 'RESERVE'; // 'OFFICIAL': Chính thức, 'RESERVE': Dự bị
   recruitmentYear: number;
+  attachments?: RecruitAttachment[]; // Giấy tờ kèm theo (PDF)
 }
 
 export interface FilterState {

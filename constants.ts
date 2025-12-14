@@ -1,4 +1,3 @@
-
 import { Recruit, RecruitmentStatus, User } from './types';
 
 // Helper để loại bỏ dấu tiếng Việt (dùng cho tạo username/search)
@@ -23,8 +22,8 @@ export const removeVietnameseTones = (str: string) => {
 // --- DỮ LIỆU THÔ ---
 // ... (Keep existing RAW_COMMUNE_DATA content - shortened for brevity in response but full content is assumed present)
 const RAW_COMMUNE_DATA: Record<string, string[]> = {
-    // ... (All existing provinces)
-    "Tuyên Quang": [
+    // ... (All existing provinces - assuming existing full data here)
+     "Tuyên Quang": [
         "Phường An Tường", "Phường Bình Thuận", "Phường Hà Giang 1", "Phường Hà Giang 2", "Phường Minh Xuân", "Phường Mỹ Lâm", "Phường Nông Tiến",
         "Xã Bạch Đích", "Xã Bạch Ngọc", "Xã Bạch Xa", "Xã Bản Máy", "Xã Bắc Mê", "Xã Bắc Quang", "Xã Bằng Hành", "Xã Bằng Lang", "Xã Bình An",
         "Xã Bình Ca", "Xã Bình Xa", "Xã Cán Tỷ", "Xã Cao Bồ", "Xã Chiêm Hóa", "Xã Côn Lôn", "Xã Du Già", "Xã Đồng Tâm", "Xã Đông Thọ", "Xã Đồng Văn",
@@ -566,6 +565,31 @@ export const LEGAL_EXEMPTION_REASONS = [
     "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật từ 24 tháng trở lên"
 ];
 
+// Mới: Danh sách lý do Không được đăng ký NVQS
+export const NOT_ALLOWED_REGISTRATION_REASONS = [
+    "Đang bị truy cứu trách nhiệm hình sự",
+    "Đang chấp hành hình phạt tù",
+    "Đang bị áp dụng biện pháp cải tạo không giam giữ, quản chế",
+    "Đã chấp hành xong hình phạt tù nhưng chưa được xóa án tích",
+    "Đang bị áp dụng biện pháp giáo dục tại xã, phường, thị trấn",
+    "Được đưa vào trường giáo dưỡng, cơ sở giáo dục bắt buộc, cơ sở cai nghiện bắt buộc",
+    "Bị tước quyền phục vụ trong lực lượng vũ trang nhân dân"
+];
+
+// Mới: Danh sách lý do Miễn đăng ký NVQS
+export const EXEMPT_REGISTRATION_REASONS = [
+    "Tâm thần",
+    "Động kinh",
+    "Bệnh Parkinson",
+    "Mù một mắt",
+    "Điếc",
+    "Di chứng do lao xương khớp",
+    "Di chứng do phong",
+    "Các bệnh lý ác tính (U ác, bệnh máu ác tính)",
+    "Người nhiễm HIV",
+    "Người khuyết tật mức độ đặc biệt nặng và nặng"
+];
+
 export const INITIAL_RECRUITS: any[] = [];
 
 export const MOCK_USERS: User[] = [
@@ -574,7 +598,8 @@ export const MOCK_USERS: User[] = [
         fullName: 'Ban CHQS Huyện (Admin)',
         password: '1',
         role: 'ADMIN',
-        unit: { province: '', commune: '' }
+        unit: { province: '', commune: '' },
+        isApproved: true
     },
     {
         username: 'THUNGHIEM',
@@ -584,6 +609,7 @@ export const MOCK_USERS: User[] = [
         personalName: 'Tài khoản dùng thử',
         position: 'Cán bộ',
         phoneNumber: '0000000000',
-        unit: { province: 'Tuyên Quang', commune: 'Phường An Tường' } // Dummy location
+        unit: { province: 'Tuyên Quang', commune: 'Phường An Tường' }, // Dummy location
+        isApproved: true
     }
 ];
