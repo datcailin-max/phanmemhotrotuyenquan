@@ -33,7 +33,9 @@ import {
   ScrollText,
   MessageSquare,
   RefreshCw,
-  UserPlus
+  UserPlus,
+  Reply,
+  History
 } from 'lucide-react';
 import { Recruit, User, ResearchDocument, ChatMessage, RecruitmentStatus, Feedback } from './types';
 import { INITIAL_RECRUITS } from './constants';
@@ -251,7 +253,6 @@ function App() {
       localStorage.setItem('military_feedbacks', JSON.stringify(updatedFeedbacks));
       
       setFeedbackContent('');
-      setShowFeedbackModal(false);
       alert("Đã gửi ý kiến thành công! Admin sẽ xem xét và phản hồi.");
   };
 
@@ -337,6 +338,9 @@ function App() {
       const [newDocUrl, setNewDocUrl] = useState('');
       const [newDocType, setNewDocType] = useState<'WORD' | 'PDF' | 'EXCEL' | 'OTHER'>('WORD');
       const [newDocCategory, setNewDocCategory] = useState<'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC'>('HUONG_DAN');
+
+      // Admin reply local state
+      const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
 
       const refreshUsers = () => {
           setAllUsers(JSON.parse(localStorage.getItem('military_users') || '[]'));
@@ -441,6 +445,27 @@ function App() {
           }
       };
 
+      const handleReplyFeedback = (id: string) => {
+          const replyText = replyInputs[id];
+          if (!replyText || !replyText.trim()) return;
+
+          const updatedFeedbacks = allFeedbacks.map(f => {
+              if (f.id === id) {
+                  return { ...f, reply: replyText, replyTimestamp: Date.now() };
+              }
+              return f;
+          });
+          setAllFeedbacks(updatedFeedbacks);
+          localStorage.setItem('military_feedbacks', JSON.stringify(updatedFeedbacks));
+          
+          setReplyInputs(prev => {
+              const next = {...prev};
+              delete next[id];
+              return next;
+          });
+          alert("Đã gửi trả lời.");
+      };
+
       return (
           <div className="space-y-6 m-6">
               
@@ -537,20 +562,51 @@ function App() {
                     <h2 className="text-xl font-bold text-military-700 mb-4 flex items-center gap-2">
                       <MessageSquare /> Hộp thư Ý kiến từ Địa phương ({allFeedbacks.length})
                     </h2>
-                    <div className="max-h-[300px] overflow-y-auto border rounded bg-gray-50 p-2 space-y-2">
+                    <div className="max-h-[500px] overflow-y-auto border rounded bg-gray-50 p-2 space-y-3">
                         {allFeedbacks.length === 0 ? (
                             <p className="text-center text-gray-500 italic py-4">Chưa có ý kiến nào.</p>
                         ) : (
                             allFeedbacks.map(fb => (
-                                <div key={fb.id} className="bg-white p-3 rounded border border-gray-200 shadow-sm flex justify-between items-start">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-bold text-military-700 text-sm">{fb.unitName}</span>
-                                            <span className="text-xs text-gray-400">({new Date(fb.timestamp).toLocaleString()})</span>
+                                <div key={fb.id} className="bg-white p-4 rounded border border-gray-200 shadow-sm flex flex-col gap-2">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-bold text-military-700 text-sm">{fb.unitName}</span>
+                                                <span className="text-xs text-gray-400">({new Date(fb.timestamp).toLocaleString()})</span>
+                                            </div>
+                                            <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded border border-gray-100">{fb.content}</p>
                                         </div>
-                                        <p className="text-sm text-gray-800">{fb.content}</p>
+                                        <button onClick={() => handleDeleteFeedback(fb.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
                                     </div>
-                                    <button onClick={() => handleDeleteFeedback(fb.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                                    
+                                    {/* Admin Reply Section */}
+                                    <div className="ml-4 pl-4 border-l-2 border-gray-200 mt-2">
+                                        {fb.reply ? (
+                                            <div className="bg-green-50 p-2 rounded border border-green-100">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-bold text-green-700 text-xs flex items-center gap-1"><Reply size={12}/> Admin đã trả lời</span>
+                                                    <span className="text-[10px] text-gray-400">({fb.replyTimestamp ? new Date(fb.replyTimestamp).toLocaleString() : ''})</span>
+                                                </div>
+                                                <p className="text-sm text-gray-800">{fb.reply}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="flex gap-2 items-center">
+                                                <input 
+                                                    type="text" 
+                                                    className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                                                    placeholder="Nhập nội dung trả lời..."
+                                                    value={replyInputs[fb.id] || ''}
+                                                    onChange={(e) => setReplyInputs({...replyInputs, [fb.id]: e.target.value})}
+                                                />
+                                                <button 
+                                                    onClick={() => handleReplyFeedback(fb.id)}
+                                                    className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700"
+                                                >
+                                                    Gửi trả lời
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -813,25 +869,55 @@ function App() {
         </div>
       )}
 
-      {/* Feedback Modal */}
-      {showFeedbackModal && (
+      {/* Feedback Modal (For Users) */}
+      {showFeedbackModal && user && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><MessageSquare className="text-amber-500"/> Gửi ý kiến về Admin</h3>
-                  <form onSubmit={handleSendFeedback}>
-                      <textarea 
-                          className="w-full border border-gray-300 rounded p-3 text-sm focus:ring-2 focus:ring-amber-500 mb-4" 
-                          rows={5} 
-                          placeholder="Nhập nội dung ý kiến, kiến nghị..."
-                          value={feedbackContent}
-                          onChange={(e) => setFeedbackContent(e.target.value)}
-                          required
-                      />
-                      <div className="flex justify-end gap-2">
-                          <button type="button" onClick={() => setShowFeedbackModal(false)} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded">Hủy</button>
-                          <button type="submit" className="px-3 py-2 bg-amber-600 text-white rounded hover:bg-amber-700">Gửi đi</button>
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-md flex flex-col max-h-[90vh]">
+                  <div className="p-6 border-b border-gray-100">
+                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><MessageSquare className="text-amber-500"/> Gửi ý kiến về Admin</h3>
+                  </div>
+                  
+                  <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                       <form onSubmit={handleSendFeedback} className="mb-6">
+                          <textarea 
+                              className="w-full border border-gray-300 rounded p-3 text-sm focus:ring-2 focus:ring-amber-500 mb-4" 
+                              rows={4} 
+                              placeholder="Nhập nội dung ý kiến, kiến nghị..."
+                              value={feedbackContent}
+                              onChange={(e) => setFeedbackContent(e.target.value)}
+                              required
+                          />
+                          <div className="flex justify-end gap-2">
+                              <button type="button" onClick={() => setShowFeedbackModal(false)} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm font-bold">Đóng</button>
+                              <button type="submit" className="px-3 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 text-sm font-bold">Gửi đi</button>
+                          </div>
+                      </form>
+
+                      {/* Feedback History */}
+                      <div className="border-t border-gray-100 pt-4">
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2 uppercase"><History size={16}/> Lịch sử ý kiến</h4>
+                          <div className="space-y-3">
+                              {allFeedbacks.filter(f => f.username === user.username).length === 0 ? (
+                                  <p className="text-center text-gray-400 text-sm italic">Chưa có lịch sử.</p>
+                              ) : (
+                                  allFeedbacks.filter(f => f.username === user.username).map(fb => (
+                                      <div key={fb.id} className="bg-gray-50 rounded p-3 border border-gray-200">
+                                          <div className="text-xs text-gray-400 mb-1">{new Date(fb.timestamp).toLocaleString()}</div>
+                                          <p className="text-sm font-bold text-gray-800 mb-2">{fb.content}</p>
+                                          {fb.reply ? (
+                                              <div className="bg-green-50 p-2 rounded border border-green-100 mt-2">
+                                                   <div className="flex items-center gap-1 text-xs font-bold text-green-700 mb-1"><Reply size={12}/> Admin trả lời:</div>
+                                                   <p className="text-sm text-gray-800">{fb.reply}</p>
+                                              </div>
+                                          ) : (
+                                              <div className="text-[10px] text-amber-600 italic bg-amber-50 px-2 py-1 rounded inline-block">Đang chờ phản hồi...</div>
+                                          )}
+                                      </div>
+                                  ))
+                              )}
+                          </div>
                       </div>
-                  </form>
+                  </div>
               </div>
           </div>
       )}

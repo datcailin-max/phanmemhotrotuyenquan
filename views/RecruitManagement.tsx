@@ -7,7 +7,7 @@ import {
   Search, Plus, CheckCircle2, XCircle, FileEdit, Trash2, Stethoscope, ClipboardList, RefreshCw, Filter, ShieldOff,
   PauseCircle, Users, FileSignature, UserX, RotateCcw, Lock, Flag, Layers, ShieldCheck, Baby, Activity,
   ArchiveRestore, Briefcase, Ruler, AlertTriangle, Check, X, ChevronRight, FileText, BookX, ArrowRightCircle,
-  Ban, Shield
+  Ban, Shield, ArrowUpRight
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -614,9 +614,23 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                       )}
                       
                       {activeTabId === 'FINAL' && !isReadOnly && (
-                        <div className="flex bg-gray-100 rounded p-0.5 border border-gray-200 gap-1">
-                            <button onClick={() => { if(window.confirm(`Xác nhận CHÍNH THỨC nhập ngũ đối với ${recruit.fullName}? (Chuyển sang DS Nhập ngũ)`)) onUpdate({...recruit, status: RecruitmentStatus.ENLISTED, enlistmentType: 'OFFICIAL'}) }} className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${recruit.enlistmentType === 'OFFICIAL' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-red-50 hover:text-red-600'}`}>Chính thức</button>
-                            <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.FINALIZED, enlistmentType: 'RESERVE'})} className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${recruit.enlistmentType === 'RESERVE' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600'}`}>Dự bị</button>
+                        <div className="flex bg-gray-100 rounded p-0.5 border border-gray-200 gap-1 shadow-sm">
+                            <button 
+                                onClick={() => { 
+                                    if(window.confirm(`Xác nhận CHÍNH THỨC nhập ngũ đối với ${recruit.fullName}? (Chuyển sang DS Nhập ngũ)`)) {
+                                        onUpdate({...recruit, status: RecruitmentStatus.ENLISTED, enlistmentType: 'OFFICIAL'});
+                                    }
+                                }} 
+                                className={`px-2 py-1.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${recruit.enlistmentType === 'OFFICIAL' ? 'bg-red-600 text-white shadow' : 'bg-white text-gray-600 hover:bg-red-50 hover:text-red-600'}`}
+                            >
+                                <Flag size={10} /> Chính thức
+                            </button>
+                            <button 
+                                onClick={() => onUpdate({...recruit, status: RecruitmentStatus.FINALIZED, enlistmentType: 'RESERVE'})} 
+                                className={`px-2 py-1.5 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${recruit.enlistmentType === 'RESERVE' ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600'}`}
+                            >
+                                <Layers size={10} /> Dự bị
+                            </button>
                         </div>
                       )}
 
@@ -626,6 +640,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
                                 <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.PRE_CHECK_PASSED})} className={`p-1.5 rounded ${recruit.status === RecruitmentStatus.PRE_CHECK_PASSED || recruit.status === RecruitmentStatus.MED_EXAM_PASSED ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-blue-600'}`} title="Đạt sơ tuyển"><CheckCircle2 size={18} /></button>
                                 <button onClick={() => onUpdate({...recruit, status: RecruitmentStatus.PRE_CHECK_FAILED})} className={`p-1.5 rounded ${(recruit.status as RecruitmentStatus) === RecruitmentStatus.PRE_CHECK_FAILED ? 'bg-orange-100 text-orange-700' : 'text-gray-400 hover:text-orange-600'}`} title="Không đạt sơ tuyển"><XCircle size={18} /></button>
                            </>
+                      )}
+
+                      {/* MOVE TO FINALIZED FROM MED EXAM */}
+                      {(activeTabId === 'MED_EXAM' || activeTabId === 'MED_EXAM_PASS') && recruit.status === RecruitmentStatus.MED_EXAM_PASSED && !isReadOnly && (
+                          <button 
+                            onClick={() => {
+                                if (window.confirm(`Xác nhận đưa công dân ${recruit.fullName} vào danh sách Chốt Hồ Sơ?`)) {
+                                    onUpdate({...recruit, status: RecruitmentStatus.FINALIZED});
+                                }
+                            }}
+                            className="p-1.5 rounded bg-green-100 text-green-700 hover:bg-green-200 flex items-center gap-1 px-2 ring-1 ring-green-300" 
+                            title="Đưa vào DS Chốt Hồ Sơ"
+                          >
+                            <ArrowUpRight size={14} /> <span className="text-[10px] font-bold">Chốt DS</span>
+                          </button>
                       )}
                   </div>
               </td>
@@ -648,7 +677,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           ) : (
               <th className="p-3 border-b text-center">Trạng thái</th>
           )}
-          <th className="p-3 border-b text-center w-32">Thao tác</th>
+          <th className="p-3 border-b text-center w-48">Thao tác</th>
       </tr>
   );
 

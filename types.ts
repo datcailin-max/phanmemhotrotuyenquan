@@ -42,6 +42,8 @@ export interface Feedback {
     content: string;
     timestamp: number;
     isRead: boolean;
+    reply?: string; // Nội dung trả lời của Admin
+    replyTimestamp?: number; // Thời gian trả lời
 }
 
 export interface FamilyMember {
