@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../types';
 import { PROVINCES_VN, LOCATION_DATA } from '../constants';
@@ -139,8 +138,12 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     // 3. Đăng ký lần đầu (17 tuổi, trạng thái hợp lệ)
     const countFirstTime = allYearRecruits.filter(r => checkAge(r) < 18 && isValidSourceStatus(r.status)).length;
 
-    // 4. Tổng nguồn (18+, trạng thái hợp lệ)
-    const countTotalSource = allYearRecruits.filter(r => checkAge(r) >= 18 && isValidSourceStatus(r.status)).length;
+    // 4. Tổng nguồn (Age >= 18, exclude List 1 & 2 only)
+    const countTotalSource = allYearRecruits.filter(r => {
+        if (checkAge(r) < 18) return false;
+        // Exclude List 1 & 2 (Keep Removed from Source in List 4 per requirement)
+        return r.status !== RecruitmentStatus.NOT_ALLOWED_REGISTRATION && r.status !== RecruitmentStatus.EXEMPT_REGISTRATION;
+    }).length;
 
     // 5. Không tuyển chọn (TT50)
     const countTT50 = allYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_SELECTED_TT50).length;
@@ -179,14 +182,17 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     // 9. Miễn gọi nhập ngũ
     const countExempted = allYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPTED).length;
 
-    // 10. Chốt hồ sơ
-    const countFinalized = allYearRecruits.filter(r => r.status === RecruitmentStatus.FINALIZED).length;
+    // 10. Chốt hồ sơ (Bao gồm cả người đã nhập ngũ vì họ đã qua bước chốt)
+    const finalizedRecruits = allYearRecruits.filter(r => [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status));
+    const countFinalized = finalizedRecruits.length;
+    const countFinalizedOfficial = finalizedRecruits.filter(r => r.enlistmentType === 'OFFICIAL').length;
+    const countFinalizedReserve = finalizedRecruits.filter(r => r.enlistmentType === 'RESERVE').length;
 
-    // 11. Nhập ngũ
-    const enlistedRecruits = allYearRecruits.filter(r => r.status === RecruitmentStatus.ENLISTED);
-    const countEnlisted = enlistedRecruits.length;
-    const countEnlistedOfficial = enlistedRecruits.filter(r => r.enlistmentType !== 'RESERVE').length;
-    const countEnlistedReserve = enlistedRecruits.filter(r => r.enlistmentType === 'RESERVE').length;
+    // 11. Nhập ngũ (Đếm theo tiêu chí danh sách 11: Chính thức đã chốt + Chính thức đã nhập ngũ)
+    const countEnlisted = allYearRecruits.filter(r => 
+        (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') ||
+        (r.status === RecruitmentStatus.FINALIZED && r.enlistmentType === 'OFFICIAL')
+    ).length;
 
     // 12. Loại khỏi nguồn
     const countRemoved = allYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
@@ -194,20 +200,22 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     // 13. Nguồn còn lại (Logic complex from RecruitManagement)
     const remainingStatuses = [
         RecruitmentStatus.SOURCE, 
-        RecruitmentStatus.PRE_CHECK_PASSED, 
         RecruitmentStatus.PRE_CHECK_FAILED, 
-        RecruitmentStatus.MED_EXAM_PASSED, 
         RecruitmentStatus.MED_EXAM_FAILED, 
-        RecruitmentStatus.FINALIZED, 
         RecruitmentStatus.DEFERRED, 
         RecruitmentStatus.EXEMPTED,
         RecruitmentStatus.NOT_SELECTED_TT50
     ];
     const countRemaining = allYearRecruits.filter(r => {
-        const age = checkAge(r);
-        return remainingStatuses.includes(r.status) && 
-               r.enlistmentType !== 'OFFICIAL' &&
-               age >= 18; 
+        if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+        // Case 1: Under 18 (Source)
+        if (checkAge(r) < 18 && isValidSourceStatus(r.status)) return true;
+        // Case 2: Remaining Statuses
+        if (remainingStatuses.includes(r.status)) return true;
+        // Case 3: Reserve (Finalized/Enlisted but Reserve)
+        if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'RESERVE') return true;
+        
+        return false;
     }).length;
 
 
@@ -282,8 +290,9 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         countNotAllowed, countExemptReg, countFirstTime, countTotalSource, countTT50,
         countEligiblePreCheck, countPreCheckPass, countPreCheckFail,
         countEligibleMedExam, countMedPass, countMedFail,
-        countDeferred, countExempted, countFinalized, 
-        countEnlisted, countEnlistedOfficial, countEnlistedReserve,
+        countDeferred, countExempted, 
+        countFinalized, countFinalizedOfficial, countFinalizedReserve,
+        countEnlisted, 
         countRemoved, countRemaining,
         
         dangVien, doanVien,
@@ -396,7 +405,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 4. TỔNG NGUỒN */}
              <ProcessStepCard 
-                title="4. Tổng nguồn (18+)" 
+                title="4. Tổng nguồn" 
                 count={stats.countTotalSource} 
                 icon={Users} 
                 color="bg-gray-600"
@@ -457,6 +466,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 icon={FileSignature} 
                 color="bg-green-600" 
                 onClick={() => onNavigate('FINAL')}
+                detailText={`${stats.countFinalizedOfficial} CT / ${stats.countFinalizedReserve} DB`}
              />
 
              {/* 11. NHẬP NGŨ */}
@@ -466,7 +476,6 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 icon={Flag} 
                 color="bg-red-600" 
                 onClick={() => onNavigate('ENLISTED')}
-                detailText={`${stats.countEnlistedOfficial} CT / ${stats.countEnlistedReserve} DB`}
              />
 
              {/* 12. LOẠI KHỎI NGUỒN */}

@@ -23,7 +23,7 @@ export const removeVietnameseTones = (str: string) => {
 // ... (Keep existing RAW_COMMUNE_DATA content - shortened for brevity in response but full content is assumed present)
 const RAW_COMMUNE_DATA: Record<string, string[]> = {
     // ... (All existing provinces - assuming existing full data here)
-     "Tuyên Quang": [
+          "Tuyên Quang": [
         "Phường An Tường", "Phường Bình Thuận", "Phường Hà Giang 1", "Phường Hà Giang 2", "Phường Minh Xuân", "Phường Mỹ Lâm", "Phường Nông Tiến",
         "Xã Bạch Đích", "Xã Bạch Ngọc", "Xã Bạch Xa", "Xã Bản Máy", "Xã Bắc Mê", "Xã Bắc Quang", "Xã Bằng Hành", "Xã Bằng Lang", "Xã Bình An",
         "Xã Bình Ca", "Xã Bình Xa", "Xã Cán Tỷ", "Xã Cao Bồ", "Xã Chiêm Hóa", "Xã Côn Lôn", "Xã Du Già", "Xã Đồng Tâm", "Xã Đông Thọ", "Xã Đồng Văn",
@@ -537,18 +537,19 @@ export const RELIGIONS = [
 export const MARITAL_STATUSES = ["Độc thân", "Đã kết hôn", "Ly hôn"];
 export const FAMILY_JOBS = ["Làm nông", "Công nhân", "CNVC/Viên chức", "Buôn bán/Kinh doanh", "Tự do", "Hưu trí", "Đã mất", "Khác"];
 
+// 8 Lý do Tạm hoãn theo quy định mới
 export const LEGAL_DEFERMENT_REASONS = [
-    "Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe",
-    "Lao động duy nhất phải trực tiếp nuôi dưỡng thân nhân không còn khả năng lao động hoặc chưa đến tuổi lao động; trong gia đình bị thiệt hại nặng về người và tài sản do tai nạn, thiên tai, dịch bệnh nguy hiểm gây ra được Ủy ban nhân dân cấp xã xác nhận",
-    "Một con của bệnh binh, người nhiễm chất độc da cam suy giảm khả năng lao động từ 61% đến 80%",
-    "Có anh, chị hoặc em ruột là hạ sĩ quan, binh sĩ đang phục vụ tại ngũ; hạ sĩ quan, chiến sĩ thực hiện nghĩa vụ tham gia Công an nhân dân",
-    "Người thuộc diện di dân, giãn dân trong 03 năm đầu đến các xã đặc biệt khó khăn theo dự án phát triển kinh tế - xã hội của Nhà nước do Ủy ban nhân dân cấp tỉnh trở lên quyết định",
-    "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật",
-    "Đang học tại cơ sở giáo dục phổ thông; đang được đào tạo trình độ đại học hệ chính quy thuộc cơ sở giáo dục đại học, trình độ cao đẳng hệ chính quy thuộc cơ sở giáo dục nghề nghiệp trong thời gian một khóa đào tạo của một trình độ đào tạo",
-    "Đang thực hiện nghĩa vụ tham gia Dân quân thường trực"
+    "1. Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe",
+    "2. Là lao động duy nhất phải trực tiếp nuôi dưỡng thân nhân không còn khả năng lao động hoặc chưa đến tuổi lao động; trong gia đình bị thiệt hại nặng về người và tài sản do tai nạn, thiên tai, dịch bệnh nguy hiểm gây ra được Ủy ban nhân dân cấp xã xác nhận",
+    "3. Một con của bệnh binh, người nhiễm chất độc da cam suy giảm khả năng lao động từ 61% đến 80%",
+    "4. Có anh, chị hoặc em ruột là hạ sĩ quan, binh sĩ đang phục vụ tại ngũ; hạ sĩ quan, chiến sĩ thực hiện nghĩa vụ tham gia Công an nhân dân",
+    "5. Người thuộc diện di dân, giãn dân trong 03 năm đầu đến các xã đặc biệt khó khăn theo dự án phát triển kinh tế - xã hội của Nhà nước do Ủy ban nhân dân cấp tỉnh trở lên quyết định",
+    "6. Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật",
+    "7. Đang học tại cơ sở giáo dục phổ thông; đang được đào tạo trình độ đại học hệ chính quy thuộc cơ sở giáo dục đại học, trình độ cao đẳng hệ chính quy thuộc cơ sở giáo dục nghề nghiệp trong thời gian một khóa đào tạo của một trình độ đào tạo",
+    "8. Đang là DQTT (Dân quân thường trực)"
 ];
 
-// Danh sách các lý do được coi là "Chính sách" để hiển thị ô nhập văn bản chứng minh
+// Danh sách các lý do được coi là "Chính sách" (2,3,4,5,6)
 export const POLICY_DEFERMENT_REASONS = [
     LEGAL_DEFERMENT_REASONS[1],
     LEGAL_DEFERMENT_REASONS[2],

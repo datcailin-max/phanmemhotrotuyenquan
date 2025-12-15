@@ -33,7 +33,8 @@ const recruitSchema = new mongoose.Schema({
     maritalStatus: String,
     job: String,
     politicalStatus: String,
-    partyEntryDate: String
+    partyEntryDate: String,
+    gifted: String // Năng khiếu
   },
   family: {
     father: {

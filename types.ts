@@ -93,6 +93,7 @@ export interface Recruit {
     job: string; // Công việc
     politicalStatus: 'None' | 'Doan_Vien' | 'Dang_Vien'; // Đổi Quan_Chung thành None
     partyEntryDate?: string; // Ngày vào đảng (nếu là đảng viên)
+    gifted?: string; // Năng khiếu (Mới thêm)
   };
   family: {
     father: FamilyMember;
