@@ -283,7 +283,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
 
   const resetFilters = () => setFilters(initialFilters);
 
-  // Cập nhật nguồn từ năm trước (cũ)
+  // Cập nhật nguồn từ năm trước (UPDATE LOGIC: Allow re-sync)
   const handleTransferFromPreviousYear = async () => {
       if (isReadOnly) return;
       const prevYear = sessionYear - 1;
@@ -294,9 +294,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           if (filters.commune) prevYearRecruits = prevYearRecruits.filter(r => r.address.commune === filters.commune);
       }
       
-      // Update logic: Include Exempt/Not Allowed/TT50 in the transfer candidates
       const eligibleToTransfer = prevYearRecruits.filter(r => {
-          // Chỉ loại bỏ: Đã nhập ngũ chính thức, Đã loại khỏi nguồn
           return !(r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') && 
                  r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE;
       });
@@ -304,76 +302,121 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       if (eligibleToTransfer.length === 0) { alert(`Không tìm thấy hồ sơ nào từ năm ${prevYear} đủ điều kiện cập nhật.`); return; }
       
       const currentYearRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
-      const existingCitizenIds = new Set(currentYearRecruits.map(r => r.citizenId));
-      const toCreate = eligibleToTransfer.filter(r => !existingCitizenIds.has(r.citizenId));
       
-      if (toCreate.length === 0) { alert(`Tất cả hồ sơ nguồn năm ${prevYear} đã có mặt trong năm ${sessionYear}.`); return; }
-      if (!window.confirm(`Xác nhận cập nhật ${toCreate.length} hồ sơ từ năm ${prevYear}? (Các trường hợp Miễn/Hoãn/TT50 và Danh sách 1, 2 sẽ được bảo lưu)`)) return;
+      const toCreate: Recruit[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const toUpdate: { target: Recruit, source: Recruit }[] = [];
+
+      eligibleToTransfer.forEach(sourceRecruit => {
+          const targetRecruit = currentYearRecruits.find(t => t.citizenId === sourceRecruit.citizenId);
+          if (!targetRecruit) {
+              // Prepare New
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = sourceRecruit as any;
+              
+              let newStatus = RecruitmentStatus.SOURCE;
+              let newReason = '';
+              let newProof = '';
+              let newPhysical = { ...cleanRecruitData.physical, healthGrade: 0 };
+
+              // Special Status Logic (Preserve)
+              if (sourceRecruit.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
+                  newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION; newReason = sourceRecruit.defermentReason || ''; newPhysical = cleanRecruitData.physical;
+              } else if (sourceRecruit.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+                  newStatus = RecruitmentStatus.EXEMPT_REGISTRATION; newReason = sourceRecruit.defermentReason || ''; newPhysical = cleanRecruitData.physical;
+              } else if (sourceRecruit.status === RecruitmentStatus.EXEMPTED) {
+                  newStatus = RecruitmentStatus.EXEMPTED; newReason = sourceRecruit.defermentReason || ''; newProof = sourceRecruit.defermentProof || '';
+              } else if (sourceRecruit.status === RecruitmentStatus.NOT_SELECTED_TT50) {
+                  newStatus = RecruitmentStatus.NOT_SELECTED_TT50; newReason = sourceRecruit.defermentReason || '';
+              }
+
+              const newRecruit: Recruit = { 
+                  ...cleanRecruitData, 
+                  id: Date.now().toString(36) + Math.random().toString(36).substr(2) + toCreate.length, 
+                  recruitmentYear: sessionYear, 
+                  status: newStatus, 
+                  defermentReason: newReason, 
+                  defermentProof: newProof,
+                  enlistmentUnit: undefined, enlistmentDate: undefined, enlistmentType: undefined,
+                  physical: newPhysical
+              };
+              toCreate.push(newRecruit);
+          } else {
+              // Prepare Update if necessary (Sync Status for Special Lists)
+              const isSpecialSource = [RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.EXEMPTED, RecruitmentStatus.NOT_SELECTED_TT50].includes(sourceRecruit.status);
+              
+              // Only update if target status is different AND source is special (prioritize special status from old year if missed)
+              // Also always sync details like address/family
+              toUpdate.push({ target: targetRecruit, source: sourceRecruit });
+          }
+      });
       
-      let successCount = 0;
+      if (toCreate.length === 0 && toUpdate.length === 0) { alert(`Dữ liệu đã được đồng bộ hoàn toàn.`); return; }
+      
+      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ mới và ${toUpdate.length} hồ sơ đã có.\n\nBạn có muốn CẬP NHẬT thông tin và BỔ SUNG hồ sơ mới từ năm ${prevYear} không?`)) return;
+      
+      let countCreated = 0;
+      let countUpdated = 0;
+
+      // Execute Creates
       for (const r of toCreate) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
-
-          // Preserve special statuses logic
-          let newStatus = RecruitmentStatus.SOURCE;
-          let newReason = '';
-          let newProof = '';
-          let newPhysical = { ...cleanRecruitData.physical, healthGrade: 0 }; // Default reset health
-
-          // 1. LIST 1: NOT ALLOWED
-          if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
-              newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
-              newReason = r.defermentReason || '';
-              newPhysical = cleanRecruitData.physical; // Keep health
-          } 
-          // 2. LIST 2: EXEMPT REGISTRATION
-          else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
-              newStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
-              newReason = r.defermentReason || '';
-              newPhysical = cleanRecruitData.physical; // Keep health
-          }
-          // 3. EXEMPT SERVICE
-          else if (r.status === RecruitmentStatus.EXEMPTED) {
-              newStatus = RecruitmentStatus.EXEMPTED;
-              newReason = r.defermentReason || '';
-              newProof = r.defermentProof || '';
-          } 
-          // 4. TT50
-          else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
-              newStatus = RecruitmentStatus.NOT_SELECTED_TT50;
-              newReason = r.defermentReason || '';
-          }
-          // Other cases (Source, Deferred, Failed Check...) revert to SOURCE
-
-          const newRecruit: Recruit = { 
-              ...cleanRecruitData, 
-              id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, 
-              recruitmentYear: sessionYear, 
-              status: newStatus, 
-              defermentReason: newReason, 
-              defermentProof: newProof,
-              enlistmentUnit: undefined, 
-              enlistmentDate: undefined, 
-              enlistmentType: undefined,
-              physical: newPhysical
-          };
-          onUpdate(newRecruit);
-          successCount++;
+          onUpdate(r);
+          countCreated++;
       }
-      alert(`Đã gửi yêu cầu cập nhật ${successCount} hồ sơ.`);
+
+      // Execute Updates
+      for (const { target, source } of toUpdate) {
+          const isSpecialSource = [RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.EXEMPTED, RecruitmentStatus.NOT_SELECTED_TT50].includes(source.status);
+          
+          let updatedStatus = target.status;
+          let updatedReason = target.defermentReason;
+          let updatedProof = target.defermentProof;
+          let updatedPhysical = target.physical;
+
+          // Force update status ONLY IF source is special and target is just Source (don't overwrite if target is already advanced like Enlisted/Check Passed)
+          if (isSpecialSource && target.status === RecruitmentStatus.SOURCE) {
+              updatedStatus = source.status;
+              updatedReason = source.defermentReason;
+              updatedProof = source.defermentProof;
+              if (source.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || source.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+                  updatedPhysical = source.physical; // Keep health for these
+              }
+          }
+
+          const updatedRecruit: Recruit = {
+              ...target,
+              // Sync basic info that might have changed in prev year
+              fullName: source.fullName,
+              dob: source.dob,
+              address: source.address, // Sync address
+              hometown: source.hometown,
+              family: source.family,
+              details: {
+                  ...target.details, // Keep current details but update basic stuff
+                  ethnicity: source.details.ethnicity,
+                  religion: source.details.religion,
+                  education: source.details.education // Sync education in case corrected
+              },
+              status: updatedStatus,
+              defermentReason: updatedReason,
+              defermentProof: updatedProof,
+              physical: updatedPhysical
+          };
+          onUpdate(updatedRecruit);
+          countUpdated++;
+      }
+
+      alert(`Đã thêm mới ${countCreated} hồ sơ và cập nhật thông tin cho ${countUpdated} hồ sơ.`);
   };
 
-  // Cập nhật nguồn CHO NĂM SAU (Mới)
+  // Cập nhật nguồn CHO NĂM SAU (UPDATE LOGIC: Allow re-sync)
   const handleTransferToNextYear = async () => {
       if (isReadOnly) return;
       const nextYear = sessionYear + 1;
       
       let currentYearRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
-      
-      if (!isAdmin) {
-          currentYearRecruits = currentYearRecruits.filter(r => r.address.commune === user.unit.commune);
-      } else {
+      if (!isAdmin) currentYearRecruits = currentYearRecruits.filter(r => r.address.commune === user.unit.commune);
+      else {
           if (filters.province) currentYearRecruits = currentYearRecruits.filter(r => r.address.province === filters.province);
           if (filters.commune) currentYearRecruits = currentYearRecruits.filter(r => r.address.commune === filters.commune);
       }
@@ -381,92 +424,116 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       const eligibleToTransfer = currentYearRecruits.filter(r => {
           const birthYear = parseInt(r.dob.split('-')[0] || '0');
           const ageInCurrentYear = sessionYear - birthYear;
-          
-          // Loại bỏ những người quá nhỏ (dưới 17 tuổi ở năm hiện tại)
           if (ageInCurrentYear < 17) return false;
-
-          // LOẠI BỎ: Đã loại khỏi nguồn
           if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-
-          // LOẠI BỎ: Đã nhập ngũ chính thức
           if (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') return false;
-
-          // Còn lại đều chuyển sang năm sau (bao gồm cả DS 1, DS 2)
           return true;
       });
 
-      if (eligibleToTransfer.length === 0) { 
-          alert(`Không tìm thấy hồ sơ nào đủ điều kiện chuyển sang năm ${nextYear}.`); 
-          return; 
-      }
+      if (eligibleToTransfer.length === 0) { alert(`Không tìm thấy hồ sơ nào đủ điều kiện chuyển sang năm ${nextYear}.`); return; }
 
       const nextYearRecruits = recruits.filter(r => r.recruitmentYear === nextYear);
-      const existingCitizenIds = new Set(nextYearRecruits.map(r => r.citizenId));
       
-      const toCreate = eligibleToTransfer.filter(r => !existingCitizenIds.has(r.citizenId));
+      const toCreate: Recruit[] = [];
+      const toUpdate: { target: Recruit, source: Recruit }[] = [];
 
-      if (toCreate.length === 0) { 
-          alert(`Tất cả hồ sơ đủ điều kiện đã có mặt trong dữ liệu năm ${nextYear}.`); 
+      eligibleToTransfer.forEach(sourceRecruit => {
+          const targetRecruit = nextYearRecruits.find(t => t.citizenId === sourceRecruit.citizenId);
+          if (!targetRecruit) {
+              // Logic Create New (Copied from previous implementation)
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = sourceRecruit as any;
+              let newStatus = RecruitmentStatus.SOURCE;
+              let newReason = '';
+              let newProof = '';
+              let newPhysical = { ...cleanRecruitData.physical, healthGrade: 0 };
+
+              if (sourceRecruit.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
+                  newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION; newReason = sourceRecruit.defermentReason || ''; newPhysical = cleanRecruitData.physical;
+              } else if (sourceRecruit.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+                  newStatus = RecruitmentStatus.EXEMPT_REGISTRATION; newReason = sourceRecruit.defermentReason || ''; newPhysical = cleanRecruitData.physical;
+              } else if (sourceRecruit.status === RecruitmentStatus.EXEMPTED) {
+                  newStatus = RecruitmentStatus.EXEMPTED; newReason = sourceRecruit.defermentReason || ''; newProof = sourceRecruit.defermentProof || '';
+              } else if (sourceRecruit.status === RecruitmentStatus.NOT_SELECTED_TT50) {
+                  newStatus = RecruitmentStatus.NOT_SELECTED_TT50; newReason = sourceRecruit.defermentReason || '';
+              }
+
+              const newRecruit: Recruit = { 
+                  ...cleanRecruitData, 
+                  id: Date.now().toString(36) + Math.random().toString(36).substr(2) + toCreate.length, 
+                  recruitmentYear: nextYear, 
+                  status: newStatus, 
+                  defermentReason: newReason, 
+                  defermentProof: newProof,
+                  enlistmentUnit: undefined, enlistmentDate: undefined, enlistmentType: undefined,
+                  physical: newPhysical
+              };
+              toCreate.push(newRecruit);
+          } else {
+              // Logic Update Existing
+              toUpdate.push({ target: targetRecruit, source: sourceRecruit });
+          }
+      });
+
+      if (toCreate.length === 0 && toUpdate.length === 0) { 
+          alert(`Tất cả hồ sơ đã được đồng bộ sang năm ${nextYear}.`); 
           return; 
       }
 
-      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện. \n\nLƯU Ý: \n- Danh sách 1 (Không được ĐK) và Danh sách 2 (Miễn ĐK) sẽ được TỰ ĐỘNG chuyển sang năm sau và GIỮ NGUYÊN trạng thái.\n- Các trường hợp còn lại sẽ chuyển về trạng thái NGUỒN để xét duyệt lại.\n\nXác nhận chuyển sang năm ${nextYear}?`)) return;
+      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ MỚI và ${toUpdate.length} hồ sơ ĐÃ CÓ ở năm ${nextYear}.\n\nLƯU Ý: \n- Hồ sơ mới sẽ được thêm vào.\n- Hồ sơ đã có sẽ được CẬP NHẬT thông tin mới nhất (Họ tên, địa chỉ...).\n- Danh sách 1, 2, Miễn, TT50 sẽ được đồng bộ trạng thái sang năm sau.\n\nXác nhận thực hiện?`)) return;
 
-      let successCount = 0;
+      let countCreated = 0;
+      let countUpdated = 0;
+
+      // Execute Creates
       for (const r of toCreate) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
-
-          let newStatus = RecruitmentStatus.SOURCE;
-          let newReason = '';
-          let newProof = '';
-          let newPhysical = { ...cleanRecruitData.physical, healthGrade: 0 }; // Mặc định reset sức khỏe về 0 để khám lại
-
-          // --- LOGIC BẢO LƯU TRẠNG THÁI ---
-          
-          // 1. DANH SÁCH 1: KHÔNG ĐƯỢC ĐK
-          if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
-              newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
-              newReason = r.defermentReason || '';
-              // Giữ nguyên thông tin sức khỏe (nếu có)
-              newPhysical = cleanRecruitData.physical; 
-          } 
-          // 2. DANH SÁCH 2: MIỄN ĐK (thường là khuyết tật, bệnh hiểm nghèo)
-          else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
-              newStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
-              newReason = r.defermentReason || '';
-              // QUAN TRỌNG: Giữ nguyên hồ sơ sức khỏe cho đối tượng miễn đăng ký
-              newPhysical = cleanRecruitData.physical; 
-          } 
-          // 3. MIỄN NVQS
-          else if (r.status === RecruitmentStatus.EXEMPTED) {
-              newStatus = RecruitmentStatus.EXEMPTED;
-              newReason = r.defermentReason || '';
-              newProof = r.defermentProof || '';
-          } 
-          // 4. TT50
-          else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
-              newStatus = RecruitmentStatus.NOT_SELECTED_TT50;
-              newReason = r.defermentReason || '';
-          } 
-          // Các trường hợp còn lại (Tạm hoãn, Sơ tuyển, Khám tuyển, Dự bị...) -> Về NGUỒN (SOURCE) và reset lý do, sức khỏe
-          
-          const newRecruit: Recruit = { 
-              ...cleanRecruitData, 
-              id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, 
-              recruitmentYear: nextYear, 
-              status: newStatus, 
-              defermentReason: newReason, 
-              defermentProof: newProof,
-              enlistmentUnit: undefined, 
-              enlistmentDate: undefined, 
-              enlistmentType: undefined,
-              physical: newPhysical
-          };
-          onUpdate(newRecruit);
-          successCount++;
+          onUpdate(r);
+          countCreated++;
       }
-      alert(`Đã chuyển thành công ${successCount} hồ sơ sang năm ${nextYear}.`);
+
+      // Execute Updates
+      for (const { target, source } of toUpdate) {
+          const isSpecialSource = [RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.EXEMPTED, RecruitmentStatus.NOT_SELECTED_TT50].includes(source.status);
+          
+          let updatedStatus = target.status;
+          let updatedReason = target.defermentReason;
+          let updatedProof = target.defermentProof;
+          let updatedPhysical = target.physical;
+
+          // Sync status only if source is special AND target is currently just Source (prevent overwriting progress)
+          // OR if target is already special but reason changed
+          if (isSpecialSource && (target.status === RecruitmentStatus.SOURCE || target.status === source.status)) {
+              updatedStatus = source.status;
+              updatedReason = source.defermentReason;
+              updatedProof = source.defermentProof;
+              if (source.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || source.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+                  updatedPhysical = source.physical;
+              }
+          }
+
+          const updatedRecruit: Recruit = {
+              ...target,
+              fullName: source.fullName,
+              dob: source.dob,
+              address: source.address,
+              hometown: source.hometown,
+              family: source.family,
+              details: {
+                  ...target.details,
+                  ethnicity: source.details.ethnicity,
+                  religion: source.details.religion,
+                  education: source.details.education // Sync education
+              },
+              status: updatedStatus,
+              defermentReason: updatedReason,
+              defermentProof: updatedProof,
+              physical: updatedPhysical
+          };
+          onUpdate(updatedRecruit);
+          countUpdated++;
+      }
+
+      alert(`Đã thêm mới ${countCreated} hồ sơ và cập nhật đồng bộ ${countUpdated} hồ sơ sang năm ${nextYear}.`);
   };
 
   const handleEdit = (recruit: Recruit) => {
