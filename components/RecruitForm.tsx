@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
 import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, POLICY_DEFERMENT_REASONS, NOT_ALLOWED_REGISTRATION_REASONS, EXEMPT_REGISTRATION_REASONS } from '../constants';
@@ -58,6 +57,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     recruitmentYear: sessionYear,
     enlistmentUnit: '',
     enlistmentDate: '',
+    enlistmentType: 'OFFICIAL',
     defermentReason: '',
     defermentProof: '',
     attachments: []
@@ -139,6 +139,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
         },
         enlistmentUnit: initialData.enlistmentUnit || '',
         enlistmentDate: initialData.enlistmentDate || '',
+        enlistmentType: initialData.enlistmentType || 'OFFICIAL',
         defermentReason: initialData.defermentReason || '',
         defermentProof: initialData.defermentProof || '',
         attachments: initialData.attachments || []
@@ -687,6 +688,33 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                             </label>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                                <label className="block text-xs font-bold text-green-700 mb-1">Loại nhập ngũ</label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="radio" 
+                                            name="enlistmentType" 
+                                            value="OFFICIAL" 
+                                            checked={formData.enlistmentType === 'OFFICIAL' || !formData.enlistmentType} 
+                                            onChange={() => handleChange('enlistmentType', 'OFFICIAL')} 
+                                            disabled={isReadOnly}
+                                        />
+                                        <span className="text-sm font-bold text-red-600">Chính thức</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="radio" 
+                                            name="enlistmentType" 
+                                            value="RESERVE" 
+                                            checked={formData.enlistmentType === 'RESERVE'} 
+                                            onChange={() => handleChange('enlistmentType', 'RESERVE')} 
+                                            disabled={isReadOnly}
+                                        />
+                                        <span className="text-sm font-bold text-teal-600">Dự bị</span>
+                                    </label>
+                                </div>
+                            </div>
                             <div className="col-span-2 md:col-span-1">
                                 <label className="block text-xs font-bold text-green-700 mb-1">Đơn vị tiếp nhận</label>
                                 <input 
