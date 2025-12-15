@@ -31,6 +31,35 @@ const setLocalData = (data: Recruit[]) => {
     }
 };
 
+// Helper: Logic đồng bộ offline sang năm sau
+const syncOfflineData = (currentData: Recruit[], recruit: Recruit) => {
+    const NO_SYNC_STATUS = ['NHAP_NGU', 'LOAI_KHOI_NGUON']; 
+    if (NO_SYNC_STATUS.includes(recruit.status)) return currentData;
+
+    const nextYear = recruit.recruitmentYear + 1;
+    
+    // Check if exists in next year
+    const existingIndex = currentData.findIndex(r => 
+        r.citizenId === recruit.citizenId && r.recruitmentYear === nextYear
+    );
+
+    const recruitData = { ...recruit };
+    recruitData.recruitmentYear = nextYear;
+    // Remove original ID to avoid conflict, new ID will be generated if creating
+    
+    if (existingIndex !== -1) {
+        // Update existing record for next year
+        // Keep the ID of the existing record
+        const existingId = currentData[existingIndex].id;
+        currentData[existingIndex] = { ...recruitData, id: existingId };
+    } else {
+        // Create new record for next year
+        recruitData.id = Date.now().toString(36) + Math.random().toString(36).substring(2) + "_auto";
+        currentData.push(recruitData);
+    }
+    return currentData;
+};
+
 export const api = {
   // Lấy toàn bộ danh sách
   getRecruits: async (): Promise<Recruit[] | null> => {
@@ -64,18 +93,29 @@ export const api = {
       const savedRecruit = await response.json();
       
       // UPDATE LOCAL STORAGE NGAY LẬP TỨC
-      const current = getLocalData();
-      setLocalData([...current, savedRecruit]);
+      let current = getLocalData();
+      current.push(savedRecruit);
+      
+      // Đồng bộ offline giả lập (để khi refresh có ngay)
+      // Lưu ý: Server đã làm rồi, nhưng cập nhật local giúp UI mượt nếu dùng local data
+      current = syncOfflineData(current, savedRecruit);
+      
+      setLocalData(current);
 
       return savedRecruit;
     } catch (error) {
       console.warn("API Error (Offline mode): Saving locally", error);
       // Fallback: Lưu vào local
-      const current = getLocalData();
+      let current = getLocalData();
       // Đảm bảo không trùng ID (dù form đã tạo ID)
-      const updated = [...current, recruit];
-      setLocalData(updated);
-      return recruit;
+      const newRecruit = { ...recruit };
+      current.push(newRecruit);
+      
+      // Kích hoạt đồng bộ năm sau cho chế độ offline
+      current = syncOfflineData(current, newRecruit);
+      
+      setLocalData(current);
+      return newRecruit;
     }
   },
 
@@ -92,10 +132,12 @@ export const api = {
       const savedRecruit = await response.json();
 
       // UPDATE LOCAL STORAGE NGAY LẬP TỨC
-      const current = getLocalData();
+      let current = getLocalData();
       const index = current.findIndex(r => r.id === recruit.id);
       if (index !== -1) {
           current[index] = savedRecruit;
+          // Đồng bộ sang năm sau
+          current = syncOfflineData(current, savedRecruit);
           setLocalData(current);
       }
 
@@ -103,10 +145,12 @@ export const api = {
     } catch (error) {
       console.warn("API Error (Offline mode): Updating locally", error);
       // Fallback: Update local
-      const current = getLocalData();
+      let current = getLocalData();
       const index = current.findIndex(r => r.id === recruit.id);
       if (index !== -1) {
           current[index] = recruit;
+          // Kích hoạt đồng bộ năm sau cho chế độ offline
+          current = syncOfflineData(current, recruit);
           setLocalData(current);
           return recruit;
       }

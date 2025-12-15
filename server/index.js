@@ -53,6 +53,51 @@ mongoose.connect(MONGODB_URI, mongooseOptions)
     // Không exit process để Server vẫn chạy và trả về giao diện (dù không có data)
   });
 
+// --- HELPER FUNCTION: AUTO SYNC TO NEXT YEAR ---
+const syncToNextYear = async (recruit) => {
+  try {
+      // 1. Xác định các trạng thái KHÔNG được sao chép (Nhập ngũ, Loại khỏi nguồn)
+      // Các trạng thái còn lại (DS 1, 2, 3, 13...) đều được sao chép/đồng bộ.
+      const NO_SYNC_STATUS = ['NHAP_NGU', 'LOAI_KHOI_NGUON']; 
+      
+      // Nếu hồ sơ rơi vào trạng thái không đồng bộ, ta dừng lại (hoặc có thể xem xét xóa ở năm sau nếu cần, nhưng an toàn là giữ nguyên)
+      if (NO_SYNC_STATUS.includes(recruit.status)) return;
+
+      const nextYear = recruit.recruitmentYear + 1;
+      
+      // 2. Tìm bản ghi của năm sau dựa trên CCCD
+      const existingNextYear = await Recruit.findOne({
+          citizenId: recruit.citizenId,
+          recruitmentYear: nextYear
+      });
+
+      // 3. Chuẩn bị dữ liệu để sao chép
+      const recruitData = recruit.toObject();
+      delete recruitData._id;
+      delete recruitData.id; // Xóa ID cũ để tạo ID mới hoặc giữ nguyên logic update
+      delete recruitData.createdAt;
+      delete recruitData.updatedAt;
+      delete recruitData.__v;
+      
+      recruitData.recruitmentYear = nextYear;
+
+      if (existingNextYear) {
+          // UPDATE: Nếu năm sau đã có hồ sơ, cập nhật thông tin mới nhất từ năm nay
+          // Giữ nguyên ID của bản ghi năm sau
+          await Recruit.findByIdAndUpdate(existingNextYear._id, recruitData);
+          console.log(`[AUTO-SYNC] Đã cập nhật hồ sơ ${recruit.fullName} cho năm ${nextYear}`);
+      } else {
+          // CREATE: Nếu năm sau chưa có, tạo mới
+          recruitData.id = Date.now().toString(36) + Math.random().toString(36).substring(2);
+          const newRecruit = new Recruit(recruitData);
+          await newRecruit.save();
+          console.log(`[AUTO-SYNC] Đã sao chép hồ sơ ${recruit.fullName} sang năm ${nextYear}`);
+      }
+  } catch (err) {
+      console.error("[AUTO-SYNC ERROR]", err.message);
+  }
+};
+
 // --- API ROUTES ---
 
 // 1. Lấy danh sách công dân
@@ -71,6 +116,10 @@ app.post('/api/recruits', async (req, res) => {
   try {
     const newRecruit = new Recruit(req.body);
     const savedRecruit = await newRecruit.save();
+    
+    // Kích hoạt đồng bộ sang năm sau
+    await syncToNextYear(savedRecruit);
+
     res.status(201).json(savedRecruit);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -86,6 +135,10 @@ app.put('/api/recruits/:id', async (req, res) => {
       { new: true }
     );
     if (!updatedRecruit) return res.status(404).json({ message: 'Không tìm thấy hồ sơ' });
+    
+    // Kích hoạt đồng bộ sang năm sau
+    await syncToNextYear(updatedRecruit);
+
     res.json(updatedRecruit);
   } catch (error) {
     res.status(400).json({ message: error.message });
