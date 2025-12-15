@@ -293,13 +293,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           if (filters.province) prevYearRecruits = prevYearRecruits.filter(r => r.address.province === filters.province);
           if (filters.commune) prevYearRecruits = prevYearRecruits.filter(r => r.address.commune === filters.commune);
       }
+      
+      // Update logic: Include Exempt/Not Allowed/TT50 in the transfer candidates
       const eligibleToTransfer = prevYearRecruits.filter(r => {
+          // Chỉ loại bỏ: Đã nhập ngũ chính thức, Đã loại khỏi nguồn
           return !(r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') && 
-                 r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE && 
-                 r.status !== RecruitmentStatus.EXEMPTED &&
-                 r.status !== RecruitmentStatus.NOT_ALLOWED_REGISTRATION &&
-                 r.status !== RecruitmentStatus.EXEMPT_REGISTRATION;
+                 r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE;
       });
+
       if (eligibleToTransfer.length === 0) { alert(`Không tìm thấy hồ sơ nào từ năm ${prevYear} đủ điều kiện cập nhật.`); return; }
       
       const currentYearRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
@@ -307,23 +308,49 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       const toCreate = eligibleToTransfer.filter(r => !existingCitizenIds.has(r.citizenId));
       
       if (toCreate.length === 0) { alert(`Tất cả hồ sơ nguồn năm ${prevYear} đã có mặt trong năm ${sessionYear}.`); return; }
-      if (!window.confirm(`Xác nhận cập nhật ${toCreate.length} hồ sơ từ năm ${prevYear}?`)) return;
+      if (!window.confirm(`Xác nhận cập nhật ${toCreate.length} hồ sơ từ năm ${prevYear}? (Các trường hợp Miễn/Hoãn/TT50 sẽ được bảo lưu trạng thái)`)) return;
       
       let successCount = 0;
       for (const r of toCreate) {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
 
+          // Preserve special statuses logic
+          let newStatus = RecruitmentStatus.SOURCE;
+          let newReason = '';
+          let newProof = '';
+
+          if (r.status === RecruitmentStatus.EXEMPTED) {
+              newStatus = RecruitmentStatus.EXEMPTED;
+              newReason = r.defermentReason || '';
+              newProof = r.defermentProof || '';
+          } else if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
+              newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
+              newReason = r.defermentReason || '';
+          } else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+              newStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
+              newReason = r.defermentReason || '';
+          } else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
+              newStatus = RecruitmentStatus.NOT_SELECTED_TT50;
+              newReason = r.defermentReason || '';
+          }
+          // Normal cases (Source, Deferred, Failed Check, etc.) revert to SOURCE for re-evaluation in new year
+
           const newRecruit: Recruit = { 
               ...cleanRecruitData, 
               id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, 
               recruitmentYear: sessionYear, 
-              status: RecruitmentStatus.SOURCE, 
-              defermentReason: '', 
-              defermentProof: '',
+              status: newStatus, 
+              defermentReason: newReason, 
+              defermentProof: newProof,
               enlistmentUnit: undefined, 
               enlistmentDate: undefined, 
-              enlistmentType: undefined 
+              enlistmentType: undefined,
+              // Reset health grade if reverting to SOURCE, otherwise keep for record if exempt
+              physical: {
+                  ...cleanRecruitData.physical,
+                  healthGrade: (newStatus === RecruitmentStatus.SOURCE) ? 0 : cleanRecruitData.physical.healthGrade
+              }
           };
           onUpdate(newRecruit);
           successCount++;
