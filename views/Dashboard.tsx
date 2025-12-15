@@ -254,7 +254,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     const healthGrade1 = validRecruitsForCharts.filter(r => r.physical.healthGrade === 1).length;
     const healthGrade2 = validRecruitsForCharts.filter(r => r.physical.healthGrade === 2).length;
     const healthGrade3 = validRecruitsForCharts.filter(r => r.physical.healthGrade === 3).length;
-    const healthGrade4 = validRecruitsForCharts.filter(r => r.physical.healthGrade >= 4).length;
+    const healthGrade4 = validRecruitsForCharts.filter(r => (r.physical.healthGrade || 0) >= 4).length;
 
     // Politics
     const dangVien = validRecruitsForCharts.filter(r => r.details.politicalStatus === 'Dang_Vien').length;
