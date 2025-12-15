@@ -20,23 +20,23 @@ interface RecruitManagementProps {
 }
 
 const TABS = [
-  { id: 'NOT_ALLOWED_REG', label: '1. DS Không được đăng ký NVQS', status: [RecruitmentStatus.NOT_ALLOWED_REGISTRATION], color: 'bg-red-800', borderColor: 'border-red-800', textColor: 'text-red-900', icon: Ban },
-  { id: 'EXEMPT_REG', label: '2. DS được miễn ĐK NVQS', status: [RecruitmentStatus.EXEMPT_REGISTRATION], color: 'bg-slate-500', borderColor: 'border-slate-500', textColor: 'text-slate-600', icon: Shield },
-  { id: 'FIRST_TIME_REG', label: '3. DS đăng ký NVQS lần đầu', status: null, color: 'bg-pink-600', borderColor: 'border-pink-600', textColor: 'text-pink-700', icon: Baby },
-  { id: 'ALL', label: '4. Toàn bộ nguồn (18+)', status: null, color: 'bg-gray-600', borderColor: 'border-gray-600', textColor: 'text-gray-700', icon: Users },
-  { id: 'TT50', label: '5. DS Không tuyển chọn (TT 50)', status: [RecruitmentStatus.NOT_SELECTED_TT50], color: 'bg-slate-600', borderColor: 'border-slate-600', textColor: 'text-slate-700', icon: BookX },
-  { id: 'PRE_CHECK', label: '6. DS Đủ ĐK Sơ tuyển', status: [RecruitmentStatus.SOURCE, RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.PRE_CHECK_FAILED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-blue-600', borderColor: 'border-blue-600', textColor: 'text-blue-700', icon: ClipboardList },
-  { id: 'PRE_CHECK_PASS', label: '6.1. DS Đạt sơ tuyển', status: [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-blue-500', borderColor: 'border-blue-500', textColor: 'text-blue-600', icon: CheckCircle2, isSub: true },
-  { id: 'PRE_CHECK_FAIL', label: '6.2. DS Không đạt sơ tuyển', status: [RecruitmentStatus.PRE_CHECK_FAILED], color: 'bg-orange-500', borderColor: 'border-orange-500', textColor: 'text-orange-600', icon: XCircle, isSub: true },
-  { id: 'MED_EXAM', label: '7. DS Đủ ĐK Khám tuyển', status: [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-indigo-600', borderColor: 'border-indigo-600', textColor: 'text-indigo-700', icon: Stethoscope },
-  { id: 'MED_EXAM_PASS', label: '7.1. DS Đạt khám tuyển', status: [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-indigo-500', borderColor: 'border-indigo-500', textColor: 'text-indigo-600', icon: CheckCircle2, isSub: true },
-  { id: 'MED_EXAM_FAIL', label: '7.2. DS Không đạt khám tuyển', status: [RecruitmentStatus.MED_EXAM_FAILED], color: 'bg-orange-600', borderColor: 'border-orange-600', textColor: 'text-orange-700', icon: XCircle, isSub: true },
-  { id: 'DEFERRED_LIST', label: '8. DS Tạm hoãn (Nguồn)', status: [RecruitmentStatus.DEFERRED], color: 'bg-amber-600', borderColor: 'border-amber-600', textColor: 'text-amber-700', icon: PauseCircle },
-  { id: 'EXEMPTED_LIST', label: '9. DS Miễn gọi nhập ngũ', status: [RecruitmentStatus.EXEMPTED], color: 'bg-purple-600', borderColor: 'border-purple-600', textColor: 'text-purple-700', icon: ShieldCheck },
-  { id: 'FINAL', label: '10. DS Chốt hồ sơ', status: [RecruitmentStatus.FINALIZED], color: 'bg-green-600', borderColor: 'border-green-600', textColor: 'text-green-700', icon: FileSignature },
-  { id: 'ENLISTED', label: '11. DS Nhập ngũ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', borderColor: 'border-red-600', textColor: 'text-red-700', icon: Flag },
-  { id: 'REMOVED', label: '12. DS Loại khỏi nguồn', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', borderColor: 'border-gray-400', textColor: 'text-gray-500', icon: UserX },
-  { id: 'REMAINING', label: '13. DS Nguồn còn lại', status: null, color: 'bg-teal-600', borderColor: 'border-teal-600', textColor: 'text-teal-700', icon: Layers },
+  { id: 'NOT_ALLOWED_REG', label: '1. DS KHÔNG ĐƯỢC ĐĂNG KÝ NVQS', status: [RecruitmentStatus.NOT_ALLOWED_REGISTRATION], color: 'bg-red-800', lightColor: 'bg-red-50', borderColor: 'border-red-800', textColor: 'text-red-900', icon: Ban },
+  { id: 'EXEMPT_REG', label: '2. DS ĐƯỢC MIỄN ĐK NVQS', status: [RecruitmentStatus.EXEMPT_REGISTRATION], color: 'bg-slate-500', lightColor: 'bg-slate-100', borderColor: 'border-slate-500', textColor: 'text-slate-800', icon: Shield },
+  { id: 'FIRST_TIME_REG', label: '3. DS ĐĂNG KÝ NVQS LẦN ĐẦU', status: null, color: 'bg-pink-600', lightColor: 'bg-pink-50', borderColor: 'border-pink-600', textColor: 'text-pink-900', icon: Baby },
+  { id: 'ALL', label: '4. TOÀN BỘ NGUỒN (18+)', status: null, color: 'bg-gray-600', lightColor: 'bg-gray-100', borderColor: 'border-gray-600', textColor: 'text-gray-900', icon: Users },
+  { id: 'TT50', label: '5. DS KHÔNG TUYỂN CHỌN (TT 50)', status: [RecruitmentStatus.NOT_SELECTED_TT50], color: 'bg-slate-600', lightColor: 'bg-slate-200', borderColor: 'border-slate-600', textColor: 'text-slate-900', icon: BookX },
+  { id: 'PRE_CHECK', label: '6. DS ĐỦ ĐK SƠ TUYỂN', status: [RecruitmentStatus.SOURCE, RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.PRE_CHECK_FAILED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-blue-600', lightColor: 'bg-blue-50', borderColor: 'border-blue-600', textColor: 'text-blue-900', icon: ClipboardList },
+  { id: 'PRE_CHECK_PASS', label: '6.1. DS ĐẠT SƠ TUYỂN', status: [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-blue-500', lightColor: 'bg-blue-50', borderColor: 'border-blue-500', textColor: 'text-blue-800', icon: CheckCircle2, isSub: true, parentId: 'PRE_CHECK' },
+  { id: 'PRE_CHECK_FAIL', label: '6.2. DS KHÔNG ĐẠT SƠ TUYỂN', status: [RecruitmentStatus.PRE_CHECK_FAILED], color: 'bg-orange-500', lightColor: 'bg-orange-50', borderColor: 'border-orange-500', textColor: 'text-orange-900', icon: XCircle, isSub: true, parentId: 'PRE_CHECK' },
+  { id: 'MED_EXAM', label: '7. DS ĐỦ ĐK KHÁM TUYỂN', status: [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-indigo-600', lightColor: 'bg-indigo-50', borderColor: 'border-indigo-600', textColor: 'text-indigo-900', icon: Stethoscope },
+  { id: 'MED_EXAM_PASS', label: '7.1. DS ĐẠT KHÁM TUYỂN', status: [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-indigo-500', lightColor: 'bg-indigo-50', borderColor: 'border-indigo-500', textColor: 'text-indigo-800', icon: CheckCircle2, isSub: true, parentId: 'MED_EXAM' },
+  { id: 'MED_EXAM_FAIL', label: '7.2. DS KHÔNG ĐẠT KHÁM TUYỂN', status: [RecruitmentStatus.MED_EXAM_FAILED], color: 'bg-orange-600', lightColor: 'bg-orange-100', borderColor: 'border-orange-600', textColor: 'text-orange-900', icon: XCircle, isSub: true, parentId: 'MED_EXAM' },
+  { id: 'DEFERRED_LIST', label: '8. DS TẠM HOÃN (NGUỒN)', status: [RecruitmentStatus.DEFERRED], color: 'bg-amber-600', lightColor: 'bg-amber-50', borderColor: 'border-amber-600', textColor: 'text-amber-900', icon: PauseCircle },
+  { id: 'EXEMPTED_LIST', label: '9. DS MIỄN GỌI NHẬP NGŨ', status: [RecruitmentStatus.EXEMPTED], color: 'bg-purple-600', lightColor: 'bg-purple-50', borderColor: 'border-purple-600', textColor: 'text-purple-900', icon: ShieldCheck },
+  { id: 'FINAL', label: '10. DS CHỐT HỒ SƠ', status: [RecruitmentStatus.FINALIZED], color: 'bg-green-600', lightColor: 'bg-green-50', borderColor: 'border-green-600', textColor: 'text-green-900', icon: FileSignature },
+  { id: 'ENLISTED', label: '11. DS NHẬP NGŨ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', lightColor: 'bg-red-50', borderColor: 'border-red-600', textColor: 'text-red-900', icon: Flag },
+  { id: 'REMOVED', label: '12. DS LOẠI KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
+  { id: 'REMAINING', label: '13. DS NGUỒN CÒN LẠI', status: null, color: 'bg-teal-600', lightColor: 'bg-teal-50', borderColor: 'border-teal-600', textColor: 'text-teal-900', icon: Layers },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -65,6 +65,31 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   };
 
   const activeTab = TABS.find(t => t.id === activeTabId) || TABS[0];
+
+  // Logic to show/hide sub-tabs (Accordion behavior for 6.x and 7.x)
+  const visibleTabs = useMemo(() => {
+      return TABS.filter(tab => {
+          // @ts-ignore
+          if (!tab.isSub) return true; // Top level always visible
+          // @ts-ignore
+          const parent = tab.parentId;
+          if (!parent) return true;
+
+          const currentActive = TABS.find(t => t.id === activeTabId);
+          
+          // 1. Show if its parent is currently active (Expanded)
+          if (activeTabId === parent) return true;
+          
+          // 2. Show if currently active is a sibling (Keep Expanded)
+          // @ts-ignore
+          if (currentActive?.parentId === parent) return true;
+          
+          // 3. Show if it is itself active (Redundant but safe)
+          if (activeTabId === tab.id) return true;
+
+          return false; // Otherwise hide
+      });
+  }, [activeTabId]);
 
   // Helper check age
   const checkAge = (r: Recruit) => {
@@ -290,20 +315,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
              <div className="w-full md:w-64 flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 overflow-y-auto custom-scrollbar flex flex-col">
                  <div className="p-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 text-sm uppercase">Danh sách quản lý</div>
                  <div className="p-2 space-y-1">
-                     {TABS.map(tab => (
+                     {visibleTabs.map(tab => (
                          <button
                              key={tab.id}
                              onClick={() => handleTabChange(tab.id)}
-                             className={`w-full text-left px-3 py-2.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 
+                             title={tab.label}
+                             className={`w-full text-left px-2 py-2.5 rounded-r-lg border-l-4 transition-all flex items-center gap-2 mb-1 shadow-sm
                                  ${activeTabId === tab.id 
-                                     ? `${tab.color} text-white shadow-md` 
-                                     : `text-gray-600 hover:bg-gray-100`
+                                     ? `${tab.color} ${tab.borderColor} text-white` 
+                                     : `${tab.lightColor} ${tab.textColor} ${tab.borderColor} hover:opacity-80`
                                  }
                                  ${'isSub' in tab ? 'pl-6' : ''}
                              `}
                          >
-                             <tab.icon size={16} className={activeTabId === tab.id ? 'text-white' : tab.textColor} />
-                             <span className="line-clamp-2">{tab.label}</span>
+                             <tab.icon size={16} className={`shrink-0 ${activeTabId === tab.id ? 'text-white' : tab.textColor}`} />
+                             <span className="font-bold text-[11px] uppercase whitespace-nowrap truncate">{tab.label}</span>
                          </button>
                      ))}
                  </div>
