@@ -10,8 +10,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-// Port sẽ lấy từ biến môi trường (khi lên Cloud) hoặc mặc định 5000 (khi chạy local)
+// Port sẽ lấy từ biến môi trường (khi lên Cloud) hoặc mặc định 5000
 const PORT = process.env.PORT || 5000;
+
+// --- 1. ROUTE HEALTH CHECK (QUAN TRỌNG CHO RENDER) ---
+// Render sẽ gọi vào đây để biết server còn sống hay không
+app.get('/health', (req, res) => {
+  res.status(200).send('Server is healthy and running!');
+});
 
 // Middleware
 app.use(cors());
@@ -20,34 +26,31 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
 
 // MongoDB Connection
-// Ưu tiên lấy từ biến môi trường MONGODB_URI (Cloud), nếu không có thì dùng local
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/tuyenquan_db';
 
-// LOG DEBUG: In ra chuỗi kết nối (đã che mật khẩu) để kiểm tra lỗi cú pháp
+// Cấu hình Mongoose để không bị treo nếu lỗi mạng
+const mongooseOptions = {
+  serverSelectionTimeoutMS: 5000, // Hủy kết nối sau 5s nếu không kết nối được (thay vì treo 30s+)
+  socketTimeoutMS: 45000,
+};
+
+// LOG DEBUG
 try {
   const maskedURI = MONGODB_URI.replace(/:([^:@]+)@/, ':****@');
-  console.log(`🌐 Đang nỗ lực kết nối tới Database: ${maskedURI}`);
+  console.log(`🌐 Đang kết nối Database: ${maskedURI}`);
 } catch (e) {
-  console.log('🌐 Đang nỗ lực kết nối tới Database (Không thể parse URI)');
+  console.log('🌐 Đang kết nối Database...');
 }
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URI, mongooseOptions)
   .then(() => console.log(`✅ Đã kết nối cơ sở dữ liệu: ${process.env.MONGODB_URI ? 'MongoDB Cloud' : 'Localhost'}`))
   .catch(err => {
     console.error('❌ Lỗi kết nối MongoDB:', err.message);
-    
-    // Kiểm tra lỗi IP Whitelist
     if (err.name === 'MongooseServerSelectionError') {
-        console.error('🚨 QUAN TRỌNG: Server Render bị MongoDB chặn IP!');
-        console.error('👉 KHẮC PHỤC NGAY:');
-        console.error('   1. Vào trang quản trị MongoDB Atlas (cloud.mongodb.com)');
-        console.error('   2. Chọn mục "Network Access" ở cột bên trái');
-        console.error('   3. Bấm nút xanh "Add IP Address"');
-        console.error('   4. Chọn "Allow Access from Anywhere" (0.0.0.0/0)');
-        console.error('   5. Bấm "Confirm" và đợi 1-2 phút rồi Restart lại Render.');
-    } else {
-        console.error('⚠️ GỢI Ý: Kiểm tra lại User/Password trong biến môi trường MONGODB_URI.');
+        console.error('🚨 LỖI IP WHITELIST: Server Render không thể kết nối tới MongoDB.');
+        console.error('👉 KHẮC PHỤC: Vào MongoDB Atlas -> Network Access -> Add IP Address -> Chọn "Allow Access from Anywhere" (0.0.0.0/0).');
     }
+    // Không exit process để Server vẫn chạy và trả về giao diện (dù không có data)
   });
 
 // --- API ROUTES ---
@@ -58,7 +61,8 @@ app.get('/api/recruits', async (req, res) => {
     const recruits = await Recruit.find();
     res.json(recruits);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("API Error:", error.message);
+    res.status(500).json({ message: "Lỗi Server hoặc kết nối Database" });
   }
 });
 
@@ -76,7 +80,6 @@ app.post('/api/recruits', async (req, res) => {
 // 3. Cập nhật thông tin
 app.put('/api/recruits/:id', async (req, res) => {
   try {
-    // Tìm theo field 'id' của chúng ta chứ không phải _id của Mongo
     const updatedRecruit = await Recruit.findOneAndUpdate(
       { id: req.params.id }, 
       req.body, 
@@ -100,13 +103,12 @@ app.delete('/api/recruits/:id', async (req, res) => {
   }
 });
 
-// --- CẤU HÌNH CHO PRODUCTION (KHI ĐƯA LÊN MẠNG) ---
-// Bất kỳ route nào không phải API sẽ trả về file index.html của React
-// Để React Router xử lý việc điều hướng
+// --- CẤU HÌNH CHO PRODUCTION ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-app.listen(PORT, () => {
+// Lắng nghe trên 0.0.0.0 để Render nhận diện được port
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server đang chạy tại port ${PORT}`);
 });
