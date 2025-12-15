@@ -345,21 +345,27 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           if (filters.commune) currentYearRecruits = currentYearRecruits.filter(r => r.address.commune === filters.commune);
       }
 
+      // Logic chuyển nguồn:
+      // 1. Nguồn còn lại (Source, Tạm hoãn, Chưa đạt, Dự bị...)
+      // 2. Đăng ký lần đầu (17 tuổi năm nay -> 18 tuổi năm sau)
+      // 3. Sao chép nguyên trạng: Không được ĐK, Miễn ĐK, Miễn NVQS, TT50
+      // 4. LOẠI BỎ: Đã nhập ngũ chính thức, Đã loại khỏi nguồn
+
       const eligibleToTransfer = currentYearRecruits.filter(r => {
           const birthYear = parseInt(r.dob.split('-')[0] || '0');
-          const age = sessionYear - birthYear;
+          const ageInCurrentYear = sessionYear - birthYear;
           
-          if (age === 17) return true;
+          // Loại bỏ những người quá nhỏ (dưới 17 tuổi ở năm hiện tại)
+          if (ageInCurrentYear < 17) return false;
 
-          const isEligibleSource = age >= 18 && 
-                r.status !== RecruitmentStatus.ENLISTED && 
-                (r.status !== RecruitmentStatus.FINALIZED || r.enlistmentType === 'RESERVE') && 
-                r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE && 
-                // r.status !== RecruitmentStatus.EXEMPTED && // Removed this line to allow exempted recruits to transfer
-                r.status !== RecruitmentStatus.NOT_ALLOWED_REGISTRATION &&
-                r.status !== RecruitmentStatus.EXEMPT_REGISTRATION;
+          // LOẠI BỎ: Đã loại khỏi nguồn
+          if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
 
-          return isEligibleSource;
+          // LOẠI BỎ: Đã nhập ngũ chính thức
+          if (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') return false;
+
+          // Còn lại đều chuyển sang năm sau
+          return true;
       });
 
       if (eligibleToTransfer.length === 0) { 
@@ -377,28 +383,50 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           return; 
       }
 
-      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện (17 tuổi lên 18, nguồn còn lại, được miễn...). Xác nhận chuyển sang nguồn năm ${nextYear}?`)) return;
+      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện (Nguồn còn lại, 17 tuổi, Miễn/Hoãn/TT50...). Xác nhận chuyển sang nguồn năm ${nextYear}?`)) return;
 
       let successCount = 0;
       for (const r of toCreate) {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { _id, createdAt, updatedAt, __v, ...cleanRecruitData } = r as any;
 
-          // Check if current status is Exempted
-          const isExempted = r.status === RecruitmentStatus.EXEMPTED;
+          let newStatus = RecruitmentStatus.SOURCE;
+          let newReason = '';
+          let newProof = '';
 
+          // Logic bảo lưu trạng thái đặc biệt
+          if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
+              newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
+              newReason = r.defermentReason || '';
+          } else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+              newStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
+              newReason = r.defermentReason || '';
+          } else if (r.status === RecruitmentStatus.EXEMPTED) {
+              newStatus = RecruitmentStatus.EXEMPTED;
+              newReason = r.defermentReason || '';
+              newProof = r.defermentProof || '';
+          } else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
+              newStatus = RecruitmentStatus.NOT_SELECTED_TT50;
+              newReason = r.defermentReason || '';
+          } 
+          // Các trường hợp còn lại (Tạm hoãn, Sơ tuyển, Khám tuyển, Dự bị...) -> Về NGUỒN (SOURCE) và reset lý do
+          
           const newRecruit: Recruit = { 
               ...cleanRecruitData, 
               id: Date.now().toString(36) + Math.random().toString(36).substr(2) + successCount, 
               recruitmentYear: nextYear, 
-              // If previously exempted, keep as exempted. Otherwise reset to Source.
-              status: isExempted ? RecruitmentStatus.EXEMPTED : RecruitmentStatus.SOURCE, 
-              // If exempted, keep the reason. Otherwise clear.
-              defermentReason: isExempted ? (r.defermentReason || '') : '', 
-              defermentProof: isExempted ? (r.defermentProof || '') : '',
+              status: newStatus, 
+              defermentReason: newReason, 
+              defermentProof: newProof,
               enlistmentUnit: undefined, 
               enlistmentDate: undefined, 
-              enlistmentType: undefined 
+              enlistmentType: undefined,
+              // Reset kết quả khám sức khỏe về 0 để khám lại vào năm sau (nếu về nguồn)
+              // Nếu thuộc diện Miễn/Không được ĐK thì giữ nguyên hoặc không quan trọng
+              physical: { 
+                  ...cleanRecruitData.physical, 
+                  healthGrade: (newStatus === RecruitmentStatus.SOURCE) ? 0 : cleanRecruitData.physical.healthGrade 
+              }
           };
           onUpdate(newRecruit);
           successCount++;

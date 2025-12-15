@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../types';
 import { PROVINCES_VN, LOCATION_DATA } from '../constants';
@@ -12,7 +13,6 @@ import {
   HeartPulse,
   BookOpen,
   Calendar,
-  TrendingUp,
   AlertCircle,
   Tent,
   Smile,
@@ -24,7 +24,9 @@ import {
   PauseCircle,
   ShieldCheck,
   Layers,
-  UserMinus
+  Ban,
+  Shield,
+  BookX
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -46,7 +48,7 @@ interface DashboardProps {
   onNavigate: (tabId: string) => void;
   sessionYear: number;
   userRole: UserRole;
-  userUnit?: { commune: string; province: string }; // Added to filter for non-admins
+  userUnit?: { commune: string; province: string };
 }
 
 // Màu sắc biểu đồ chuẩn quân đội/báo cáo
@@ -59,190 +61,137 @@ const COLORS = {
     pie: ['#059669', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#6366f1']
 };
 
-// Component thẻ quy trình (Process Step) - Đã khôi phục giao diện chi tiết
-const ProcessStepCard = ({ title, count, total, icon: Icon, color, onClick, isLast = false, subLabel, hideProgress = false, detailText }: any) => {
+const ProcessStepCard = ({ title, count, icon: Icon, color, onClick, isLast = false, subLabel, detailText }: any) => {
     return (
         <div 
             onClick={onClick}
-            className={`flex-1 relative p-4 rounded-xl border transition-all cursor-pointer group bg-white hover:shadow-lg ${isLast ? 'border-green-500 bg-green-50/30' : 'border-gray-200 hover:border-military-300'}`}
+            className={`flex-1 relative p-4 rounded-xl border transition-all cursor-pointer group bg-white hover:shadow-lg ${isLast ? 'border-teal-500 bg-teal-50/30' : 'border-gray-200 hover:border-military-300'}`}
         >
             <div className="flex justify-between items-start mb-2">
                 <div className={`p-2 rounded-lg ${color} text-white shadow-sm`}>
                     <Icon size={20} />
                 </div>
                 <div className="text-right">
-                     {/* Ẩn subLabel nếu không có giá trị */}
-                     {subLabel && <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{subLabel}</p>}
-                     <p className={`text-2xl font-bold ${isLast ? 'text-green-700' : 'text-gray-800'}`}>{count}</p>
+                     {subLabel && <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{subLabel}</p>}
+                     <p className={`text-2xl font-bold ${isLast ? 'text-teal-700' : 'text-gray-800'}`}>{count}</p>
                 </div>
             </div>
             
-            <h3 className="text-xs md:text-sm font-bold text-gray-700 mt-2 mb-1 group-hover:text-military-700 transition-colors uppercase">{title}</h3>
+            <h3 className="text-xs font-bold text-gray-700 mt-2 mb-1 group-hover:text-military-700 transition-colors uppercase leading-tight">{title}</h3>
             
-            {/* Detail text for Enlisted breakdown */}
             {detailText && (
                 <p className="text-[10px] text-gray-500 font-medium mb-1">{detailText}</p>
-            )}
-
-            {/* Progress bar visual */}
-            {!isLast && !hideProgress && !detailText && (
-                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                    <div className="h-full bg-gray-300 group-hover:bg-military-500 transition-all" style={{ width: '100%' }}></div>
-                </div>
             )}
         </div>
     );
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear, userRole, userUnit }) => {
-  // --- ADMIN FILTERS ---
   const [filterProvince, setFilterProvince] = useState('');
   const [filterCommune, setFilterCommune] = useState('');
 
-  // --- MEMO: Filter Data by Session Year & Location ---
-  const yearRecruits = useMemo(() => {
-      // Quan trọng: Lọc bỏ những người đã bị loại khỏi nguồn (Status = REMOVED_FROM_SOURCE)
-      let filtered = recruits.filter(r => 
-          r.recruitmentYear === sessionYear && 
-          r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE
-      );
+  // --- 1. LẤY TOÀN BỘ DỮ LIỆU CỦA NĂM & ĐƠN VỊ (Bao gồm cả loại, không được ĐK...) ---
+  const allYearRecruits = useMemo(() => {
+      let filtered = recruits.filter(r => r.recruitmentYear === sessionYear);
       
-      // --- CRITICAL: STRICT LOCALITY FILTERING ---
       if (userRole !== 'ADMIN') {
-          // Nếu không phải Admin, BẮT BUỘC lọc theo đơn vị của user (Tỉnh + Xã)
-          // Không được phép hiển thị dữ liệu của xã khác
           if (userUnit && userUnit.province && userUnit.commune) {
               filtered = filtered.filter(r => 
                   r.address.province === userUnit.province && 
                   r.address.commune === userUnit.commune
               );
           } else {
-              // Fallback an toàn: Nếu user không có unit hợp lệ, không hiện gì cả để tránh lộ data
               return [];
           }
       } else {
-          // ADMIN FILTERS (Có thể xem tất cả hoặc lọc)
-          if (filterProvince) {
-              filtered = filtered.filter(r => r.address.province === filterProvince);
-          }
-          if (filterCommune) {
-              filtered = filtered.filter(r => r.address.commune === filterCommune);
-          }
+          if (filterProvince) filtered = filtered.filter(r => r.address.province === filterProvince);
+          if (filterCommune) filtered = filtered.filter(r => r.address.commune === filterCommune);
       }
-
       return filtered;
   }, [recruits, sessionYear, filterProvince, filterCommune, userRole, userUnit]);
 
-  // --- MEMO: Calculate Data for All Years (New Feature) ---
-  const multiYearStats = useMemo(() => {
-      const stats: Record<number, number> = {};
-      
-      recruits.forEach(r => {
-          if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return;
-
-          // --- STRICT FILTERING FOR MULTI-YEAR STATS TOO ---
-          if (userRole !== 'ADMIN') {
-              if (!userUnit || r.address.province !== userUnit.province || r.address.commune !== userUnit.commune) {
-                  return; // Skip records not belonging to user's unit
-              }
-          } else {
-              // Admin Filters
-              if (filterProvince && r.address.province !== filterProvince) return;
-              if (filterCommune && r.address.commune !== filterCommune) return;
-          }
-
-          const y = r.recruitmentYear;
-          stats[y] = (stats[y] || 0) + 1;
-      });
-
-      return Object.entries(stats)
-          .map(([year, count]) => ({ year: `Năm ${year}`, count, rawYear: parseInt(year) }))
-          .sort((a, b) => a.rawYear - b.rawYear);
-  }, [recruits, filterProvince, filterCommune, userRole, userUnit]);
-
-
-  // Commune List based on selected province
-  const communeList = useMemo(() => {
-     if (!filterProvince) return [];
-     // @ts-ignore
-     const data = LOCATION_DATA[filterProvince];
-     return data ? Object.keys(data) : [];
-  }, [filterProvince]);
-
-  // --- MEMO: Calculate Stats ---
+  // --- 2. TÍNH TOÁN THỐNG KÊ CHO 13 DANH SÁCH & BIỂU ĐỒ ---
   const stats = useMemo(() => {
-    // 1. TỔNG NGUỒN THANH NIÊN (Hiện có)
-    // Sửa lại: Tổng nguồn = Tất cả hồ sơ TRỪ người chưa đủ 18 tuổi
-    // yearRecruits đã lọc REMOVED_FROM_SOURCE
-    const countTotalSource = yearRecruits.filter(r => {
-         const birthYear = parseInt(r.dob.split('-')[0]);
-         const isAdult = (sessionYear - birthYear) >= 18;
-         // Exclude special lists from the Total Count
-         const isExcluded = [RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(r.status);
-         return isAdult && !isExcluded;
-    }).length;
+    // Helper check age
+    const checkAge = (r: Recruit) => {
+        const birthYear = parseInt(r.dob.split('-')[0] || '0');
+        const age = sessionYear - birthYear;
+        return age;
+    };
 
-    // 2. CHƯA ĐỦ 18
-    const countUnder18 = yearRecruits.filter(r => {
-        const birthYear = parseInt(r.dob.split('-')[0]);
-        return (sessionYear - birthYear) < 18;
-    }).length;
+    // Helper check valid source (Not removed, not excluded)
+    const isValidSourceStatus = (status: RecruitmentStatus) => {
+        return ![
+            RecruitmentStatus.REMOVED_FROM_SOURCE,
+            RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
+            RecruitmentStatus.EXEMPT_REGISTRATION
+        ].includes(status);
+    };
 
-    // 3. ĐỦ ĐK SƠ TUYỂN (Loại trừ: <18, Tạm hoãn, Miễn)
-    const countEligiblePreCheck = yearRecruits.filter(r => {
-        const birthYear = parseInt(r.dob.split('-')[0]);
-        const isAdult = (sessionYear - birthYear) >= 18;
-        const isExcluded = [RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(r.status);
-        return isAdult && !isExcluded;
-    }).length;
+    // --- 13 LIST METRICS ---
 
-    // 4. ĐỦ ĐIỀU KIỆN KHÁM TUYỂN (Đã đạt sơ tuyển trở lên)
-    const countEligibleMedExam = yearRecruits.filter(r => [
+    // 1. Không được đăng ký
+    const countNotAllowed = allYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION).length;
+
+    // 2. Miễn đăng ký
+    const countExemptReg = allYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPT_REGISTRATION).length;
+
+    // 3. Đăng ký lần đầu (17 tuổi, trạng thái hợp lệ)
+    const countFirstTime = allYearRecruits.filter(r => checkAge(r) < 18 && isValidSourceStatus(r.status)).length;
+
+    // 4. Tổng nguồn (18+, trạng thái hợp lệ)
+    const countTotalSource = allYearRecruits.filter(r => checkAge(r) >= 18 && isValidSourceStatus(r.status)).length;
+
+    // 5. Không tuyển chọn (TT50)
+    const countTT50 = allYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_SELECTED_TT50).length;
+
+    // 6. Đủ ĐK Sơ tuyển (Source, Pre-Check Pass/Fail, Med Pass/Fail, Final, Enlisted) - Age >= 18
+    const preCheckStatuses = [
+        RecruitmentStatus.SOURCE, 
+        RecruitmentStatus.PRE_CHECK_PASSED, 
+        RecruitmentStatus.PRE_CHECK_FAILED, 
+        RecruitmentStatus.MED_EXAM_PASSED, 
+        RecruitmentStatus.MED_EXAM_FAILED, 
+        RecruitmentStatus.FINALIZED, 
+        RecruitmentStatus.ENLISTED
+    ];
+    const countEligiblePreCheck = allYearRecruits.filter(r => checkAge(r) >= 18 && preCheckStatuses.includes(r.status)).length;
+    // Phụ: Đạt / Không đạt sơ tuyển
+    const countPreCheckPass = allYearRecruits.filter(r => [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status)).length;
+    const countPreCheckFail = allYearRecruits.filter(r => r.status === RecruitmentStatus.PRE_CHECK_FAILED).length;
+
+    // 7. Đủ ĐK Khám tuyển (Pre-Check Pass, Med Pass/Fail, Final, Enlisted) - Age >= 18
+    const medExamStatuses = [
         RecruitmentStatus.PRE_CHECK_PASSED, 
         RecruitmentStatus.MED_EXAM_PASSED, 
         RecruitmentStatus.MED_EXAM_FAILED, 
         RecruitmentStatus.FINALIZED, 
         RecruitmentStatus.ENLISTED
-    ].includes(r.status)).length;
+    ];
+    const countEligibleMedExam = allYearRecruits.filter(r => checkAge(r) >= 18 && medExamStatuses.includes(r.status)).length;
+    // Phụ: Đạt / Không đạt khám
+    const countMedPass = allYearRecruits.filter(r => [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status)).length;
+    const countMedFail = allYearRecruits.filter(r => r.status === RecruitmentStatus.MED_EXAM_FAILED).length;
 
-    // 5. ĐỦ ĐK NHẬP NGŨ (Đã đạt sức khỏe trở lên, kể cả đã chốt hay nhập ngũ)
-    const countEligibleEnlist = yearRecruits.filter(r => [
-        RecruitmentStatus.MED_EXAM_PASSED, 
-        RecruitmentStatus.FINALIZED,
-        RecruitmentStatus.ENLISTED
-    ].includes(r.status)).length;
+    // 8. Tạm hoãn
+    const countDeferred = allYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED).length;
 
-    // 6. SỐ LƯỢNG NHẬP NGŨ (Đã nhập ngũ) - Chi tiết Chính thức / Dự bị
-    const enlistedRecruits = yearRecruits.filter(r => r.status === RecruitmentStatus.ENLISTED);
+    // 9. Miễn gọi nhập ngũ
+    const countExempted = allYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPTED).length;
+
+    // 10. Chốt hồ sơ
+    const countFinalized = allYearRecruits.filter(r => r.status === RecruitmentStatus.FINALIZED).length;
+
+    // 11. Nhập ngũ
+    const enlistedRecruits = allYearRecruits.filter(r => r.status === RecruitmentStatus.ENLISTED);
     const countEnlisted = enlistedRecruits.length;
-    const countEnlistedOfficial = enlistedRecruits.filter(r => r.enlistmentType !== 'RESERVE').length; // Default to Official if undefined
+    const countEnlistedOfficial = enlistedRecruits.filter(r => r.enlistmentType !== 'RESERVE').length;
     const countEnlistedReserve = enlistedRecruits.filter(r => r.enlistmentType === 'RESERVE').length;
 
-    // 7. TẠM HOÃN NGUỒN NĂM NAY
-    const countDeferredSource = yearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED).length;
+    // 12. Loại khỏi nguồn
+    const countRemoved = allYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
 
-    // 8. TẠM HOÃN SƠ TUYỂN (Rớt sơ tuyển)
-    const countDeferredPreCheck = yearRecruits.filter(r => r.status === RecruitmentStatus.PRE_CHECK_FAILED).length;
-
-    // 9. TẠM HOÃN KHÁM TUYỂN (Rớt sức khỏe)
-    const countDeferredMedExam = yearRecruits.filter(r => r.status === RecruitmentStatus.MED_EXAM_FAILED).length;
-
-    // 10. ĐƯỢC MIỄN
-    const countExempted = yearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPTED).length;
-
-    // 11. LOẠI KHỎI NGUỒN (Lấy từ toàn bộ recruits, lọc theo địa phương/năm)
-    const countRemoved = recruits.filter(r => 
-        r.recruitmentYear === sessionYear && 
-        r.status === RecruitmentStatus.REMOVED_FROM_SOURCE &&
-        (userRole !== 'ADMIN' ? (userUnit && r.address.province === userUnit.province && r.address.commune === userUnit.commune) : true) &&
-        (userRole === 'ADMIN' && filterProvince ? r.address.province === filterProvince : true) &&
-        (userRole === 'ADMIN' && filterCommune ? r.address.commune === filterCommune : true)
-    ).length;
-
-    // 12. TỔNG NGUỒN CÒN LẠI (Remaining Source)
-    // Cần khớp chính xác với Tab "DS Nguồn còn lại" trong RecruitManagement
-    // Tab này bao gồm: SOURCE, PRE_CHECK (Pass/Fail), MED_EXAM (Pass/Fail), FINALIZED, DEFERRED, EXEMPTED
-    // Loại trừ: ENLISTED, REMOVED_FROM_SOURCE
+    // 13. Nguồn còn lại (Logic complex from RecruitManagement)
     const remainingStatuses = [
         RecruitmentStatus.SOURCE, 
         RecruitmentStatus.PRE_CHECK_PASSED, 
@@ -251,133 +200,132 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         RecruitmentStatus.MED_EXAM_FAILED, 
         RecruitmentStatus.FINALIZED, 
         RecruitmentStatus.DEFERRED, 
-        RecruitmentStatus.EXEMPTED
+        RecruitmentStatus.EXEMPTED,
+        RecruitmentStatus.NOT_SELECTED_TT50
     ];
-    
-    const countRemainingNextYear = yearRecruits.filter(r => remainingStatuses.includes(r.status as RecruitmentStatus)).length;
-
-    // a. Thông tin phụ: Số lượng thanh niên sẽ đủ 18 tuổi vào năm sau (để hiển thị chơi)
-    const countComingOfAgeNextYear = yearRecruits.filter(r => {
-        const birthYear = parseInt(r.dob.split('-')[0]);
-        const ageCurrent = sessionYear - birthYear;
-        const ageNext = (sessionYear + 1) - birthYear;
-        return ageCurrent < 18 && ageNext >= 18;
+    const countRemaining = allYearRecruits.filter(r => {
+        const age = checkAge(r);
+        return remainingStatuses.includes(r.status) && 
+               r.enlistmentType !== 'OFFICIAL' &&
+               age >= 18; 
     }).length;
 
-    // --- OTHER STATS (Health, Politics, etc.) ---
-    const dangVien = yearRecruits.filter(r => r.details.politicalStatus === 'Dang_Vien').length;
-    const doanVien = yearRecruits.filter(r => r.details.politicalStatus === 'Doan_Vien').length;
-    
-    const healthGrade1 = yearRecruits.filter(r => r.physical.healthGrade === 1).length;
-    const healthGrade2 = yearRecruits.filter(r => r.physical.healthGrade === 2).length;
-    const healthGrade3 = yearRecruits.filter(r => r.physical.healthGrade === 3).length;
-    const healthGrade4 = yearRecruits.filter(r => r.physical.healthGrade === 4).length;
 
-    // Education Breakdown
+    // --- DATA FOR CHARTS (Use only valid source people to avoid skewing data) ---
+    const validRecruitsForCharts = allYearRecruits.filter(r => isValidSourceStatus(r.status));
+
+    // Education
     const eduMap: Record<string, number> = {};
-    yearRecruits.forEach(r => {
+    validRecruitsForCharts.forEach(r => {
         let edu = r.details.education;
-        if (edu.includes('Đại học') || edu.includes('Cao đẳng') || edu.includes('Trung cấp')) {
-            edu = 'ĐH/CĐ/TC';
-        }
+        if (edu.includes('Đại học') || edu.includes('Cao đẳng') || edu.includes('Trung cấp')) edu = 'ĐH/CĐ/TC';
         eduMap[edu] = (eduMap[edu] || 0) + 1;
     });
-    const eduChartData = Object.entries(eduMap)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
+    const eduChartData = Object.entries(eduMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-    // Birth Year Breakdown
+    // Birth Year
     const ageMap: Record<string, number> = {};
-    yearRecruits.forEach(r => {
+    validRecruitsForCharts.forEach(r => {
         if (r.dob) {
             const year = r.dob.split('-')[0];
             if (year) ageMap[year] = (ageMap[year] || 0) + 1;
         }
     });
-    const ageChartData = Object.entries(ageMap)
-        .map(([name, value]) => ({ name: `Năm ${name}`, value }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+    const ageChartData = Object.entries(ageMap).map(([name, value]) => ({ name: `Năm ${name}`, value })).sort((a, b) => a.name.localeCompare(b.name));
 
-    // Village Breakdown
+    // Village
     const villageMap: Record<string, number> = {};
-    yearRecruits.forEach(r => {
+    validRecruitsForCharts.forEach(r => {
         const v = r.address.village || 'Khác';
         villageMap[v] = (villageMap[v] || 0) + 1;
     });
-    const villageChartData = Object.entries(villageMap)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
+    const villageChartData = Object.entries(villageMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 10);
     
-    // Ethnicity
+    // Ethnicity & Religion
     const ethnicityMap: Record<string, number> = {};
-    yearRecruits.forEach(r => {
-        const e = r.details.ethnicity || 'Chưa cập nhật';
-        ethnicityMap[e] = (ethnicityMap[e] || 0) + 1;
-    });
+    validRecruitsForCharts.forEach(r => { const e = r.details.ethnicity || 'Chưa cập nhật'; ethnicityMap[e] = (ethnicityMap[e] || 0) + 1; });
     const ethnicityData = Object.entries(ethnicityMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
 
-    // Religion
     const religionMap: Record<string, number> = {};
-    yearRecruits.forEach(r => {
-        const rName = r.details.religion || 'Chưa cập nhật';
-        religionMap[rName] = (religionMap[rName] || 0) + 1;
-    });
+    validRecruitsForCharts.forEach(r => { const rName = r.details.religion || 'Chưa cập nhật'; religionMap[rName] = (religionMap[rName] || 0) + 1; });
     const religionData = Object.entries(religionMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
 
-    // BMI Stats
-    const heightStats = {
-        'Duoi_160': yearRecruits.filter(r => r.physical.height > 0 && r.physical.height < 160).length,
-        '160_165': yearRecruits.filter(r => r.physical.height >= 160 && r.physical.height <= 165).length,
-        '166_170': yearRecruits.filter(r => r.physical.height >= 166 && r.physical.height <= 170).length,
-        'Tren_170': yearRecruits.filter(r => r.physical.height > 170).length
-    };
-    
-    const weightStats = {
-        'Duoi_50': yearRecruits.filter(r => r.physical.weight > 0 && r.physical.weight < 50).length,
-        '50_60': yearRecruits.filter(r => r.physical.weight >= 50 && r.physical.weight <= 60).length,
-        'Tren_60': yearRecruits.filter(r => r.physical.weight > 60).length
-    };
+    // Health
+    const healthGrade1 = validRecruitsForCharts.filter(r => r.physical.healthGrade === 1).length;
+    const healthGrade2 = validRecruitsForCharts.filter(r => r.physical.healthGrade === 2).length;
+    const healthGrade3 = validRecruitsForCharts.filter(r => r.physical.healthGrade === 3).length;
+    const healthGrade4 = validRecruitsForCharts.filter(r => r.physical.healthGrade >= 4).length;
 
+    // Politics
+    const dangVien = validRecruitsForCharts.filter(r => r.details.politicalStatus === 'Dang_Vien').length;
+    const doanVien = validRecruitsForCharts.filter(r => r.details.politicalStatus === 'Doan_Vien').length;
+
+    // BMI
+    const heightStats = {
+        'Duoi_160': validRecruitsForCharts.filter(r => r.physical.height > 0 && r.physical.height < 160).length,
+        '160_165': validRecruitsForCharts.filter(r => r.physical.height >= 160 && r.physical.height <= 165).length,
+        '166_170': validRecruitsForCharts.filter(r => r.physical.height >= 166 && r.physical.height <= 170).length,
+        'Tren_170': validRecruitsForCharts.filter(r => r.physical.height > 170).length
+    };
+    const weightStats = {
+        'Duoi_50': validRecruitsForCharts.filter(r => r.physical.weight > 0 && r.physical.weight < 50).length,
+        '50_60': validRecruitsForCharts.filter(r => r.physical.weight >= 50 && r.physical.weight <= 60).length,
+        'Tren_60': validRecruitsForCharts.filter(r => r.physical.weight > 60).length
+    };
     const bmiStats = {
-        'Gay': yearRecruits.filter(r => r.physical.bmi > 0 && r.physical.bmi < 18.5).length,
-        'Binh_Thuong': yearRecruits.filter(r => r.physical.bmi >= 18.5 && r.physical.bmi <= 24.9).length,
-        'Thua_Can': yearRecruits.filter(r => r.physical.bmi >= 25).length
+        'Gay': validRecruitsForCharts.filter(r => r.physical.bmi > 0 && r.physical.bmi < 18.5).length,
+        'Binh_Thuong': validRecruitsForCharts.filter(r => r.physical.bmi >= 18.5 && r.physical.bmi <= 24.9).length,
+        'Thua_Can': validRecruitsForCharts.filter(r => r.physical.bmi >= 25).length
     };
 
     return { 
-        countTotalSource,
-        countUnder18,
-        countEligiblePreCheck,
-        countEligibleMedExam,
-        countEligibleEnlist,
-        countEnlisted,
-        countEnlistedOfficial,
-        countEnlistedReserve,
-        countDeferredSource,
-        countDeferredPreCheck,
-        countDeferredMedExam,
-        countExempted,
-        countRemoved,
-        countRemainingNextYear,
-        countComingOfAgeNextYear, // Export to use if needed
+        countNotAllowed, countExemptReg, countFirstTime, countTotalSource, countTT50,
+        countEligiblePreCheck, countPreCheckPass, countPreCheckFail,
+        countEligibleMedExam, countMedPass, countMedFail,
+        countDeferred, countExempted, countFinalized, 
+        countEnlisted, countEnlistedOfficial, countEnlistedReserve,
+        countRemoved, countRemaining,
         
         dangVien, doanVien,
         healthGrade1, healthGrade2, healthGrade3, healthGrade4,
         eduChartData, ageChartData, villageChartData, ethnicityData, religionData,
-        heightStats, weightStats, bmiStats
+        heightStats, weightStats, bmiStats,
+        
+        // Export total count for percentage calculation in JSX
+        totalValidForCharts: validRecruitsForCharts.length
     };
-  }, [yearRecruits, recruits, sessionYear, filterProvince, filterCommune, userRole, userUnit]);
+  }, [allYearRecruits, sessionYear]);
 
-  // Display Name for Dashboard Scope
+  const communeList = useMemo(() => {
+     if (!filterProvince) return [];
+     // @ts-ignore
+     const data = LOCATION_DATA[filterProvince];
+     return data ? Object.keys(data) : [];
+  }, [filterProvince]);
+
   const dashboardScopeName = useMemo(() => {
-      if (userRole !== 'ADMIN' && userUnit) {
-          return `${userUnit.commune.toUpperCase()}`;
-      }
+      if (userRole !== 'ADMIN' && userUnit) return `${userUnit.commune.toUpperCase()}`;
       if (filterCommune) return `${filterCommune.toUpperCase()}`;
       if (filterProvince) return `TỈNH ${filterProvince.toUpperCase()}`;
       return "TOÀN QUỐC (TỔNG HỢP)";
   }, [userRole, userUnit, filterProvince, filterCommune]);
+
+  // --- MULTI YEAR STATS CALCULATION (UNCHANGED LOGIC) ---
+  const multiYearStats = useMemo(() => {
+      const stats: Record<number, number> = {};
+      recruits.forEach(r => {
+          if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return;
+          if (userRole !== 'ADMIN') {
+              if (!userUnit || r.address.province !== userUnit.province || r.address.commune !== userUnit.commune) return;
+          } else {
+              if (filterProvince && r.address.province !== filterProvince) return;
+              if (filterCommune && r.address.commune !== filterCommune) return;
+          }
+          const y = r.recruitmentYear;
+          stats[y] = (stats[y] || 0) + 1;
+      });
+      return Object.entries(stats).map(([year, count]) => ({ year: `Năm ${year}`, count, rawYear: parseInt(year) })).sort((a, b) => a.rawYear - b.rawYear);
+  }, [recruits, filterProvince, filterCommune, userRole, userUnit]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -397,7 +345,6 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                    <option value="">-- Cả nước (Tổng hợp) --</option>
                    {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
                </select>
-               
                <select 
                   className="border border-gray-300 rounded p-2 text-sm w-full md:w-48 disabled:bg-gray-100 disabled:text-gray-400"
                   value={filterCommune}
@@ -407,168 +354,138 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                    <option value="">-- Toàn tỉnh --</option>
                    {communeList.map(c => <option key={c} value={c}>{c}</option>)}
                </select>
-               
-               <div className="ml-auto text-xs text-gray-500 italic">
-                   Dữ liệu tự động tổng hợp từ các đơn vị cấp dưới
-               </div>
             </div>
         </div>
       )}
 
-      {/* SECTION 1: QUY TRÌNH TUYỂN QUÂN (PIPELINE) */}
+      {/* SECTION 1: TIẾN ĐỘ THỰC HIỆN - 13 DANH SÁCH */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
          <div className="flex items-center justify-between mb-4">
              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 uppercase">
                  <Activity className="text-military-600" /> Tiến độ thực hiện {sessionYear} <span className="text-military-500">- {dashboardScopeName}</span>
              </h2>
-             <span className="text-xs font-semibold bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                 Tổng hồ sơ (18+): {stats.countTotalSource}
-             </span>
          </div>
          
-         {/* 12 CARDS GRID */}
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 relative">
-             {/* 1. TỔNG NGUỒN THANH NIÊN */}
+         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+             {/* 1. KHÔNG ĐƯỢC ĐK */}
              <ProcessStepCard 
-                title="TỔNG NGUỒN THANH NIÊN" 
-                // subLabel removed
-                count={stats.countTotalSource} 
-                total={stats.countTotalSource}
-                icon={Users} 
-                color="bg-gray-500" 
-                onClick={() => onNavigate('ALL')}
-                hideProgress={true}
+                title="1. DS Không được ĐK" 
+                count={stats.countNotAllowed} 
+                icon={Ban} 
+                color="bg-red-800" 
+                onClick={() => onNavigate('NOT_ALLOWED_REG')}
              />
              
-             {/* 2. CHƯA ĐỦ 18 -> ĐỔI THÀNH ĐỦ 17 TUỔI TRONG NĂM */}
+             {/* 2. MIỄN ĐK */}
              <ProcessStepCard 
-                title="ĐỦ 17 TUỔI TRONG NĂM" 
-                // subLabel removed
-                count={stats.countUnder18} 
-                total={stats.countTotalSource}
-                icon={Baby} 
-                color="bg-pink-500" 
-                onClick={() => onNavigate('UNDER_18')}
-                hideProgress={true}
+                title="2. DS Miễn ĐK" 
+                count={stats.countExemptReg} 
+                icon={Shield} 
+                color="bg-slate-500" 
+                onClick={() => onNavigate('EXEMPT_REG')}
              />
 
-             {/* 3. ĐỦ ĐK SƠ TUYỂN */}
+             {/* 3. ĐĂNG KÝ LẦN ĐẦU */}
              <ProcessStepCard 
-                title="ĐỦ ĐK SƠ TUYỂN" 
-                // subLabel removed
+                title="3. DS ĐK Lần đầu (17t)" 
+                count={stats.countFirstTime} 
+                icon={Baby} 
+                color="bg-pink-600"
+                onClick={() => onNavigate('FIRST_TIME_REG')}
+             />
+
+             {/* 4. TỔNG NGUỒN */}
+             <ProcessStepCard 
+                title="4. Tổng nguồn (18+)" 
+                count={stats.countTotalSource} 
+                icon={Users} 
+                color="bg-gray-600"
+                onClick={() => onNavigate('ALL')}
+             />
+
+             {/* 5. KHÔNG TUYỂN CHỌN TT50 */}
+             <ProcessStepCard 
+                title="5. DS Không tuyển (TT50)" 
+                count={stats.countTT50} 
+                icon={BookX} 
+                color="bg-slate-600"
+                onClick={() => onNavigate('TT50')}
+             />
+
+             {/* 6. ĐỦ ĐK SƠ TUYỂN */}
+             <ProcessStepCard 
+                title="6. DS Đủ ĐK Sơ tuyển" 
                 count={stats.countEligiblePreCheck} 
-                total={stats.countTotalSource}
                 icon={ClipboardList} 
                 color="bg-blue-600"
                 onClick={() => onNavigate('PRE_CHECK')}
+                detailText={`${stats.countPreCheckPass} Đạt / ${stats.countPreCheckFail} Không đạt`}
              />
 
-             {/* 4. ĐỦ ĐIỀU KIỆN KHÁM TUYỂN */}
+             {/* 7. ĐỦ ĐK KHÁM TUYỂN */}
              <ProcessStepCard 
-                title="ĐỦ ĐK KHÁM TUYỂN" 
-                // subLabel removed
+                title="7. DS Đủ ĐK Khám tuyển" 
                 count={stats.countEligibleMedExam} 
-                total={stats.countTotalSource}
                 icon={Stethoscope} 
                 color="bg-indigo-600"
                 onClick={() => onNavigate('MED_EXAM')}
+                detailText={`${stats.countMedPass} Đạt / ${stats.countMedFail} Không đạt`}
              />
 
-             {/* 5. ĐỦ ĐK NHẬP NGŨ */}
+             {/* 8. TẠM HOÃN */}
              <ProcessStepCard 
-                title="ĐỦ ĐK NHẬP NGŨ" 
-                // subLabel removed
-                count={stats.countEligibleEnlist} 
-                total={stats.countTotalSource}
-                icon={FileSignature} 
-                color="bg-emerald-600"
-                onClick={() => onNavigate('FINAL')}
-             />
-
-             {/* 6. SỐ LƯỢNG NHẬP NGŨ */}
-             <ProcessStepCard 
-                title="SỐ LƯỢNG NHẬP NGŨ" 
-                subLabel="CHÍNH THỨC / DỰ BỊ" // Keep this one as it's specific
-                count={stats.countEnlisted} 
-                total={stats.countTotalSource}
-                icon={Flag} 
-                color="bg-red-600"
-                onClick={() => onNavigate('ENLISTED')}
-                detailText={`${stats.countEnlistedOfficial} Chính thức / ${stats.countEnlistedReserve} Dự bị`}
-             />
-
-             {/* 7. TẠM HOÃN NGUỒN NĂM NAY */}
-             <ProcessStepCard 
-                title="SỐ LƯỢNG TẠM HOÃN NGUỒN" 
-                // subLabel removed
-                count={stats.countDeferredSource} 
-                total={stats.countTotalSource}
+                title="8. DS Tạm hoãn" 
+                count={stats.countDeferred} 
                 icon={PauseCircle} 
                 color="bg-amber-600" 
                 onClick={() => onNavigate('DEFERRED_LIST')}
-                hideProgress={true}
              />
 
-             {/* 8. TẠM HOÃN SƠ TUYỂN */}
+             {/* 9. MIỄN GỌI NHẬP NGŨ */}
              <ProcessStepCard 
-                title="SỐ LƯỢNG TẠM HOÃN SƠ TUYỂN" 
-                // subLabel removed
-                count={stats.countDeferredPreCheck} 
-                total={stats.countTotalSource}
-                icon={UserMinus} 
-                color="bg-orange-500" 
-                onClick={() => onNavigate('POST_PRE_CHECK_DEFERRED')}
-                hideProgress={true}
-             />
-
-             {/* 9. TẠM HOÃN KHÁM TUYỂN */}
-             <ProcessStepCard 
-                title="SỐ LƯỢNG TẠM HOÃN KHÁM TUYỂN" 
-                // subLabel removed
-                count={stats.countDeferredMedExam} 
-                total={stats.countTotalSource}
-                icon={HeartPulse} 
-                color="bg-red-500" 
-                onClick={() => onNavigate('POST_MED_EXAM_DEFERRED')}
-                hideProgress={true}
-             />
-
-             {/* 10. ĐƯỢC MIỄN */}
-             <ProcessStepCard 
-                title="SỐ LƯỢNG MIỄN" 
-                // subLabel removed
+                title="9. DS Miễn gọi NN" 
                 count={stats.countExempted} 
-                total={stats.countTotalSource}
                 icon={ShieldCheck} 
                 color="bg-purple-600" 
                 onClick={() => onNavigate('EXEMPTED_LIST')}
-                hideProgress={true}
              />
 
-             {/* 11. LOẠI KHỎI NGUỒN */}
+             {/* 10. CHỐT HỒ SƠ */}
              <ProcessStepCard 
-                title="LOẠI KHỎI NGUỒN" 
-                // subLabel removed
+                title="10. DS Chốt hồ sơ" 
+                count={stats.countFinalized} 
+                icon={FileSignature} 
+                color="bg-green-600" 
+                onClick={() => onNavigate('FINAL')}
+             />
+
+             {/* 11. NHẬP NGŨ */}
+             <ProcessStepCard 
+                title="11. DS Nhập ngũ" 
+                count={stats.countEnlisted} 
+                icon={Flag} 
+                color="bg-red-600" 
+                onClick={() => onNavigate('ENLISTED')}
+                detailText={`${stats.countEnlistedOfficial} CT / ${stats.countEnlistedReserve} DB`}
+             />
+
+             {/* 12. LOẠI KHỎI NGUỒN */}
+             <ProcessStepCard 
+                title="12. DS Loại khỏi nguồn" 
                 count={stats.countRemoved} 
-                total={0}
                 icon={UserX} 
-                color="bg-gray-700" 
+                color="bg-gray-600" 
                 onClick={() => onNavigate('REMOVED')}
-                hideProgress={true}
              />
 
-             {/* 12. TỔNG NGUỒN CÒN LẠI CHO NĂM SAU */}
+             {/* 13. NGUỒN CÒN LẠI */}
              <ProcessStepCard 
-                title="NGUỒN CÒN LẠI" 
-                // subLabel removed
-                count={stats.countRemainingNextYear} 
-                total={stats.countTotalSource}
+                title="13. DS Nguồn còn lại" 
+                count={stats.countRemaining} 
                 icon={Layers} 
                 color="bg-teal-600" 
                 onClick={() => onNavigate('REMAINING')}
-                hideProgress={true}
                 isLast={true}
-                detailText={`trong đó +${stats.countComingOfAgeNextYear} (Tuổi 17->18)`}
              />
          </div>
       </div>
@@ -658,7 +575,6 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                       </PieChart>
                   </ResponsiveContainer>
               </div>
-              {/* Summary Text */}
               <div className="mt-2 text-center text-xs text-gray-500">
                   {stats.eduChartData.length > 0 && (
                       <span>Đa số: <span className="font-bold text-gray-800">{stats.eduChartData[0].name}</span> ({stats.eduChartData[0].value})</span>
@@ -687,7 +603,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
           </div>
       </div>
       
-      {/* SECTION 2.5: THỂ TRẠNG (NEW ROW) */}
+      {/* SECTION 2.5: THỂ TRẠNG */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
            <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase border-b pb-2">
                <Ruler size={18} className="text-blue-600" /> Thống kê Thể trạng (Chiều cao, Cân nặng, BMI)
@@ -698,16 +614,16 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                     <h4 className="text-xs font-bold text-gray-500 uppercase">Chiều cao</h4>
                     <div className="bg-gray-50 p-3 rounded">
                         <div className="flex justify-between text-xs mb-1"><span>Dưới 1m60</span><span className="font-bold">{stats.heightStats['Duoi_160']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-500 h-1.5 rounded-full" style={{width: `${(stats.heightStats['Duoi_160']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-500 h-1.5 rounded-full" style={{width: `${(stats.heightStats['Duoi_160']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
                         <div className="flex justify-between text-xs mb-1"><span>1m60 - 1m65</span><span className="font-bold">{stats.heightStats['160_165']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-600 h-1.5 rounded-full" style={{width: `${(stats.heightStats['160_165']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-600 h-1.5 rounded-full" style={{width: `${(stats.heightStats['160_165']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
                         <div className="flex justify-between text-xs mb-1"><span>1m66 - 1m70</span><span className="font-bold">{stats.heightStats['166_170']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-700 h-1.5 rounded-full" style={{width: `${(stats.heightStats['166_170']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-blue-700 h-1.5 rounded-full" style={{width: `${(stats.heightStats['166_170']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
                         <div className="flex justify-between text-xs mb-1"><span>Trên 1m70</span><span className="font-bold">{stats.heightStats['Tren_170']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-blue-800 h-1.5 rounded-full" style={{width: `${(stats.heightStats['Tren_170']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-blue-800 h-1.5 rounded-full" style={{width: `${(stats.heightStats['Tren_170']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                     </div>
                 </div>
 
@@ -716,13 +632,13 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                     <h4 className="text-xs font-bold text-gray-500 uppercase">Cân nặng</h4>
                     <div className="bg-gray-50 p-3 rounded">
                         <div className="flex justify-between text-xs mb-1"><span>Dưới 50kg</span><span className="font-bold">{stats.weightStats['Duoi_50']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-orange-500 h-1.5 rounded-full" style={{width: `${(stats.weightStats['Duoi_50']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-orange-500 h-1.5 rounded-full" style={{width: `${(stats.weightStats['Duoi_50']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
                         <div className="flex justify-between text-xs mb-1"><span>50kg - 60kg</span><span className="font-bold">{stats.weightStats['50_60']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-orange-600 h-1.5 rounded-full" style={{width: `${(stats.weightStats['50_60']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-orange-600 h-1.5 rounded-full" style={{width: `${(stats.weightStats['50_60']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
                         <div className="flex justify-between text-xs mb-1"><span>Trên 60kg</span><span className="font-bold">{stats.weightStats['Tren_60']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-orange-700 h-1.5 rounded-full" style={{width: `${(stats.weightStats['Tren_60']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-orange-700 h-1.5 rounded-full" style={{width: `${(stats.weightStats['Tren_60']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                     </div>
                 </div>
 
@@ -731,19 +647,19 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                     <h4 className="text-xs font-bold text-gray-500 uppercase">Chỉ số BMI</h4>
                     <div className="bg-gray-50 p-3 rounded">
                         <div className="flex justify-between text-xs mb-1"><span>Thiếu cân (&lt;18.5)</span><span className="font-bold">{stats.bmiStats['Gay']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-red-400 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Gay']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-red-400 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Gay']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
                         <div className="flex justify-between text-xs mb-1"><span>Bình thường</span><span className="font-bold">{stats.bmiStats['Binh_Thuong']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-green-600 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Binh_Thuong']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-green-600 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Binh_Thuong']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
                         <div className="flex justify-between text-xs mb-1"><span>Thừa cân (&gt;25)</span><span className="font-bold">{stats.bmiStats['Thua_Can']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-yellow-500 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Thua_Can']/yearRecruits.length)*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-yellow-500 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Thua_Can']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                     </div>
                 </div>
            </div>
       </div>
 
-      {/* SECTION 3: SỨC KHỎE & CHÍNH TRỊ (Modified) */}
+      {/* SECTION 3: SỨC KHỎE & CHÍNH TRỊ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* SỨC KHỎE CHI TIẾT 1-4 */}
@@ -781,7 +697,6 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                   <Flag className="text-red-600" /> Tiêu chuẩn Chính trị
               </h3>
               <div className="space-y-4">
-                 {/* Đảng Viên */}
                  <div className="relative pt-1">
                     <div className="flex mb-2 items-center justify-between">
                         <div>
@@ -796,11 +711,10 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                         </div>
                     </div>
                     <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-red-50">
-                        <div style={{ width: `${yearRecruits.length ? (stats.dangVien / yearRecruits.length) * 100 : 0}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500 transition-all duration-1000"></div>
+                        <div style={{ width: `${stats.totalValidForCharts ? (stats.dangVien / stats.totalValidForCharts) * 100 : 0}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500 transition-all duration-1000"></div>
                     </div>
                  </div>
 
-                 {/* Đoàn Viên */}
                  <div className="relative pt-1">
                     <div className="flex mb-2 items-center justify-between">
                         <div>
@@ -815,17 +729,15 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                         </div>
                     </div>
                     <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-50">
-                        <div style={{ width: `${yearRecruits.length ? (stats.doanVien / yearRecruits.length) * 100 : 0}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-1000"></div>
+                        <div style={{ width: `${stats.totalValidForCharts ? (stats.doanVien / stats.totalValidForCharts) * 100 : 0}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-1000"></div>
                     </div>
                  </div>
               </div>
           </div>
       </div>
 
-      {/* SECTION 4: DEMOGRAPHICS (Ethnicity & Religion) - NEW */}
+      {/* SECTION 4: DEMOGRAPHICS (Ethnicity & Religion) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-            
-            {/* DÂN TỘC */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase">
                     <Tent className="text-purple-600" size={18} /> Thành phần Dân tộc
@@ -847,7 +759,6 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 )}
             </div>
 
-            {/* TÔN GIÁO */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase">
                     <Smile className="text-orange-500" size={18} /> Thành phần Tôn giáo
@@ -868,9 +779,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                      <div className="text-sm text-gray-400 italic">Chưa có dữ liệu</div>
                 )}
             </div>
-
       </div>
-
     </div>
   );
 };
