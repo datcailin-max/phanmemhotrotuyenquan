@@ -35,7 +35,7 @@ const TABS = [
   { id: 'MED_EXAM_FAIL', label: '7.2. DS Không đạt khám tuyển', status: [RecruitmentStatus.MED_EXAM_FAILED], color: 'bg-red-500', borderColor: 'border-red-500', textColor: 'text-red-600', icon: XCircle, isSub: true },
   { id: 'DEFERRED_LIST', label: '8. DS Tạm hoãn (Nguồn)', status: [RecruitmentStatus.DEFERRED], color: 'bg-amber-600', borderColor: 'border-amber-600', textColor: 'text-amber-700', icon: PauseCircle },
   { id: 'EXEMPTED_LIST', label: '9. DS Miễn gọi nhập ngũ', status: [RecruitmentStatus.EXEMPTED], color: 'bg-purple-600', borderColor: 'border-purple-600', textColor: 'text-purple-700', icon: ShieldCheck },
-  { id: 'FINAL', label: '10. DS Chốt hồ sơ', status: [RecruitmentStatus.FINALIZED], color: 'bg-green-600', borderColor: 'border-green-600', textColor: 'text-green-700', icon: FileSignature },
+  { id: 'FINAL', label: '10. DS Chốt hồ sơ', status: [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-green-600', borderColor: 'border-green-600', textColor: 'text-green-700', icon: FileSignature },
   { id: 'ENLISTED', label: '11. DS Nhập ngũ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', borderColor: 'border-red-600', textColor: 'text-red-700', icon: Flag },
   { id: 'REMOVED', label: '12. DS Loại khỏi nguồn', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-600', borderColor: 'border-gray-600', textColor: 'text-gray-700', icon: UserX },
   { id: 'REMAINING', label: '13. DS Nguồn còn lại', status: null, color: 'bg-teal-600', borderColor: 'border-teal-600', textColor: 'text-teal-700', icon: Layers },
@@ -308,7 +308,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
       const toCreate = eligibleToTransfer.filter(r => !existingCitizenIds.has(r.citizenId));
       
       if (toCreate.length === 0) { alert(`Tất cả hồ sơ nguồn năm ${prevYear} đã có mặt trong năm ${sessionYear}.`); return; }
-      if (!window.confirm(`Xác nhận cập nhật ${toCreate.length} hồ sơ từ năm ${prevYear}? (Các trường hợp Miễn/Hoãn/TT50 sẽ được bảo lưu trạng thái)`)) return;
+      if (!window.confirm(`Xác nhận cập nhật ${toCreate.length} hồ sơ từ năm ${prevYear}? (Các trường hợp Miễn/Hoãn/TT50 và Danh sách 1, 2 sẽ được bảo lưu)`)) return;
       
       let successCount = 0;
       for (const r of toCreate) {
@@ -319,22 +319,32 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           let newStatus = RecruitmentStatus.SOURCE;
           let newReason = '';
           let newProof = '';
+          let newPhysical = { ...cleanRecruitData.physical, healthGrade: 0 }; // Default reset health
 
-          if (r.status === RecruitmentStatus.EXEMPTED) {
+          // 1. LIST 1: NOT ALLOWED
+          if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
+              newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
+              newReason = r.defermentReason || '';
+              newPhysical = cleanRecruitData.physical; // Keep health
+          } 
+          // 2. LIST 2: EXEMPT REGISTRATION
+          else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+              newStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
+              newReason = r.defermentReason || '';
+              newPhysical = cleanRecruitData.physical; // Keep health
+          }
+          // 3. EXEMPT SERVICE
+          else if (r.status === RecruitmentStatus.EXEMPTED) {
               newStatus = RecruitmentStatus.EXEMPTED;
               newReason = r.defermentReason || '';
               newProof = r.defermentProof || '';
-          } else if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
-              newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
-              newReason = r.defermentReason || '';
-          } else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
-              newStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
-              newReason = r.defermentReason || '';
-          } else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
+          } 
+          // 4. TT50
+          else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
               newStatus = RecruitmentStatus.NOT_SELECTED_TT50;
               newReason = r.defermentReason || '';
           }
-          // Normal cases (Source, Deferred, Failed Check, etc.) revert to SOURCE for re-evaluation in new year
+          // Other cases (Source, Deferred, Failed Check...) revert to SOURCE
 
           const newRecruit: Recruit = { 
               ...cleanRecruitData, 
@@ -346,11 +356,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
               enlistmentUnit: undefined, 
               enlistmentDate: undefined, 
               enlistmentType: undefined,
-              // Reset health grade if reverting to SOURCE, otherwise keep for record if exempt
-              physical: {
-                  ...cleanRecruitData.physical,
-                  healthGrade: (newStatus === RecruitmentStatus.SOURCE) ? 0 : cleanRecruitData.physical.healthGrade
-              }
+              physical: newPhysical
           };
           onUpdate(newRecruit);
           successCount++;
@@ -372,12 +378,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           if (filters.commune) currentYearRecruits = currentYearRecruits.filter(r => r.address.commune === filters.commune);
       }
 
-      // Logic chuyển nguồn:
-      // 1. Nguồn còn lại (Source, Tạm hoãn, Chưa đạt, Dự bị...)
-      // 2. Đăng ký lần đầu (17 tuổi năm nay -> 18 tuổi năm sau)
-      // 3. Sao chép nguyên trạng: Không được ĐK, Miễn ĐK, Miễn NVQS, TT50
-      // 4. LOẠI BỎ: Đã nhập ngũ chính thức, Đã loại khỏi nguồn
-
       const eligibleToTransfer = currentYearRecruits.filter(r => {
           const birthYear = parseInt(r.dob.split('-')[0] || '0');
           const ageInCurrentYear = sessionYear - birthYear;
@@ -391,7 +391,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           // LOẠI BỎ: Đã nhập ngũ chính thức
           if (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') return false;
 
-          // Còn lại đều chuyển sang năm sau
+          // Còn lại đều chuyển sang năm sau (bao gồm cả DS 1, DS 2)
           return true;
       });
 
@@ -410,7 +410,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           return; 
       }
 
-      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện (Nguồn còn lại, 17 tuổi, Miễn/Hoãn/TT50...). Xác nhận chuyển sang nguồn năm ${nextYear}?`)) return;
+      if (!window.confirm(`Tìm thấy ${toCreate.length} hồ sơ đủ điều kiện. \n\nLƯU Ý: \n- Danh sách 1 (Không được ĐK) và Danh sách 2 (Miễn ĐK) sẽ được TỰ ĐỘNG chuyển sang năm sau và GIỮ NGUYÊN trạng thái.\n- Các trường hợp còn lại sẽ chuyển về trạng thái NGUỒN để xét duyệt lại.\n\nXác nhận chuyển sang năm ${nextYear}?`)) return;
 
       let successCount = 0;
       for (const r of toCreate) {
@@ -420,23 +420,36 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
           let newStatus = RecruitmentStatus.SOURCE;
           let newReason = '';
           let newProof = '';
+          let newPhysical = { ...cleanRecruitData.physical, healthGrade: 0 }; // Mặc định reset sức khỏe về 0 để khám lại
 
-          // Logic bảo lưu trạng thái đặc biệt
+          // --- LOGIC BẢO LƯU TRẠNG THÁI ---
+          
+          // 1. DANH SÁCH 1: KHÔNG ĐƯỢC ĐK
           if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
               newStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
               newReason = r.defermentReason || '';
-          } else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
+              // Giữ nguyên thông tin sức khỏe (nếu có)
+              newPhysical = cleanRecruitData.physical; 
+          } 
+          // 2. DANH SÁCH 2: MIỄN ĐK (thường là khuyết tật, bệnh hiểm nghèo)
+          else if (r.status === RecruitmentStatus.EXEMPT_REGISTRATION) {
               newStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
               newReason = r.defermentReason || '';
-          } else if (r.status === RecruitmentStatus.EXEMPTED) {
+              // QUAN TRỌNG: Giữ nguyên hồ sơ sức khỏe cho đối tượng miễn đăng ký
+              newPhysical = cleanRecruitData.physical; 
+          } 
+          // 3. MIỄN NVQS
+          else if (r.status === RecruitmentStatus.EXEMPTED) {
               newStatus = RecruitmentStatus.EXEMPTED;
               newReason = r.defermentReason || '';
               newProof = r.defermentProof || '';
-          } else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
+          } 
+          // 4. TT50
+          else if (r.status === RecruitmentStatus.NOT_SELECTED_TT50) {
               newStatus = RecruitmentStatus.NOT_SELECTED_TT50;
               newReason = r.defermentReason || '';
           } 
-          // Các trường hợp còn lại (Tạm hoãn, Sơ tuyển, Khám tuyển, Dự bị...) -> Về NGUỒN (SOURCE) và reset lý do
+          // Các trường hợp còn lại (Tạm hoãn, Sơ tuyển, Khám tuyển, Dự bị...) -> Về NGUỒN (SOURCE) và reset lý do, sức khỏe
           
           const newRecruit: Recruit = { 
               ...cleanRecruitData, 
@@ -448,12 +461,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({ recruits, user, o
               enlistmentUnit: undefined, 
               enlistmentDate: undefined, 
               enlistmentType: undefined,
-              // Reset kết quả khám sức khỏe về 0 để khám lại vào năm sau (nếu về nguồn)
-              // Nếu thuộc diện Miễn/Không được ĐK thì giữ nguyên hoặc không quan trọng
-              physical: { 
-                  ...cleanRecruitData.physical, 
-                  healthGrade: (newStatus === RecruitmentStatus.SOURCE) ? 0 : cleanRecruitData.physical.healthGrade 
-              }
+              physical: newPhysical
           };
           onUpdate(newRecruit);
           successCount++;
