@@ -416,6 +416,18 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
         return;
     }
 
+    // Validate Age for List 4 (SOURCE)
+    const birthYear = parseInt(finalData.dob.split('-')[0] || '0');
+    if (birthYear > 0) {
+        const age = sessionYear - birthYear;
+        // Check if status is SOURCE (which corresponds to List 4 in the context of adding)
+        // and age is under 18.
+        if (finalData.status === RecruitmentStatus.SOURCE && age < 18) {
+             alert(`Công dân sinh năm ${birthYear} (${age} tuổi) chưa đủ 18 tuổi để thêm vào danh sách 4 (Tổng nguồn). Vui lòng kiểm tra lại năm sinh.`);
+             return;
+        }
+    }
+
     onSubmit(finalData);
   };
 

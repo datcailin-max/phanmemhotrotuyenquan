@@ -2,7 +2,8 @@
 export enum RecruitmentStatus {
   NOT_ALLOWED_REGISTRATION = 'KHONG_DUOC_DANG_KY', // 1. Không được đăng ký NVQS
   EXEMPT_REGISTRATION = 'MIEN_DANG_KY', // 2. Miễn đăng ký NVQS
-  SOURCE = 'NGUON', // Nguồn công dân (Mới nhập) / Đăng ký lần đầu
+  FIRST_TIME_REGISTRATION = 'DANG_KY_LAN_DAU', // 3. Đăng ký NVQS lần đầu
+  SOURCE = 'NGUON', // 4. Tổng Nguồn công dân (Sẵn sàng nhập ngũ)
   NOT_SELECTED_TT50 = 'KHONG_TUYEN_CHON_TT50', // Không tuyển chọn, chưa gọi nhập ngũ (TT50)
   PRE_CHECK_PASSED = 'SO_KHAM_DAT', // Đạt sơ khám
   PRE_CHECK_FAILED = 'SO_KHAM_KHONG_DAT', // Không đạt sơ khám
@@ -102,6 +103,8 @@ export interface Recruit {
     children?: string; // Thông tin về con
   };
   status: RecruitmentStatus;
+  previousStatus?: RecruitmentStatus; // Trạng thái trước khi chuyển (để khôi phục)
+  previousDefermentReason?: string; // Lý do trước khi chuyển
   defermentReason?: string; // Lý do tạm hoãn, miễn HOẶC lý do không đạt sức khỏe
   defermentProof?: string; // Văn bản chứng minh (cho lý do chính sách)
   enlistmentUnit?: string; // Đơn vị nhập ngũ (khi đã chốt)

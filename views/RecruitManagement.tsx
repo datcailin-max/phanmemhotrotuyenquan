@@ -1,14 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
-import { LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS } from '../constants';
+import { LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, EDUCATIONS } from '../constants';
 import RecruitForm from '../components/RecruitForm';
 import { 
   Search, Plus, CheckCircle2, XCircle, FileEdit, Stethoscope, ClipboardList, Filter,
-  PauseCircle, Users, FileSignature, UserX, Flag, Layers, ShieldCheck, Baby, 
+  PauseCircle, Users, FileSignature, UserX, Flag, Layers, ShieldCheck, 
   ChevronRight, BookX, ArrowRightCircle,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
   HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
-  Trash2, Lock, Key, Calendar
+  Trash2, Lock, Key, Calendar, UserPlus
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -24,7 +24,7 @@ interface RecruitManagementProps {
 const TABS = [
   { id: 'NOT_ALLOWED_REG', label: '1. DS KHÔNG ĐƯỢC ĐĂNG KÝ NVQS', status: [RecruitmentStatus.NOT_ALLOWED_REGISTRATION], color: 'bg-red-800', lightColor: 'bg-red-50', borderColor: 'border-red-800', textColor: 'text-red-900', icon: Ban },
   { id: 'EXEMPT_REG', label: '2. DS ĐƯỢC MIỄN ĐK NVQS', status: [RecruitmentStatus.EXEMPT_REGISTRATION], color: 'bg-slate-500', lightColor: 'bg-slate-100', borderColor: 'border-slate-500', textColor: 'text-slate-800', icon: Shield },
-  { id: 'FIRST_TIME_REG', label: '3. DS ĐĂNG KÝ NVQS LẦN ĐẦU', status: null, color: 'bg-pink-600', lightColor: 'bg-pink-50', borderColor: 'border-pink-600', textColor: 'text-pink-900', icon: Baby },
+  { id: 'FIRST_TIME_REG', label: '3. DS ĐĂNG KÝ NVQS LẦN ĐẦU', status: [RecruitmentStatus.FIRST_TIME_REGISTRATION], color: 'bg-cyan-600', lightColor: 'bg-cyan-50', borderColor: 'border-cyan-600', textColor: 'text-cyan-900', icon: UserPlus },
   { id: 'ALL', label: '4. TOÀN BỘ NGUỒN', status: null, color: 'bg-gray-600', lightColor: 'bg-gray-100', borderColor: 'border-gray-600', textColor: 'text-gray-900', icon: Users },
   { id: 'TT50', label: '5. DS KHÔNG TUYỂN CHỌN (TT 50)', status: [RecruitmentStatus.NOT_SELECTED_TT50], color: 'bg-slate-600', lightColor: 'bg-slate-200', borderColor: 'border-slate-600', textColor: 'text-slate-900', icon: BookX },
   { id: 'PRE_CHECK', label: '6. DS ĐỦ ĐK SƠ TUYỂN', status: null, color: 'bg-blue-600', lightColor: 'bg-blue-50', borderColor: 'border-blue-600', textColor: 'text-blue-900', icon: ClipboardList },
@@ -61,6 +61,7 @@ const getStatusLabel = (status: RecruitmentStatus) => {
     switch (status) {
         case RecruitmentStatus.NOT_ALLOWED_REGISTRATION: return 'Cấm ĐK';
         case RecruitmentStatus.EXEMPT_REGISTRATION: return 'Miễn ĐK';
+        case RecruitmentStatus.FIRST_TIME_REGISTRATION: return 'ĐK Lần đầu';
         case RecruitmentStatus.SOURCE: return 'Nguồn';
         case RecruitmentStatus.NOT_SELECTED_TT50: return 'Không tuyển (TT50)';
         case RecruitmentStatus.PRE_CHECK_PASSED: return 'Đạt sơ tuyển';
@@ -88,6 +89,8 @@ const getStatusColor = (status: RecruitmentStatus) => {
             return 'bg-red-50 text-red-700 border-red-200';
         case RecruitmentStatus.DEFERRED:
             return 'bg-amber-50 text-amber-700 border-amber-200';
+        case RecruitmentStatus.FIRST_TIME_REGISTRATION:
+            return 'bg-cyan-50 text-cyan-700 border-cyan-200';
         default:
             return 'bg-gray-50 text-gray-600 border-gray-200';
     }
@@ -150,9 +153,31 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [filterProvince, setFilterProvince] = useState('');
   const [filterCommune, setFilterCommune] = useState('');
 
+  // Local Filters (Village, Age, Advanced)
+  const [filterVillage, setFilterVillage] = useState('');
+  const [filterAgeRange, setFilterAgeRange] = useState('');
+  
+  // Advanced Filters Popover State
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [advFilterEducation, setAdvFilterEducation] = useState('');
+  const [advFilterHealth, setAdvFilterHealth] = useState('');
+  const [advFilterPolitical, setAdvFilterPolitical] = useState('');
+  const advancedFilterRef = useRef<HTMLDivElement>(null);
+
   const isAdmin = user.role === 'ADMIN';
   const isProvinceAdmin = user.role === 'PROVINCE_ADMIN';
   const isReadOnly = user.role === 'VIEWER' || isProvinceAdmin;
+
+  // Close advanced filter on outside click
+  useEffect(() => {
+      function handleClickOutside(event: MouseEvent) {
+          if (advancedFilterRef.current && !advancedFilterRef.current.contains(event.target as Node)) {
+              setShowAdvancedFilter(false);
+          }
+      }
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [advancedFilterRef]);
 
   const handleTabChange = (id: string) => {
       setActiveTabId(id);
@@ -229,15 +254,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       let result = scopeRecruits;
 
       switch (activeTabId) {
-          case 'FIRST_TIME_REG': // List 3
-              result = result.filter(r => checkAge(r) < 18 && isValidSourceStatus(r.status));
-              break;
-
-          case 'ALL': // List 4 (Modified to include Removed Recruits but exclude List 1 & 2)
+          case 'ALL': // List 4 (Modified to include Removed Recruits but exclude List 1, 2, 3)
               result = result.filter(r => {
                   if (checkAge(r) < 18) return false;
-                  // Exclude only List 1 & 2
-                  if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || r.status === RecruitmentStatus.EXEMPT_REGISTRATION) return false;
+                  // Exclude List 1, 2, 3
+                  if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
+                      r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
+                      r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
                   return true;
               });
               break;
@@ -249,7 +272,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   RecruitmentStatus.NOT_SELECTED_TT50,
                   RecruitmentStatus.REMOVED_FROM_SOURCE,
                   RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
-                  RecruitmentStatus.EXEMPT_REGISTRATION
+                  RecruitmentStatus.EXEMPT_REGISTRATION,
+                  RecruitmentStatus.FIRST_TIME_REGISTRATION
               ];
               result = result.filter(r => checkAge(r) >= 18 && !excludedFromPreCheck.includes(r.status));
               break;
@@ -336,46 +360,39 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
               });
               break;
 
-          case 'REMAINING': // List 13
-              const remainingStatuses = [
-                RecruitmentStatus.SOURCE, 
-                RecruitmentStatus.PRE_CHECK_FAILED, 
-                RecruitmentStatus.MED_EXAM_FAILED, 
-                RecruitmentStatus.DEFERRED, 
-                RecruitmentStatus.EXEMPTED, 
-                RecruitmentStatus.NOT_SELECTED_TT50
-              ];
+          case 'REMAINING': // List 13: List 4 - List 11 - List 12
               result = result.filter(r => {
+                  // 1. Phải là >= 18 tuổi (Thuộc List 4, Trừ List 3)
+                  if (checkAge(r) < 18) return false;
+
+                  // 2. Trừ List 1, 2, 3
+                  if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
+                      r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
+                      r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
+
+                  // 3. Trừ List 12 (Loại khỏi nguồn)
                   if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-                  if (checkAge(r) < 18 && isValidSourceStatus(r.status)) return true;
-                  if (remainingStatuses.includes(r.status)) return true;
-                  if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'RESERVE') return true;
-                  return false;
+
+                  // 4. Trừ List 11 (Nhập ngũ/Chốt Chính thức)
+                  if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL') return false;
+
+                  return true;
               });
               break;
 
           case 'NEXT_YEAR_SOURCE': // List 14: Combine List 3 and List 13
-              const remainingStatusesNextYear = [
-                RecruitmentStatus.SOURCE, 
-                RecruitmentStatus.PRE_CHECK_FAILED, 
-                RecruitmentStatus.MED_EXAM_FAILED, 
-                RecruitmentStatus.DEFERRED, 
-                RecruitmentStatus.EXEMPTED, 
-                RecruitmentStatus.NOT_SELECTED_TT50
-              ];
               result = result.filter(r => {
                   if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
                   
-                  // Logic from List 3 (Age < 18 & Valid)
-                  if (checkAge(r) < 18 && isValidSourceStatus(r.status)) return true;
+                  // Logic from List 3
+                  if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
 
-                  // Logic from List 13 (Remaining statuses)
-                  if (remainingStatusesNextYear.includes(r.status)) return true;
+                  // Logic from List 13 (Remaining >= 18)
+                  if (checkAge(r) < 18) return false;
+                  if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || r.status === RecruitmentStatus.EXEMPT_REGISTRATION) return false;
+                  if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL') return false;
                   
-                  // Logic from List 13 (Reserve)
-                  if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'RESERVE') return true;
-                  
-                  return false;
+                  return true;
               });
               break;
 
@@ -395,8 +412,35 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           );
       }
 
+      // NEW: Filter by Village
+      if (filterVillage) {
+          const v = removeVietnameseTones(filterVillage.toLowerCase());
+          result = result.filter(r => removeVietnameseTones((r.address.village || '').toLowerCase()).includes(v));
+      }
+
+      // NEW: Filter by Age Range
+      if (filterAgeRange) {
+          result = result.filter(r => {
+              const age = checkAge(r);
+              if (filterAgeRange === '18-25') return age >= 18 && age <= 25;
+              if (filterAgeRange === '26-27') return age >= 26 && age <= 27;
+              return true;
+          });
+      }
+
+      // NEW: Advanced Filters
+      if (advFilterEducation) {
+           result = result.filter(r => r.details.education === advFilterEducation);
+      }
+      if (advFilterHealth) {
+           result = result.filter(r => r.physical.healthGrade === Number(advFilterHealth));
+      }
+      if (advFilterPolitical) {
+           result = result.filter(r => r.details.politicalStatus === advFilterPolitical);
+      }
+
       return result;
-  }, [scopeRecruits, activeTabId, searchTerm, activeTab, sessionYear]);
+  }, [scopeRecruits, activeTabId, searchTerm, activeTab, sessionYear, filterVillage, filterAgeRange, advFilterEducation, advFilterHealth, advFilterPolitical]);
 
   // Pagination
   const totalPages = Math.ceil(filteredRecruits.length / ITEMS_PER_PAGE);
@@ -478,6 +522,30 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       }
       
       onUpdate({ ...recruit, status: newStatus });
+  };
+
+  // Move to First Time Registration Helper
+  const handleMoveToFirstTimeReg = (recruit: Recruit) => {
+      onUpdate({
+          ...recruit,
+          previousStatus: recruit.status, // Save current status
+          previousDefermentReason: recruit.defermentReason, // Save current reason
+          status: RecruitmentStatus.FIRST_TIME_REGISTRATION,
+          defermentReason: '' // Clear reason
+      });
+  };
+
+  // Restore from First Time Registration Helper
+  const handleRestoreFromFirstTimeReg = (recruit: Recruit) => {
+      if (recruit.previousStatus) {
+          onUpdate({
+              ...recruit,
+              status: recruit.previousStatus,
+              defermentReason: recruit.previousDefermentReason || '',
+              previousStatus: undefined, // Clear history
+              previousDefermentReason: undefined
+          });
+      }
   };
 
   // New Helper: Update Health Grade Inline (For List 7)
@@ -690,13 +758,57 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   </div>
               );
 
-          case 'FIRST_TIME_REG': // List 3
           case 'NOT_ALLOWED_REG': // List 1
           case 'EXEMPT_REG': // List 2
               return (
-                  <div className="flex items-center justify-center">
-                      <button onClick={() => handleEdit(recruit)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
+                  <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
                           <FileEdit size={16} />
+                      </button>
+                      <button 
+                          onClick={() => handleMoveToFirstTimeReg(recruit)}
+                          className="p-1 text-cyan-600 hover:bg-cyan-50 rounded"
+                          title="Được đăng ký lần đầu (Chuyển sang DS 3)"
+                      >
+                          <UserPlus size={16} />
+                      </button>
+                      <button 
+                          onClick={() => {
+                              setTargetDeleteId(recruit.id);
+                              setShowDeleteConfirmModal(true);
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          title="Xóa vĩnh viễn (Cần mật khẩu)"
+                      >
+                          <Trash2 size={16} />
+                      </button>
+                  </div>
+              );
+
+          case 'FIRST_TIME_REG': // List 3
+              return (
+                  <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
+                          <FileEdit size={16} />
+                      </button>
+                      {recruit.previousStatus && (
+                          <button 
+                              onClick={() => handleRestoreFromFirstTimeReg(recruit)}
+                              className="p-1 text-amber-600 hover:bg-amber-50 rounded"
+                              title={`Khôi phục về ${getStatusLabel(recruit.previousStatus)}`}
+                          >
+                              <Undo2 size={16} />
+                          </button>
+                      )}
+                      <button 
+                          onClick={() => {
+                              setTargetDeleteId(recruit.id);
+                              setShowDeleteConfirmModal(true);
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          title="Xóa vĩnh viễn (Cần mật khẩu)"
+                      >
+                          <Trash2 size={16} />
                       </button>
                   </div>
               );
@@ -756,6 +868,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
   // Define Lists where Adding Citizen is allowed
   const ALLOW_ADD_CITIZEN_TABS = ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL'];
+
+  const isAdvancedFilterActive = !!advFilterEducation || !!advFilterHealth || !!advFilterPolitical;
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -850,17 +964,91 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                                  />
                              </div>
-                             <div className="w-full md:w-auto flex items-center gap-2">
-                                <input type="text" placeholder="Nhập tên thôn/ấp..." className="p-2 border border-gray-300 rounded text-sm w-full md:w-40" />
-                                <select className="p-2 border border-gray-300 rounded text-sm w-full md:w-40">
-                                    <option>-- Tất cả --</option>
-                                    <option>18-25 tuổi</option>
-                                    <option>26-27 tuổi</option>
+                             <div className="w-full md:w-auto flex items-center gap-2 relative">
+                                <input 
+                                    type="text" 
+                                    placeholder="Nhập tên thôn/ấp..." 
+                                    className="p-2 border border-gray-300 rounded text-sm w-full md:w-40 focus:ring-1 focus:ring-military-500" 
+                                    value={filterVillage}
+                                    onChange={(e) => setFilterVillage(e.target.value)}
+                                />
+                                <select 
+                                    className="p-2 border border-gray-300 rounded text-sm w-full md:w-32 focus:ring-1 focus:ring-military-500"
+                                    value={filterAgeRange}
+                                    onChange={(e) => setFilterAgeRange(e.target.value)}
+                                >
+                                    <option value="">-- Tuổi --</option>
+                                    <option value="18-25">18-25 tuổi</option>
+                                    <option value="26-27">26-27 tuổi</option>
                                 </select>
-                                <button className="px-3 py-2 bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-100 text-sm font-bold whitespace-nowrap flex items-center gap-1">
+                                <button 
+                                    onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+                                    className={`px-3 py-2 border rounded text-sm font-bold whitespace-nowrap flex items-center gap-1 transition-colors ${showAdvancedFilter || isAdvancedFilterActive ? 'bg-military-600 text-white border-military-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100'}`}
+                                >
                                     <Filter size={14}/> Bộ lọc khác
                                 </button>
-                                <button onClick={() => {setSearchTerm(''); setCurrentPage(1);}} className="p-2 text-gray-500 hover:text-military-600" title="Làm mới">
+                                
+                                {/* Advanced Filter Dropdown Panel */}
+                                {showAdvancedFilter && (
+                                    <div ref={advancedFilterRef} className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                                            <h4 className="text-sm font-bold text-gray-700">Bộ lọc nâng cao</h4>
+                                            <button onClick={() => setShowAdvancedFilter(false)} className="text-gray-400 hover:text-red-500"><XCircle size={16}/></button>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1">Trình độ học vấn</label>
+                                                <select className="w-full p-2 border border-gray-300 rounded text-xs" value={advFilterEducation} onChange={(e) => setAdvFilterEducation(e.target.value)}>
+                                                    <option value="">-- Tất cả --</option>
+                                                    {EDUCATIONS.map(edu => <option key={edu} value={edu}>{edu}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1">Sức khỏe (Loại)</label>
+                                                <select className="w-full p-2 border border-gray-300 rounded text-xs" value={advFilterHealth} onChange={(e) => setAdvFilterHealth(e.target.value)}>
+                                                    <option value="">-- Tất cả --</option>
+                                                    <option value="1">Loại 1</option>
+                                                    <option value="2">Loại 2</option>
+                                                    <option value="3">Loại 3</option>
+                                                    <option value="4">Loại 4</option>
+                                                    <option value="5">Loại 5</option>
+                                                    <option value="6">Loại 6</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1">Chính trị</label>
+                                                <select className="w-full p-2 border border-gray-300 rounded text-xs" value={advFilterPolitical} onChange={(e) => setAdvFilterPolitical(e.target.value)}>
+                                                    <option value="">-- Tất cả --</option>
+                                                    <option value="Dang_Vien">Đảng viên</option>
+                                                    <option value="Doan_Vien">Đoàn viên</option>
+                                                    <option value="None">Quần chúng</option>
+                                                </select>
+                                            </div>
+                                            <div className="pt-2 border-t border-gray-100 flex justify-end">
+                                                <button 
+                                                    onClick={() => {
+                                                        setAdvFilterEducation('');
+                                                        setAdvFilterHealth('');
+                                                        setAdvFilterPolitical('');
+                                                    }}
+                                                    className="text-xs text-red-500 hover:underline"
+                                                >
+                                                    Xóa bộ lọc
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button onClick={() => {
+                                    setSearchTerm(''); 
+                                    setFilterVillage('');
+                                    setFilterAgeRange('');
+                                    setAdvFilterEducation('');
+                                    setAdvFilterHealth('');
+                                    setAdvFilterPolitical('');
+                                    setCurrentPage(1);
+                                }} className="p-2 text-gray-500 hover:text-military-600" title="Làm mới">
                                     <RefreshCw size={16}/>
                                 </button>
                              </div>
@@ -875,8 +1063,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                              <ShieldOff size={48} className="mb-3 opacity-20" />
                              <p className="text-lg font-medium">Không tìm thấy dữ liệu</p>
                              <p className="text-sm">Vui lòng thử lại với bộ lọc khác</p>
-                             {(searchTerm || filterProvince || filterCommune) && (
-                                <button onClick={() => { setSearchTerm(''); setFilterProvince(''); setFilterCommune(''); }} className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-bold">
+                             {(searchTerm || filterProvince || filterCommune || filterVillage || filterAgeRange || isAdvancedFilterActive) && (
+                                <button onClick={() => { 
+                                    setSearchTerm(''); setFilterProvince(''); setFilterCommune(''); 
+                                    setFilterVillage(''); setFilterAgeRange('');
+                                    setAdvFilterEducation(''); setAdvFilterHealth(''); setAdvFilterPolitical('');
+                                }} className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-bold">
                                     Xóa bộ lọc
                                 </button>
                              )}
@@ -1097,7 +1289,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                 initialStatus={
                     activeTabId === 'NOT_ALLOWED_REG' ? RecruitmentStatus.NOT_ALLOWED_REGISTRATION :
                     activeTabId === 'EXEMPT_REG' ? RecruitmentStatus.EXEMPT_REGISTRATION :
-                    activeTabId === 'FIRST_TIME_REG' ? RecruitmentStatus.SOURCE :
+                    activeTabId === 'FIRST_TIME_REG' ? RecruitmentStatus.FIRST_TIME_REGISTRATION :
                     undefined
                 }
                 user={user}

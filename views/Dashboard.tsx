@@ -19,13 +19,13 @@ import {
   Ruler,
   UserX,
   BarChart2,
-  Baby,
   PauseCircle,
   ShieldCheck,
   Layers,
   Ban,
   Shield,
-  BookX
+  BookX,
+  UserPlus
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -135,14 +135,20 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     // 2. Miễn đăng ký
     const countExemptReg = allYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPT_REGISTRATION).length;
 
-    // 3. Đăng ký lần đầu (17 tuổi, trạng thái hợp lệ)
-    const countFirstTime = allYearRecruits.filter(r => checkAge(r) < 18 && isValidSourceStatus(r.status)).length;
+    // 3. Đăng ký lần đầu (Theo trạng thái mới)
+    const countFirstTime = allYearRecruits.filter(r => r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION).length;
 
-    // 4. Tổng nguồn (Age >= 18, exclude List 1 & 2 only)
+    // 4. Tổng nguồn (Age >= 18, exclude List 1, 2, 3)
     const countTotalSource = allYearRecruits.filter(r => {
+        // Exclude List 1, 2, 3 explicitly
+        if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
+            r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
+            r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
+        
+        // Also check age >= 18 for safety, though status logic usually handles this
         if (checkAge(r) < 18) return false;
-        // Exclude List 1 & 2 (Keep Removed from Source in List 4 per requirement)
-        return r.status !== RecruitmentStatus.NOT_ALLOWED_REGISTRATION && r.status !== RecruitmentStatus.EXEMPT_REGISTRATION;
+
+        return true;
     }).length;
 
     // 5. Không tuyển chọn (TT50)
@@ -197,26 +203,27 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     // 12. Loại khỏi nguồn
     const countRemoved = allYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
 
-    // 13. Nguồn còn lại (Logic complex from RecruitManagement)
-    const remainingStatuses = [
-        RecruitmentStatus.SOURCE, 
-        RecruitmentStatus.PRE_CHECK_FAILED, 
-        RecruitmentStatus.MED_EXAM_FAILED, 
-        RecruitmentStatus.DEFERRED, 
-        RecruitmentStatus.EXEMPTED,
-        RecruitmentStatus.NOT_SELECTED_TT50
-    ];
+    // 13. Nguồn còn lại: List 4 - List 11 - List 12
     const countRemaining = allYearRecruits.filter(r => {
+        // 1. Phải là >= 18 tuổi (Thuộc List 4, Trừ List 3)
+        if (checkAge(r) < 18) return false;
+
+        // 2. Trừ List 1 (Cấm ĐK) và List 2 (Miễn ĐK) và List 3 (Đăng ký lần đầu)
+        if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
+            r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
+            r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
+
+        // 3. Trừ List 12 (Loại khỏi nguồn)
         if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-        // Case 1: Under 18 (Source)
-        if (checkAge(r) < 18 && isValidSourceStatus(r.status)) return true;
-        // Case 2: Remaining Statuses
-        if (remainingStatuses.includes(r.status)) return true;
-        // Case 3: Reserve (Finalized/Enlisted but Reserve)
-        if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'RESERVE') return true;
-        
-        return false;
+
+        // 4. Trừ List 11 (Nhập ngũ/Chốt Chính thức)
+        if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL') return false;
+
+        return true;
     }).length;
+
+    // 14. Nguồn của năm sau (List 3 + List 13)
+    const countNextYearSource = countFirstTime + countRemaining;
 
 
     // --- DATA FOR CHARTS (Use only valid source people to avoid skewing data) ---
@@ -294,6 +301,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         countFinalized, countFinalizedOfficial, countFinalizedReserve,
         countEnlisted, 
         countRemoved, countRemaining,
+        countNextYearSource,
         
         dangVien, doanVien,
         healthGrade1, healthGrade2, healthGrade3, healthGrade4,
@@ -396,10 +404,10 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 3. ĐĂNG KÝ LẦN ĐẦU */}
              <ProcessStepCard 
-                title="3. DS ĐK Lần đầu (17t)" 
+                title="3. DS Đăng ký lần đầu" 
                 count={stats.countFirstTime} 
-                icon={Baby} 
-                color="bg-pink-600"
+                icon={UserPlus} 
+                color="bg-cyan-600" 
                 onClick={() => onNavigate('FIRST_TIME_REG')}
              />
 
@@ -494,39 +502,18 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                 icon={Layers} 
                 color="bg-teal-600" 
                 onClick={() => onNavigate('REMAINING')}
+             />
+
+             {/* 14. NGUỒN CỦA NĂM SAU */}
+             <ProcessStepCard 
+                title="14. Nguồn của năm sau" 
+                count={stats.countNextYearSource} 
+                icon={Calendar} 
+                color="bg-cyan-600" 
+                onClick={() => onNavigate('NEXT_YEAR_SOURCE')}
                 isLast={true}
              />
          </div>
-      </div>
-
-      {/* NEW SECTION: COMPARISON ACROSS YEARS */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase">
-              <BarChart2 className="text-military-600" size={18} /> So sánh nguồn công dân qua các năm
-          </h3>
-          <div className="min-h-[300px]">
-              <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={multiYearStats} margin={{top: 20, right: 30, left: 0, bottom: 0}}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                      <XAxis dataKey="year" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                      <Tooltip 
-                        cursor={{fill: '#f9fafb'}} 
-                        contentStyle={{borderRadius: '8px', fontSize: '12px'}} 
-                        formatter={(value) => [`${value} hồ sơ`, 'Số lượng']}
-                      />
-                      <Bar dataKey="count" fill={COLORS.primary} radius={[4, 4, 0, 0]} barSize={40}>
-                          <LabelList dataKey="count" position="top" fontSize={12} fontWeight="bold" fill="#374151" />
-                          {multiYearStats.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.rawYear === sessionYear ? COLORS.accent : COLORS.primary} />
-                          ))}
-                      </Bar>
-                  </BarChart>
-              </ResponsiveContainer>
-          </div>
-          <div className="text-xs text-gray-500 text-center mt-2 italic">
-              * Cột màu vàng hiển thị năm đang được chọn ({sessionYear})
-          </div>
       </div>
 
       {/* SECTION 2: PHÂN TÍCH CHẤT LƯỢNG NGUỒN (CHARTS ROW) */}
