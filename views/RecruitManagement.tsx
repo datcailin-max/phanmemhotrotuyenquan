@@ -8,7 +8,7 @@ import {
   ChevronRight, BookX, ArrowRightCircle,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
   HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
-  Trash2, Lock, Key, Calendar, UserPlus, Check
+  Trash2, Lock, Key, Calendar
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -135,20 +135,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingRecruit, setEditingRecruit] = useState<Recruit | undefined>(undefined);
   
-  // Extra Filters
-  const [filterVillage, setFilterVillage] = useState('');
-  const [filterAgeRange, setFilterAgeRange] = useState('');
-  const [filterEducationLevel, setFilterEducationLevel] = useState('');
-
   // Removal Reason Modal State (Soft Delete)
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [recruitToRemove, setRecruitToRemove] = useState<Recruit | null>(null);
   const [removeReason, setRemoveReason] = useState('');
-
-  // Re-Register Reason Modal State (Move back to List 3)
-  const [showReRegisterModal, setShowReRegisterModal] = useState(false);
-  const [recruitToReRegister, setRecruitToReRegister] = useState<Recruit | null>(null);
-  const [reRegisterReason, setReRegisterReason] = useState('');
 
   // Permanent Delete With Password Confirmation
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -168,10 +158,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       setActiveTabId(id);
       setCurrentPage(1);
       setSelectedRecruitIds([]); // Clear selection when tab changes
-      // Reset filters when changing tab for better UX
-      setFilterVillage('');
-      setFilterAgeRange('');
-      setFilterEducationLevel('');
       if (onTabChange) onTabChange(id);
   };
 
@@ -242,13 +228,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const filteredRecruits = useMemo(() => {
       let result = scopeRecruits;
 
-      // 1. FILTER BY TAB
       switch (activeTabId) {
-          case 'FIRST_TIME_REG': // List 3 (Updated Logic: 17-27 years old, Status SOURCE)
-              result = result.filter(r => {
-                  const age = checkAge(r);
-                  return age >= 17 && age <= 27 && r.status === RecruitmentStatus.SOURCE;
-              });
+          case 'FIRST_TIME_REG': // List 3
+              result = result.filter(r => checkAge(r) < 18 && isValidSourceStatus(r.status));
               break;
 
           case 'ALL': // List 4 (Modified to include Removed Recruits but exclude List 1 & 2)
@@ -404,7 +386,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
               break;
       }
 
-      // 2. FILTER BY SEARCH
+      // Filter by Search
       if (searchTerm) {
           const search = removeVietnameseTones(searchTerm.toLowerCase());
           result = result.filter(r => 
@@ -413,42 +395,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           );
       }
 
-      // 3. EXTRA FILTERS (THÔN, TUỔI, HỌC VẤN)
-      if (filterVillage) {
-          result = result.filter(r => 
-              removeVietnameseTones((r.address.village || '').toLowerCase()).includes(removeVietnameseTones(filterVillage.toLowerCase()))
-          );
-      }
-
-      if (filterAgeRange) {
-          if (filterAgeRange === '17') {
-              result = result.filter(r => checkAge(r) === 17);
-          } else if (filterAgeRange === '18-25') {
-              result = result.filter(r => checkAge(r) >= 18 && checkAge(r) <= 25);
-          } else if (filterAgeRange === '26-27') {
-              result = result.filter(r => checkAge(r) >= 26 && checkAge(r) <= 27);
-          }
-      }
-
-      if (filterEducationLevel) {
-          if (filterEducationLevel === 'DH_CD_TC') {
-              result = result.filter(r => {
-                  const edu = r.details.education.toLowerCase();
-                  return edu.includes('đại học') || edu.includes('cao đẳng') || edu.includes('trung cấp');
-              });
-          } else if (filterEducationLevel === '12/12') {
-              result = result.filter(r => r.details.education === 'Lớp 12' || r.details.education === 'Đang học lớp 12');
-          } else if (filterEducationLevel === '9/12') {
-              result = result.filter(r => r.details.education === 'Lớp 9');
-          } else if (filterEducationLevel === 'LOW') {
-              // Assuming < 9
-              const grades = ['Lớp 1', 'Lớp 2', 'Lớp 3', 'Lớp 4', 'Lớp 5', 'Lớp 6', 'Lớp 7', 'Lớp 8'];
-              result = result.filter(r => grades.includes(r.details.education));
-          }
-      }
-
       return result;
-  }, [scopeRecruits, activeTabId, searchTerm, activeTab, sessionYear, filterVillage, filterAgeRange, filterEducationLevel]);
+  }, [scopeRecruits, activeTabId, searchTerm, activeTab, sessionYear]);
 
   // Pagination
   const totalPages = Math.ceil(filteredRecruits.length / ITEMS_PER_PAGE);
@@ -482,19 +430,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           setShowRemoveModal(false);
           setRecruitToRemove(null);
           setRemoveReason('');
-      }
-  };
-
-  const handleConfirmReRegister = () => {
-      if (recruitToReRegister) {
-          onUpdate({
-              ...recruitToReRegister,
-              status: RecruitmentStatus.SOURCE,
-              defermentReason: reRegisterReason // Save reason why they are back to source
-          });
-          setShowReRegisterModal(false);
-          setRecruitToReRegister(null);
-          setReRegisterReason('');
       }
   };
 
@@ -734,28 +669,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   </div>
               );
 
-          case 'NOT_ALLOWED_REG': // List 1
-          case 'TT50': // List 5
-              return (
-                  <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => handleEdit(recruit)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
-                          <FileEdit size={16} />
-                      </button>
-                      <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
-                      <button 
-                          onClick={() => {
-                              setRecruitToReRegister(recruit);
-                              setReRegisterReason('');
-                              setShowReRegisterModal(true);
-                          }}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded border border-green-200"
-                          title="Chuyển về DS 3 (Được đăng ký NVQS lần đầu)"
-                      >
-                          <UserPlus size={16} />
-                      </button>
-                  </div>
-              );
-
           case 'DEFERRED_LIST': // List 8
           case 'DEFERRED_HEALTH':
           case 'DEFERRED_EDUCATION':
@@ -778,6 +691,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
               );
 
           case 'FIRST_TIME_REG': // List 3
+          case 'NOT_ALLOWED_REG': // List 1
           case 'EXEMPT_REG': // List 2
               return (
                   <div className="flex items-center justify-center">
@@ -845,9 +759,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
   return (
     <div className="flex flex-col h-full gap-4">
-        {/* HEADER: ADMIN FILTERS ONLY */}
-        {isAdmin && (
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-end items-center gap-4">
+        {/* HEADER: TITLE & ADMIN FILTERS */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <h2 className="text-xl font-bold uppercase text-gray-800 tracking-tight">
+                Quản lý công dân nhập ngũ {sessionYear + 1}
+            </h2>
+            {isAdmin && (
                 <div className="flex gap-2 items-center">
                     <div className="flex items-center gap-2 text-gray-700 font-bold whitespace-nowrap text-sm uppercase">
                         <Filter size={16} /> Phạm vi:
@@ -870,8 +787,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         {communeList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
-            </div>
-        )}
+            )}
+        </div>
 
         <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
              {/* LEFT SIDEBAR */}
@@ -933,36 +850,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                                  />
                              </div>
-                             <div className="w-full md:w-auto flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-                                <input 
-                                    type="text" 
-                                    placeholder="Lọc Thôn/Ấp..." 
-                                    className="p-2 border border-gray-300 rounded text-sm w-32 md:w-40 focus:ring-1 focus:ring-military-500"
-                                    value={filterVillage}
-                                    onChange={(e) => setFilterVillage(e.target.value)}
-                                />
-                                <select 
-                                    className="p-2 border border-gray-300 rounded text-sm w-32 md:w-36 focus:ring-1 focus:ring-military-500"
-                                    value={filterAgeRange}
-                                    onChange={(e) => setFilterAgeRange(e.target.value)}
-                                >
-                                    <option value="">-- Độ tuổi --</option>
-                                    <option value="17">17 tuổi</option>
-                                    <option value="18-25">18 - 25 tuổi</option>
-                                    <option value="26-27">26 - 27 tuổi</option>
+                             <div className="w-full md:w-auto flex items-center gap-2">
+                                <input type="text" placeholder="Nhập tên thôn/ấp..." className="p-2 border border-gray-300 rounded text-sm w-full md:w-40" />
+                                <select className="p-2 border border-gray-300 rounded text-sm w-full md:w-40">
+                                    <option>-- Tất cả --</option>
+                                    <option>18-25 tuổi</option>
+                                    <option>26-27 tuổi</option>
                                 </select>
-                                <select 
-                                    className="p-2 border border-gray-300 rounded text-sm w-32 md:w-36 focus:ring-1 focus:ring-military-500"
-                                    value={filterEducationLevel}
-                                    onChange={(e) => setFilterEducationLevel(e.target.value)}
-                                >
-                                    <option value="">-- Học vấn --</option>
-                                    <option value="DH_CD_TC">ĐH, CĐ, TC</option>
-                                    <option value="12/12">12/12</option>
-                                    <option value="9/12">9/12</option>
-                                    <option value="LOW">Dưới lớp 9</option>
-                                </select>
-                                <button onClick={() => {setSearchTerm(''); setFilterVillage(''); setFilterAgeRange(''); setFilterEducationLevel(''); setCurrentPage(1);}} className="p-2 text-gray-500 hover:text-military-600 bg-white border border-gray-300 rounded" title="Làm mới bộ lọc">
+                                <button className="px-3 py-2 bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-100 text-sm font-bold whitespace-nowrap flex items-center gap-1">
+                                    <Filter size={14}/> Bộ lọc khác
+                                </button>
+                                <button onClick={() => {setSearchTerm(''); setCurrentPage(1);}} className="p-2 text-gray-500 hover:text-military-600" title="Làm mới">
                                     <RefreshCw size={16}/>
                                 </button>
                              </div>
@@ -977,8 +875,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                              <ShieldOff size={48} className="mb-3 opacity-20" />
                              <p className="text-lg font-medium">Không tìm thấy dữ liệu</p>
                              <p className="text-sm">Vui lòng thử lại với bộ lọc khác</p>
-                             {(searchTerm || filterProvince || filterCommune || filterVillage || filterAgeRange || filterEducationLevel) && (
-                                <button onClick={() => { setSearchTerm(''); setFilterProvince(''); setFilterCommune(''); setFilterVillage(''); setFilterAgeRange(''); setFilterEducationLevel(''); }} className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-bold">
+                             {(searchTerm || filterProvince || filterCommune) && (
+                                <button onClick={() => { setSearchTerm(''); setFilterProvince(''); setFilterCommune(''); }} className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-bold">
                                     Xóa bộ lọc
                                 </button>
                              )}
@@ -1207,44 +1105,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                 onClose={() => setShowForm(false)}
                 sessionYear={sessionYear}
             />
-        )}
-
-        {/* RE-REGISTER REASON MODAL (Move back to List 3) */}
-        {showReRegisterModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                    <h3 className="text-lg font-bold text-green-700 mb-4 flex items-center gap-2 uppercase">
-                        <UserPlus className="text-green-600" /> Xác nhận đăng ký lại NVQS
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                        Bạn đang chuyển công dân <span className="font-bold text-gray-800">{recruitToReRegister?.fullName}</span> về danh sách 3 (Đăng ký lần đầu). 
-                        <br/>Vui lòng nhập lý do (VD: Hết án tích, đã khỏi bệnh...):
-                    </p>
-                    <textarea 
-                        className="w-full border border-gray-300 rounded-md p-3 text-sm focus:ring-2 focus:ring-green-500 outline-none mb-4"
-                        rows={3}
-                        placeholder="Nhập lý do được đăng ký lại..."
-                        value={reRegisterReason}
-                        onChange={(e) => setReRegisterReason(e.target.value)}
-                        autoFocus
-                    />
-                    <div className="flex justify-end gap-3">
-                        <button 
-                            onClick={() => { setShowReRegisterModal(false); setRecruitToReRegister(null); setReRegisterReason(''); }}
-                            className="px-4 py-2 border border-gray-300 rounded text-gray-700 text-sm font-bold hover:bg-gray-50"
-                        >
-                            Hủy bỏ
-                        </button>
-                        <button 
-                            onClick={handleConfirmReRegister}
-                            disabled={!reRegisterReason.trim()}
-                            className="px-4 py-2 bg-green-600 text-white rounded text-sm font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                            <Check size={16}/> Xác nhận
-                        </button>
-                    </div>
-                </div>
-            </div>
         )}
 
         {/* REMOVE REASON MODAL (Soft Delete) */}

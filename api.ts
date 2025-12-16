@@ -136,7 +136,7 @@ export const api = {
       const index = current.findIndex(r => r.id === recruit.id);
       if (index !== -1) {
           current[index] = savedRecruit;
-          // Đồng bộ sang năm sau (Giữ nguyên status)
+          // Đồng bộ sang năm sau
           current = syncOfflineData(current, savedRecruit);
           setLocalData(current);
       }
@@ -168,29 +168,7 @@ export const api = {
       if (response.ok) {
            // UPDATE LOCAL STORAGE NGAY LẬP TỨC
            const current = getLocalData();
-           
-           // Logic đồng bộ xóa offline
-           const recruitToDelete = current.find(r => r.id === id);
-           let updated = current.filter(r => r.id !== id);
-
-           if (recruitToDelete) {
-               // Các trạng thái thuộc DS 14 (và 1, 2) cần được đồng bộ xóa sang năm sau
-               const SYNC_DELETE_STATUS = [
-                   'KHONG_DUOC_DANG_KY', 'MIEN_DANG_KY', 
-                   'NGUON', 'SO_KHAM_KHONG_DAT', 'KHAM_TUYEN_KHONG_DAT', 
-                   'TAM_HOAN', 'MIEN_KHAM', 'KHONG_TUYEN_CHON_TT50',
-                   'BINH_CU_CONG_KHAI'
-               ];
-               
-               if (SYNC_DELETE_STATUS.includes(recruitToDelete.status)) {
-                   const nextYear = recruitToDelete.recruitmentYear + 1;
-                   updated = updated.filter(r => !(
-                       r.citizenId === recruitToDelete.citizenId && 
-                       r.recruitmentYear === nextYear
-                   ));
-               }
-           }
-
+           const updated = current.filter(r => r.id !== id);
            setLocalData(updated);
       }
 
@@ -199,25 +177,7 @@ export const api = {
       console.warn("API Error (Offline mode): Deleting locally", error);
       // Fallback: Delete local
       const current = getLocalData();
-      const recruitToDelete = current.find(r => r.id === id);
-      let updated = current.filter(r => r.id !== id);
-      
-      if (recruitToDelete) {
-           const SYNC_DELETE_STATUS = [
-               'KHONG_DUOC_DANG_KY', 'MIEN_DANG_KY', 
-               'NGUON', 'SO_KHAM_KHONG_DAT', 'KHAM_TUYEN_KHONG_DAT', 
-               'TAM_HOAN', 'MIEN_KHAM', 'KHONG_TUYEN_CHON_TT50',
-               'BINH_CU_CONG_KHAI'
-           ];
-           if (SYNC_DELETE_STATUS.includes(recruitToDelete.status)) {
-               const nextYear = recruitToDelete.recruitmentYear + 1;
-               updated = updated.filter(r => !(
-                   r.citizenId === recruitToDelete.citizenId && 
-                   r.recruitmentYear === nextYear
-               ));
-           }
-      }
-
+      const updated = current.filter(r => r.id !== id);
       setLocalData(updated);
       return true;
     }
