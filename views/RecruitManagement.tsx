@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
 import { LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, EDUCATIONS } from '../constants';
@@ -8,14 +9,13 @@ import {
   ChevronRight, BookX, ArrowRightCircle,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
   HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
-  Trash2, Lock, Key, Calendar, UserPlus
+  Calendar, UserPlus, Trash2
 } from 'lucide-react';
 
 interface RecruitManagementProps {
   recruits: Recruit[];
   user: User;
   onUpdate: (data: Recruit) => void;
-  onDelete: (id: string) => void;
   initialTab?: string;
   onTabChange?: (tabId: string) => void;
   sessionYear: number;
@@ -52,6 +52,7 @@ const TABS = [
   { id: 'REMOVED', label: '12. DS LOẠI KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
   { id: 'REMAINING', label: '13. DS NGUỒN CÒN LẠI', status: null, color: 'bg-teal-600', lightColor: 'bg-teal-50', borderColor: 'border-teal-600', textColor: 'text-teal-900', icon: Layers },
   { id: 'NEXT_YEAR_SOURCE', label: '14. NGUỒN CỦA NĂM SAU', status: null, color: 'bg-cyan-600', lightColor: 'bg-cyan-50', borderColor: 'border-cyan-600', textColor: 'text-cyan-900', icon: Calendar },
+  { id: 'DELETED_LIST', label: '15. DS ĐÃ XÓA', status: [RecruitmentStatus.DELETED], color: 'bg-black', lightColor: 'bg-gray-200', borderColor: 'border-black', textColor: 'text-gray-900', icon: Trash2 },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -73,6 +74,7 @@ const getStatusLabel = (status: RecruitmentStatus) => {
         case RecruitmentStatus.DEFERRED: return 'Tạm hoãn';
         case RecruitmentStatus.EXEMPTED: return 'Miễn gọi';
         case RecruitmentStatus.REMOVED_FROM_SOURCE: return 'Đã loại';
+        case RecruitmentStatus.DELETED: return 'Đã xóa';
         default: return status;
     }
 };
@@ -91,6 +93,8 @@ const getStatusColor = (status: RecruitmentStatus) => {
             return 'bg-amber-50 text-amber-700 border-amber-200';
         case RecruitmentStatus.FIRST_TIME_REGISTRATION:
             return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+        case RecruitmentStatus.DELETED:
+            return 'bg-gray-100 text-gray-500 border-gray-300 line-through';
         default:
             return 'bg-gray-50 text-gray-600 border-gray-200';
     }
@@ -130,7 +134,7 @@ const TableInput = ({ value, onSave, placeholder }: { value: string, onSave: (va
 };
 
 const RecruitManagement: React.FC<RecruitManagementProps> = ({ 
-  recruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear
+  recruits, user, onUpdate, initialTab = 'ALL', onTabChange, sessionYear
 }) => {
   const [activeTabId, setActiveTabId] = useState(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
@@ -138,15 +142,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingRecruit, setEditingRecruit] = useState<Recruit | undefined>(undefined);
   
-  // Removal Reason Modal State (Soft Delete)
+  // Removal Reason Modal State (Soft Delete - List 12)
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [recruitToRemove, setRecruitToRemove] = useState<Recruit | null>(null);
   const [removeReason, setRemoveReason] = useState('');
-
-  // Permanent Delete With Password Confirmation
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
-  const [targetDeleteId, setTargetDeleteId] = useState<string | null>(null);
 
   // Admin Filters
   const [filterProvince, setFilterProvince] = useState('');
@@ -222,7 +221,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     return ![
         RecruitmentStatus.REMOVED_FROM_SOURCE,
         RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
-        RecruitmentStatus.EXEMPT_REGISTRATION
+        RecruitmentStatus.EXEMPT_REGISTRATION,
+        RecruitmentStatus.DELETED
     ].includes(status);
   };
 
@@ -255,10 +255,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           case 'ALL': // List 4 (Modified to include Removed Recruits but exclude List 1, 2, 3)
               result = result.filter(r => {
                   if (checkAge(r) < 18) return false;
-                  // Exclude List 1, 2, 3
+                  // Exclude List 1, 2, 3 and Deleted
                   if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
                       r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
-                      r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
+                      r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION ||
+                      r.status === RecruitmentStatus.DELETED) return false;
                   return true;
               });
               break;
@@ -271,7 +272,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   RecruitmentStatus.REMOVED_FROM_SOURCE,
                   RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
                   RecruitmentStatus.EXEMPT_REGISTRATION,
-                  RecruitmentStatus.FIRST_TIME_REGISTRATION
+                  RecruitmentStatus.FIRST_TIME_REGISTRATION,
+                  RecruitmentStatus.DELETED
               ];
               result = result.filter(r => checkAge(r) >= 18 && !excludedFromPreCheck.includes(r.status));
               break;
@@ -363,10 +365,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   // 1. Phải là >= 18 tuổi (Thuộc List 4, Trừ List 3)
                   if (checkAge(r) < 18) return false;
 
-                  // 2. Trừ List 1, 2, 3
+                  // 2. Trừ List 1, 2, 3 and Deleted
                   if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
                       r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
-                      r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
+                      r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION ||
+                      r.status === RecruitmentStatus.DELETED) return false;
 
                   // 3. Trừ List 12 (Loại khỏi nguồn)
                   if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
@@ -380,7 +383,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
           case 'NEXT_YEAR_SOURCE': // List 14: Combine List 3 and List 13
               result = result.filter(r => {
-                  if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+                  if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE || r.status === RecruitmentStatus.DELETED) return false;
                   
                   // Logic from List 3
                   if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
@@ -473,21 +476,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           setRecruitToRemove(null);
           setRemoveReason('');
       }
-  };
-
-  const handleDeleteWithPassword = () => {
-      if (deleteConfirmPassword !== user.password) {
-          alert("Mật khẩu không chính xác! Vui lòng thử lại.");
-          return;
-      }
-
-      if (targetDeleteId) {
-          onDelete(targetDeleteId);
-      }
-
-      setShowDeleteConfirmModal(false);
-      setDeleteConfirmPassword('');
-      setTargetDeleteId(null);
   };
 
   // Helper for toggle actions
@@ -591,6 +579,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       </button>
                       <button 
                           onClick={() => {
+                              if(window.confirm('Bạn có chắc chắn muốn chuyển hồ sơ này vào thùng rác (DS 15)?')) {
+                                  onUpdate({ 
+                                      ...recruit, 
+                                      status: RecruitmentStatus.DELETED, 
+                                      previousStatus: recruit.status 
+                                  });
+                              }
+                          }} 
+                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
+                          title="Xóa (Chuyển sang DS 15)"
+                      >
+                          <Trash2 size={16} />
+                      </button>
+                      <button 
+                          onClick={() => {
                               setRecruitToRemove(recruit);
                               setRemoveReason(recruit.defermentReason || '');
                               setShowRemoveModal(true);
@@ -599,18 +602,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           title="Loại khỏi nguồn (Soft delete)"
                       >
                           <UserX size={16} />
-                      </button>
-                      <button 
-                          type="button"
-                          onClick={(e) => {
-                              e.stopPropagation();
-                              setTargetDeleteId(recruit.id);
-                              setShowDeleteConfirmModal(true);
-                          }}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          title="Xóa vĩnh viễn (Cần mật khẩu)"
-                      >
-                          <Trash2 size={16} />
                       </button>
                       
                       <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
@@ -737,6 +728,19 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   </div>
               );
 
+          case 'DELETED_LIST': // List 15
+              return (
+                  <div className="flex items-center justify-center">
+                      <button 
+                          onClick={() => onUpdate({ ...recruit, status: recruit.previousStatus || RecruitmentStatus.SOURCE, previousStatus: undefined })} 
+                          className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:text-green-600 hover:border-green-300"
+                          title="Khôi phục lại danh sách cũ"
+                      >
+                          <Undo2 size={14} /> Khôi phục
+                      </button>
+                  </div>
+              );
+
           case 'NOT_ALLOWED_REG': // List 1
           case 'EXEMPT_REG': // List 2
               return (
@@ -745,23 +749,26 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           <FileEdit size={16} />
                       </button>
                       <button 
+                          onClick={() => {
+                              if(window.confirm('Bạn có chắc chắn muốn chuyển hồ sơ này vào thùng rác (DS 15)?')) {
+                                  onUpdate({ 
+                                      ...recruit, 
+                                      status: RecruitmentStatus.DELETED, 
+                                      previousStatus: recruit.status 
+                                  });
+                              }
+                          }} 
+                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
+                          title="Xóa (Chuyển sang DS 15)"
+                      >
+                          <Trash2 size={16} />
+                      </button>
+                      <button 
                           onClick={() => handleMoveToFirstTimeReg(recruit)}
                           className="p-1 text-cyan-600 hover:bg-cyan-50 rounded"
                           title="Được đăng ký lần đầu (Chuyển sang DS 3)"
                       >
                           <UserPlus size={16} />
-                      </button>
-                      <button 
-                          type="button"
-                          onClick={(e) => {
-                              e.stopPropagation();
-                              setTargetDeleteId(recruit.id);
-                              setShowDeleteConfirmModal(true);
-                          }}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          title="Xóa vĩnh viễn (Cần mật khẩu)"
-                      >
-                          <Trash2 size={16} />
                       </button>
                   </div>
               );
@@ -772,6 +779,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
                           <FileEdit size={16} />
                       </button>
+                      <button 
+                          onClick={() => {
+                              if(window.confirm('Bạn có chắc chắn muốn chuyển hồ sơ này vào thùng rác (DS 15)?')) {
+                                  onUpdate({ 
+                                      ...recruit, 
+                                      status: RecruitmentStatus.DELETED, 
+                                      previousStatus: recruit.status 
+                                  });
+                              }
+                          }} 
+                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
+                          title="Xóa (Chuyển sang DS 15)"
+                      >
+                          <Trash2 size={16} />
+                      </button>
                       {recruit.previousStatus && (
                           <button 
                               onClick={() => handleRestoreFromFirstTimeReg(recruit)}
@@ -781,18 +803,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                               <Undo2 size={16} />
                           </button>
                       )}
-                      <button 
-                          type="button"
-                          onClick={(e) => {
-                              e.stopPropagation();
-                              setTargetDeleteId(recruit.id);
-                              setShowDeleteConfirmModal(true);
-                          }}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          title="Xóa vĩnh viễn (Cần mật khẩu)"
-                      >
-                          <Trash2 size={16} />
-                      </button>
                   </div>
               );
 
@@ -1268,57 +1278,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         >
                             Xác nhận Loại
                         </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* PERMANENT DELETE CONFIRMATION MODAL */}
-        {showDeleteConfirmModal && (
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in zoom-in-95">
-                <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm p-6 border-t-4 border-red-600">
-                    <div className="flex flex-col items-center mb-4">
-                        <div className="p-3 bg-red-100 rounded-full mb-3">
-                            <Lock className="text-red-600 w-8 h-8" />
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-900 uppercase">Xác thực quyền xóa</h3>
-                        <p className="text-xs text-gray-500 mt-2 text-center px-2">
-                            {targetDeleteId 
-                                ? "Bạn đang yêu cầu xóa vĩnh viễn 1 hồ sơ công dân khỏi dữ liệu quản lý của địa phương." 
-                                : "Bạn đang yêu cầu xóa vĩnh viễn hồ sơ."
-                            }
-                        </p>
-                        <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-wide">Hành động này không thể hoàn tác!</p>
-                    </div>
-                    
-                    <div className="space-y-4">
-                        <div className="relative">
-                            <Key className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
-                            <input 
-                                type="password" 
-                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
-                                placeholder="Nhập mật khẩu xác nhận..."
-                                value={deleteConfirmPassword}
-                                onChange={(e) => setDeleteConfirmPassword(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
-                        
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => { setShowDeleteConfirmModal(false); setDeleteConfirmPassword(''); setTargetDeleteId(null); }}
-                                className="flex-1 py-2 border border-gray-300 rounded text-sm font-bold text-gray-700 hover:bg-gray-50"
-                            >
-                                Hủy bỏ
-                            </button>
-                            <button 
-                                onClick={handleDeleteWithPassword}
-                                disabled={!deleteConfirmPassword}
-                                className="flex-1 py-2 bg-red-600 text-white rounded text-sm font-bold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md"
-                            >
-                                Xác nhận Xóa
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>

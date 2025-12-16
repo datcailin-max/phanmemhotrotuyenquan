@@ -123,7 +123,8 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         return ![
             RecruitmentStatus.REMOVED_FROM_SOURCE,
             RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
-            RecruitmentStatus.EXEMPT_REGISTRATION
+            RecruitmentStatus.EXEMPT_REGISTRATION,
+            RecruitmentStatus.DELETED
         ].includes(status);
     };
 
@@ -138,12 +139,15 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     // 3. Đăng ký lần đầu (Theo trạng thái mới)
     const countFirstTime = allYearRecruits.filter(r => r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION).length;
 
-    // 4. Tổng nguồn (Age >= 18, exclude List 1, 2, 3)
+    // 4. Tổng nguồn (Age >= 18, exclude List 1, 2, 3 and Deleted)
     const countTotalSource = allYearRecruits.filter(r => {
         // Exclude List 1, 2, 3 explicitly
         if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
             r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
             r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
+        
+        // Exclude Deleted
+        if (r.status === RecruitmentStatus.DELETED) return false;
         
         // Also check age >= 18 for safety, though status logic usually handles this
         if (checkAge(r) < 18) return false;
@@ -215,8 +219,11 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
         // 3. Trừ List 12 (Loại khỏi nguồn)
         if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+        
+        // 4. Exclude Deleted
+        if (r.status === RecruitmentStatus.DELETED) return false;
 
-        // 4. Trừ List 11 (Nhập ngũ/Chốt Chính thức)
+        // 5. Trừ List 11 (Nhập ngũ/Chốt Chính thức)
         if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL') return false;
 
         return true;
@@ -643,138 +650,16 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                     <h4 className="text-xs font-bold text-gray-500 uppercase">Chỉ số BMI</h4>
                     <div className="bg-gray-50 p-3 rounded">
                         <div className="flex justify-between text-xs mb-1"><span>Thiếu cân (&lt;18.5)</span><span className="font-bold">{stats.bmiStats['Gay']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-red-400 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Gay']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-red-500 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Gay']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
-                        <div className="flex justify-between text-xs mb-1"><span>Bình thường</span><span className="font-bold">{stats.bmiStats['Binh_Thuong']}</span></div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-green-600 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Binh_Thuong']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
+                        <div className="flex justify-between text-xs mb-1"><span>Bình thường (18.5-24.9)</span><span className="font-bold">{stats.bmiStats['Binh_Thuong']}</span></div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3"><div className="bg-green-500 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Binh_Thuong']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                         
-                        <div className="flex justify-between text-xs mb-1"><span>Thừa cân (&gt;25)</span><span className="font-bold">{stats.bmiStats['Thua_Can']}</span></div>
+                        <div className="flex justify-between text-xs mb-1"><span>Thừa cân (&ge;25)</span><span className="font-bold">{stats.bmiStats['Thua_Can']}</span></div>
                         <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-yellow-500 h-1.5 rounded-full" style={{width: `${(stats.bmiStats['Thua_Can']/(stats.totalValidForCharts || 1))*100}%`}}></div></div>
                     </div>
                 </div>
            </div>
-      </div>
-
-      {/* SECTION 3: SỨC KHỎE & CHÍNH TRỊ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* SỨC KHỎE CHI TIẾT 1-4 */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase">
-                  <HeartPulse className="text-red-500" /> Chất lượng sức khỏe (Sau khám)
-              </h3>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100 text-center">
-                      <p className="text-xs text-emerald-800 font-bold uppercase">Loại 1</p>
-                      <span className="text-2xl font-bold text-emerald-600 block mt-1">{stats.healthGrade1}</span>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-3 border border-green-100 text-center">
-                      <p className="text-xs text-green-800 font-bold uppercase">Loại 2</p>
-                      <span className="text-2xl font-bold text-green-600 block mt-1">{stats.healthGrade2}</span>
-                  </div>
-                  <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-100 text-center">
-                      <p className="text-xs text-yellow-800 font-bold uppercase">Loại 3</p>
-                      <span className="text-2xl font-bold text-yellow-600 block mt-1">{stats.healthGrade3}</span>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-3 border border-orange-100 text-center">
-                      <p className="text-xs text-orange-800 font-bold uppercase">Loại 4</p>
-                      <span className="text-2xl font-bold text-orange-600 block mt-1">{stats.healthGrade4}</span>
-                  </div>
-              </div>
-              <div className="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-500 flex gap-2 items-start">
-                  <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                  <span>Số liệu dựa trên kết quả khám tuyển chính thức. Chỉ tiêu thường lấy Loại 1, 2, 3 (Tùy địa phương).</span>
-              </div>
-          </div>
-
-          {/* CHÍNH TRỊ */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase">
-                  <Flag className="text-red-600" /> Tiêu chuẩn Chính trị
-              </h3>
-              <div className="space-y-4">
-                 <div className="relative pt-1">
-                    <div className="flex mb-2 items-center justify-between">
-                        <div>
-                        <span className="text-xs font-bold inline-block py-1 px-2 uppercase rounded-full text-red-600 bg-red-100 mr-2">
-                            Đảng Viên
-                        </span>
-                        </div>
-                        <div className="text-right">
-                        <span className="text-sm font-bold inline-block text-red-600">
-                            {stats.dangVien}
-                        </span>
-                        </div>
-                    </div>
-                    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-red-50">
-                        <div style={{ width: `${stats.totalValidForCharts ? (stats.dangVien / stats.totalValidForCharts) * 100 : 0}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-500 transition-all duration-1000"></div>
-                    </div>
-                 </div>
-
-                 <div className="relative pt-1">
-                    <div className="flex mb-2 items-center justify-between">
-                        <div>
-                        <span className="text-xs font-bold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-100 mr-2">
-                            Đoàn Viên
-                        </span>
-                        </div>
-                        <div className="text-right">
-                        <span className="text-sm font-bold inline-block text-blue-600">
-                            {stats.doanVien}
-                        </span>
-                        </div>
-                    </div>
-                    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-50">
-                        <div style={{ width: `${stats.totalValidForCharts ? (stats.doanVien / stats.totalValidForCharts) * 100 : 0}%` }} className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500 transition-all duration-1000"></div>
-                    </div>
-                 </div>
-              </div>
-          </div>
-      </div>
-
-      {/* SECTION 4: DEMOGRAPHICS (Ethnicity & Religion) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase">
-                    <Tent className="text-purple-600" size={18} /> Thành phần Dân tộc
-                </h3>
-                {stats.ethnicityData.length > 0 ? (
-                    <div className="space-y-3">
-                        {stats.ethnicityData.slice(0, 5).map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between border-b border-gray-50 pb-2 last:border-0 last:pb-0">
-                                <span className="text-sm text-gray-700 font-medium">{item.name}</span>
-                                <span className="text-sm font-bold bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md">{item.value}</span>
-                            </div>
-                        ))}
-                        {stats.ethnicityData.length > 5 && (
-                             <div className="text-xs text-center text-gray-400 italic pt-2">... và các dân tộc khác</div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-sm text-gray-400 italic">Chưa có dữ liệu</div>
-                )}
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase">
-                    <Smile className="text-orange-500" size={18} /> Thành phần Tôn giáo
-                </h3>
-                {stats.religionData.length > 0 ? (
-                    <div className="space-y-3">
-                        {stats.religionData.slice(0, 5).map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between border-b border-gray-50 pb-2 last:border-0 last:pb-0">
-                                <span className="text-sm text-gray-700 font-medium">{item.name}</span>
-                                <span className="text-sm font-bold bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md">{item.value}</span>
-                            </div>
-                        ))}
-                        {stats.religionData.length > 5 && (
-                             <div className="text-xs text-center text-gray-400 italic pt-2">... và các tôn giáo khác</div>
-                        )}
-                    </div>
-                ) : (
-                     <div className="text-sm text-gray-400 italic">Chưa có dữ liệu</div>
-                )}
-            </div>
       </div>
     </div>
   );

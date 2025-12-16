@@ -13,7 +13,8 @@ export enum RecruitmentStatus {
   ENLISTED = 'NHAP_NGU', // Đã chốt và phát lệnh nhập ngũ
   DEFERRED = 'TAM_HOAN', // Tạm hoãn
   EXEMPTED = 'MIEN_KHAM', // Miễn làm NVQS (Khác với miễn đăng ký)
-  REMOVED_FROM_SOURCE = 'LOAI_KHOI_NGUON' // Đã loại khỏi nguồn (Soft delete)
+  REMOVED_FROM_SOURCE = 'LOAI_KHOI_NGUON', // Đã loại khỏi nguồn (Soft delete)
+  DELETED = 'DA_XOA' // 15. Đã xóa (Thùng rác)
 }
 
 export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER' | 'PROVINCE_ADMIN';

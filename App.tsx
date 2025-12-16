@@ -1,4 +1,5 @@
 
+
 // ... (imports remain the same)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
@@ -167,31 +168,6 @@ function App() {
     if (!result) {
         alert("Lỗi kết nối Server! Không lưu được dữ liệu.");
         setRecruits(oldRecruits);
-        setIsOnline(false);
-    } else {
-        setIsOnline(true);
-    }
-  };
-
-  const handleDeleteRecruit = async (id: string) => {
-    if (!id) return;
-    
-    // 1. Cập nhật giao diện ngay lập tức (Optimistic UI)
-    setRecruits(prev => prev.filter(r => r.id !== id));
-    
-    // 2. Gọi API xóa
-    const success = await api.deleteRecruit(id);
-    
-    // 3. Nếu lỗi, tải lại toàn bộ dữ liệu từ Server để đảm bảo đồng bộ
-    // Không dùng rollback snapshot cũ vì có thể gây lỗi "Stale Closure"
-    if (!success) {
-        // Thông báo lỗi nhẹ nhàng hoặc im lặng nếu muốn, ở đây alert để user biết
-        // alert("Lỗi kết nối Server! Đang đồng bộ lại dữ liệu..."); 
-        
-        const data = await api.getRecruits();
-        if (data) {
-            setRecruits(data);
-        }
         setIsOnline(false);
     } else {
         setIsOnline(true);
@@ -819,7 +795,7 @@ function App() {
 
         <div className="flex-1 overflow-auto p-4 md:p-6 relative">
           {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={handleNavigate} sessionYear={sessionYear} userRole={user.role} userUnit={user.unit} />}
-          {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={handleDeleteRecruit} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} />}
+          {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} />}
           {activeTab === 'admin' && <AdminPanel />}
           {activeTab === 'documents' && <DocumentsPanel />}
         </div>
