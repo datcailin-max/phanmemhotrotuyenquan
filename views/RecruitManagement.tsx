@@ -883,7 +883,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
         {/* HEADER: TITLE & ADMIN FILTERS */}
         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
             <h2 className="text-xl font-bold uppercase text-gray-800 tracking-tight">
-                Quản lý công dân nhập ngũ {sessionYear + 1}
+                Quản lý công dân nhập ngũ {sessionYear}
             </h2>
             {isAdmin && (
                 <div className="flex gap-2 items-center">
