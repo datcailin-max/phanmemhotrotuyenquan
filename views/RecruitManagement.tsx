@@ -1352,12 +1352,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                             <Lock className="text-red-600 w-8 h-8" />
                         </div>
                         <h3 className="text-lg font-bold text-gray-900 uppercase">Xác thực quyền xóa</h3>
-                        <p className="text-xs text-gray-500 mt-1 text-center">
+                        <p className="text-xs text-gray-500 mt-2 text-center px-2">
                             {targetDeleteId 
-                                ? "Bạn đang yêu cầu xóa vĩnh viễn 1 hồ sơ." 
-                                : `Bạn đang yêu cầu xóa vĩnh viễn ${selectedRecruitIds.length} hồ sơ.`
+                                ? "Bạn đang yêu cầu xóa vĩnh viễn 1 hồ sơ công dân khỏi dữ liệu quản lý của địa phương." 
+                                : `Bạn đang yêu cầu xóa vĩnh viễn ${selectedRecruitIds.length} hồ sơ khỏi dữ liệu quản lý của địa phương.`
                             }
                         </p>
+                        <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-wide">Hành động này không thể hoàn tác!</p>
                     </div>
                     
                     <div className="space-y-4">
@@ -1366,7 +1367,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                             <input 
                                 type="password" 
                                 className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
-                                placeholder="Nhập mật khẩu của bạn để xác nhận..."
+                                placeholder="Nhập mật khẩu xác nhận..."
                                 value={deleteConfirmPassword}
                                 onChange={(e) => setDeleteConfirmPassword(e.target.value)}
                                 autoFocus
