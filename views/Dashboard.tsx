@@ -480,7 +480,7 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
              {/* 12. LOẠI KHỎI NGUỒN */}
              <ProcessStepCard 
-                title="12. DS Loại khỏi nguồn" 
+                title="12. DS đưa ra khỏi nguồn" 
                 count={stats.countRemoved} 
                 icon={UserX} 
                 color="bg-gray-600" 
