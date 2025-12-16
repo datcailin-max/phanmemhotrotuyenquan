@@ -53,14 +53,14 @@ mongoose.connect(MONGODB_URI, mongooseOptions)
     // Không exit process để Server vẫn chạy và trả về giao diện (dù không có data)
   });
 
-// --- HELPER FUNCTION: AUTO SYNC TO NEXT YEAR ---
+// --- HELPER FUNCTION: AUTO SYNC TO NEXT YEAR (ADD/UPDATE) ---
 const syncToNextYear = async (recruit) => {
   try {
       // 1. Xác định các trạng thái KHÔNG được sao chép (Nhập ngũ, Loại khỏi nguồn)
-      // Các trạng thái còn lại (DS 1, 2, 3, 13...) đều được sao chép/đồng bộ.
+      // Các trạng thái thuộc Danh sách 14 (Nguồn, Hoãn, Miễn, Không đạt, TT50...) sẽ được sao chép.
       const NO_SYNC_STATUS = ['NHAP_NGU', 'LOAI_KHOI_NGUON']; 
       
-      // Nếu hồ sơ rơi vào trạng thái không đồng bộ, ta dừng lại (hoặc có thể xem xét xóa ở năm sau nếu cần, nhưng an toàn là giữ nguyên)
+      // Nếu hồ sơ rơi vào trạng thái không đồng bộ (đã nhập ngũ hoặc bị loại), ta dừng lại
       if (NO_SYNC_STATUS.includes(recruit.status)) return;
 
       const nextYear = recruit.recruitmentYear + 1;
@@ -79,23 +79,60 @@ const syncToNextYear = async (recruit) => {
       delete recruitData.updatedAt;
       delete recruitData.__v;
       
+      // Quan trọng: Giữ nguyên Status của năm cũ khi chuyển sang năm mới theo yêu cầu
       recruitData.recruitmentYear = nextYear;
 
       if (existingNextYear) {
           // UPDATE: Nếu năm sau đã có hồ sơ, cập nhật thông tin mới nhất từ năm nay
           // Giữ nguyên ID của bản ghi năm sau
           await Recruit.findByIdAndUpdate(existingNextYear._id, recruitData);
-          console.log(`[AUTO-SYNC] Đã cập nhật hồ sơ ${recruit.fullName} cho năm ${nextYear}`);
+          console.log(`[AUTO-SYNC] Đã cập nhật hồ sơ ${recruit.fullName} (Trạng thái: ${recruit.status}) cho năm ${nextYear}`);
       } else {
           // CREATE: Nếu năm sau chưa có, tạo mới
           recruitData.id = Date.now().toString(36) + Math.random().toString(36).substring(2);
           const newRecruit = new Recruit(recruitData);
           await newRecruit.save();
-          console.log(`[AUTO-SYNC] Đã sao chép hồ sơ ${recruit.fullName} sang năm ${nextYear}`);
+          console.log(`[AUTO-SYNC] Đã sao chép hồ sơ ${recruit.fullName} (Trạng thái: ${recruit.status}) sang năm ${nextYear}`);
       }
   } catch (err) {
       console.error("[AUTO-SYNC ERROR]", err.message);
   }
+};
+
+// --- HELPER FUNCTION: SYNC DELETE TO NEXT YEAR ---
+const syncDeleteToNextYear = async (recruit) => {
+    try {
+        // Thực hiện đồng bộ xóa đối với:
+        // 1. Danh sách 1 (Cấm ĐK), Danh sách 2 (Miễn ĐK)
+        // 2. Danh sách 14 (Nguồn năm sau: Nguồn, Không đạt sơ tuyển/khám, Tạm hoãn, Miễn, TT50)
+        const SYNC_DELETE_STATUS = [
+            'KHONG_DUOC_DANG_KY', // DS 1
+            'MIEN_DANG_KY',       // DS 2
+            'NGUON',              // DS 3, 4, 14
+            'SO_KHAM_KHONG_DAT',  // DS 6.2 (thuộc 14)
+            'KHAM_TUYEN_KHONG_DAT', // DS 7.2 (thuộc 14)
+            'TAM_HOAN',           // DS 8 (thuộc 14)
+            'MIEN_KHAM',          // DS 9 (thuộc 14)
+            'KHONG_TUYEN_CHON_TT50', // DS 5 (thuộc 14)
+            'BINH_CU_CONG_KHAI'   // Có thể là Dự bị (thuộc 14)
+        ];
+        
+        if (SYNC_DELETE_STATUS.includes(recruit.status)) {
+            const nextYear = recruit.recruitmentYear + 1;
+            
+            // Tìm và xóa bản ghi năm sau nếu có cùng CCCD (để đảm bảo tính nhất quán)
+            const deleted = await Recruit.findOneAndDelete({
+                citizenId: recruit.citizenId,
+                recruitmentYear: nextYear
+            });
+
+            if (deleted) {
+                console.log(`[AUTO-SYNC-DELETE] Đã xóa hồ sơ ${recruit.fullName} năm ${nextYear} (Đồng bộ xóa từ năm ${recruit.recruitmentYear})`);
+            }
+        }
+    } catch (err) {
+        console.error("[AUTO-SYNC-DELETE ERROR]", err.message);
+    }
 };
 
 // --- API ROUTES ---
@@ -150,6 +187,10 @@ app.delete('/api/recruits/:id', async (req, res) => {
   try {
     const deletedRecruit = await Recruit.findOneAndDelete({ id: req.params.id });
     if (!deletedRecruit) return res.status(404).json({ message: 'Không tìm thấy hồ sơ' });
+    
+    // Kích hoạt đồng bộ xóa sang năm sau (nếu thuộc DS 1, 2, 14)
+    await syncDeleteToNextYear(deletedRecruit);
+
     res.json({ message: 'Đã xóa thành công' });
   } catch (error) {
     res.status(500).json({ message: error.message });
