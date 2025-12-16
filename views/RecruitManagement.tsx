@@ -7,7 +7,8 @@ import {
   PauseCircle, Users, FileSignature, UserX, Flag, Layers, ShieldCheck, Baby, 
   ChevronRight, BookX, ArrowRightCircle,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
-  HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle
+  HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
+  Trash2, Lock, Key
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -48,7 +49,7 @@ const TABS = [
   { id: 'FINAL_RESERVE', label: '10.2. DANH SÁCH DỰ BỊ', status: [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-teal-500', lightColor: 'bg-teal-50', borderColor: 'border-teal-500', textColor: 'text-teal-800', icon: Tent, isSub: true, parentId: 'FINAL' },
 
   { id: 'ENLISTED', label: '11. DS NHẬP NGŨ', status: null, color: 'bg-red-600', lightColor: 'bg-red-50', borderColor: 'border-red-600', textColor: 'text-red-900', icon: Flag },
-  { id: 'REMOVED', label: '12. DS ĐƯA RA KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
+  { id: 'REMOVED', label: '12. DS LOẠI KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
   { id: 'REMAINING', label: '13. DS NGUỒN CÒN LẠI', status: null, color: 'bg-teal-600', lightColor: 'bg-teal-50', borderColor: 'border-teal-600', textColor: 'text-teal-900', icon: Layers },
 ];
 
@@ -133,10 +134,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editingRecruit, setEditingRecruit] = useState<Recruit | undefined>(undefined);
   
-  // Removal Reason Modal State
+  // Removal Reason Modal State (Soft Delete)
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [recruitToRemove, setRecruitToRemove] = useState<Recruit | null>(null);
   const [removeReason, setRemoveReason] = useState('');
+
+  // Permanent Delete With Password Confirmation
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
+  const [targetDeleteId, setTargetDeleteId] = useState<string | null>(null); // If null, means delete selected
+  const [selectedRecruitIds, setSelectedRecruitIds] = useState<string[]>([]);
 
   // Admin Filters
   const [filterProvince, setFilterProvince] = useState('');
@@ -149,6 +156,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const handleTabChange = (id: string) => {
       setActiveTabId(id);
       setCurrentPage(1);
+      setSelectedRecruitIds([]); // Clear selection when tab changes
       if (onTabChange) onTabChange(id);
   };
 
@@ -399,6 +407,42 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       }
   };
 
+  const handleDeleteWithPassword = () => {
+      if (deleteConfirmPassword !== user.password) {
+          alert("Mật khẩu không chính xác! Vui lòng thử lại.");
+          return;
+      }
+
+      if (targetDeleteId) {
+          // Delete Single
+          onDelete(targetDeleteId);
+          // Also remove from selected if present
+          setSelectedRecruitIds(prev => prev.filter(id => id !== targetDeleteId));
+      } else {
+          // Delete Bulk
+          selectedRecruitIds.forEach(id => onDelete(id));
+          setSelectedRecruitIds([]);
+      }
+
+      setShowDeleteConfirmModal(false);
+      setDeleteConfirmPassword('');
+      setTargetDeleteId(null);
+  };
+
+  const toggleSelectRecruit = (id: string) => {
+      setSelectedRecruitIds(prev => 
+          prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      );
+  };
+
+  const toggleSelectAll = () => {
+      if (selectedRecruitIds.length === filteredRecruits.length) {
+          setSelectedRecruitIds([]);
+      } else {
+          setSelectedRecruitIds(filteredRecruits.map(r => r.id));
+      }
+  };
+
   // Helper for toggle actions
   const handleQuickStatusChange = (recruit: Recruit, targetStatus: RecruitmentStatus) => {
       let newStatus = targetStatus;
@@ -481,10 +525,23 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                               setShowRemoveModal(true);
                           }} 
                           className={`p-1 rounded ${recruit.status === RecruitmentStatus.REMOVED_FROM_SOURCE ? 'bg-gray-200 text-gray-800' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`} 
-                          title="Loại khỏi nguồn"
+                          title="Loại khỏi nguồn (Soft delete)"
                       >
                           <UserX size={16} />
                       </button>
+                      <button 
+                          onClick={() => {
+                              setTargetDeleteId(recruit.id);
+                              setShowDeleteConfirmModal(true);
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          title="Xóa dữ liệu (Cần mật khẩu)"
+                      >
+                          <Trash2 size={16} />
+                      </button>
+                      
+                      <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
+
                       <button 
                           onClick={() => handleQuickStatusChange(recruit, RecruitmentStatus.EXEMPTED)} 
                           className={`p-1 rounded ${recruit.status === RecruitmentStatus.EXEMPTED ? 'bg-purple-100 text-purple-700' : 'text-purple-300 hover:bg-purple-50 hover:text-purple-600'}`} 
@@ -630,6 +687,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const isList9 = activeTabId === 'EXEMPTED_LIST';
   const isList12 = activeTabId === 'REMOVED';
   const isList11 = activeTabId === 'ENLISTED'; // Check for List 11
+  
+  // Is List 4 (For Bulk Delete Feature)
+  const isList4 = activeTabId === 'ALL';
 
   const communeList = useMemo(() => {
     if (!filterProvince) return [];
@@ -782,7 +842,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                  </div>
 
                  {/* Table Data */}
-                 <div className="flex-1 overflow-auto">
+                 <div className="flex-1 overflow-auto relative">
                      {filteredRecruits.length === 0 ? (
                          <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
                              <ShieldOff size={48} className="mb-3 opacity-20" />
@@ -798,6 +858,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                          <table className="w-full text-left border-collapse">
                             <thead className="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10 shadow-sm">
                                 <tr>
+                                    {isList4 && !isReadOnly && (
+                                        <th className="p-3 border-b border-gray-200 w-10 text-center">
+                                            <input 
+                                                type="checkbox" 
+                                                className="cursor-pointer rounded focus:ring-military-500"
+                                                checked={selectedRecruitIds.length > 0 && selectedRecruitIds.length === filteredRecruits.length}
+                                                onChange={toggleSelectAll}
+                                            />
+                                        </th>
+                                    )}
                                     <th className="p-3 border-b border-gray-200 w-10 text-center">#</th>
                                     <th className="p-3 border-b border-gray-200">Họ Tên / CCCD</th>
                                     <th className="p-3 border-b border-gray-200">Ngày sinh / Địa chỉ</th>
@@ -812,7 +882,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                             </thead>
                             <tbody className="text-sm divide-y divide-gray-100">
                                 {paginatedRecruits.map((r, idx) => (
-                                    <tr key={r.id} className="hover:bg-blue-50/30 group transition-colors">
+                                    <tr key={r.id} className={`hover:bg-blue-50/30 group transition-colors ${selectedRecruitIds.includes(r.id) ? 'bg-blue-50' : ''}`}>
+                                        {isList4 && !isReadOnly && (
+                                            <td className="p-3 text-center border-b border-gray-100">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="cursor-pointer rounded focus:ring-military-500"
+                                                    checked={selectedRecruitIds.includes(r.id)}
+                                                    onChange={() => toggleSelectRecruit(r.id)}
+                                                />
+                                            </td>
+                                        )}
                                         <td className="p-3 text-center text-gray-400">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</td>
                                         <td className="p-3">
                                             <div className="font-bold text-gray-900">{r.fullName}</div>
@@ -921,6 +1001,29 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                             </tbody>
                          </table>
                      )}
+                     
+                     {/* BULK ACTION BAR */}
+                     {selectedRecruitIds.length > 0 && isList4 && (
+                         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-3 z-20 animate-in slide-in-from-bottom-2 fade-in">
+                             <span className="text-sm font-bold">{selectedRecruitIds.length} đã chọn</span>
+                             <div className="h-4 w-[1px] bg-gray-600"></div>
+                             <button 
+                                 onClick={() => {
+                                     setTargetDeleteId(null);
+                                     setShowDeleteConfirmModal(true);
+                                 }} 
+                                 className="flex items-center gap-1 text-red-400 hover:text-red-300 text-sm font-bold"
+                             >
+                                 <Trash2 size={16} /> Xóa {selectedRecruitIds.length} người
+                             </button>
+                             <button 
+                                 onClick={() => setSelectedRecruitIds([])} 
+                                 className="ml-2 text-gray-400 hover:text-white"
+                             >
+                                 <XCircle size={18} />
+                             </button>
+                         </div>
+                     )}
                  </div>
 
                  {/* Pagination & Export */}
@@ -977,7 +1080,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
             />
         )}
 
-        {/* REMOVE REASON MODAL */}
+        {/* REMOVE REASON MODAL (Soft Delete) */}
         {showRemoveModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
@@ -1009,6 +1112,56 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         >
                             Xác nhận Loại
                         </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* PERMANENT DELETE CONFIRMATION MODAL */}
+        {showDeleteConfirmModal && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in zoom-in-95">
+                <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm p-6 border-t-4 border-red-600">
+                    <div className="flex flex-col items-center mb-4">
+                        <div className="p-3 bg-red-100 rounded-full mb-3">
+                            <Lock className="text-red-600 w-8 h-8" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 uppercase">Xác thực quyền xóa</h3>
+                        <p className="text-xs text-gray-500 mt-1 text-center">
+                            {targetDeleteId 
+                                ? "Bạn đang yêu cầu xóa vĩnh viễn 1 hồ sơ." 
+                                : `Bạn đang yêu cầu xóa vĩnh viễn ${selectedRecruitIds.length} hồ sơ.`
+                            }
+                        </p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <Key className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+                            <input 
+                                type="password" 
+                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                                placeholder="Nhập mật khẩu của bạn để xác nhận..."
+                                value={deleteConfirmPassword}
+                                onChange={(e) => setDeleteConfirmPassword(e.target.value)}
+                                autoFocus
+                            />
+                        </div>
+                        
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => { setShowDeleteConfirmModal(false); setDeleteConfirmPassword(''); setTargetDeleteId(null); }}
+                                className="flex-1 py-2 border border-gray-300 rounded text-sm font-bold text-gray-700 hover:bg-gray-50"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button 
+                                onClick={handleDeleteWithPassword}
+                                disabled={!deleteConfirmPassword}
+                                className="flex-1 py-2 bg-red-600 text-white rounded text-sm font-bold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md"
+                            >
+                                Xác nhận Xóa
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
