@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
 import { LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, EDUCATIONS } from '../constants';
@@ -147,8 +146,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   // Permanent Delete With Password Confirmation
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [deleteConfirmPassword, setDeleteConfirmPassword] = useState('');
-  const [targetDeleteId, setTargetDeleteId] = useState<string | null>(null); // If null, means delete selected
-  const [selectedRecruitIds, setSelectedRecruitIds] = useState<string[]>([]);
+  const [targetDeleteId, setTargetDeleteId] = useState<string | null>(null);
 
   // Admin Filters
   const [filterProvince, setFilterProvince] = useState('');
@@ -183,7 +181,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const handleTabChange = (id: string) => {
       setActiveTabId(id);
       setCurrentPage(1);
-      setSelectedRecruitIds([]); // Clear selection when tab changes
       if (onTabChange) onTabChange(id);
   };
 
@@ -485,33 +482,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       }
 
       if (targetDeleteId) {
-          // Delete Single
           onDelete(targetDeleteId);
-          // Also remove from selected if present
-          setSelectedRecruitIds(prev => prev.filter(id => id !== targetDeleteId));
-      } else {
-          // Delete Bulk
-          selectedRecruitIds.forEach(id => onDelete(id));
-          setSelectedRecruitIds([]);
       }
 
       setShowDeleteConfirmModal(false);
       setDeleteConfirmPassword('');
       setTargetDeleteId(null);
-  };
-
-  const toggleSelectRecruit = (id: string) => {
-      setSelectedRecruitIds(prev => 
-          prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-      );
-  };
-
-  const toggleSelectAll = () => {
-      if (selectedRecruitIds.length === filteredRecruits.length) {
-          setSelectedRecruitIds([]);
-      } else {
-          setSelectedRecruitIds(filteredRecruits.map(r => r.id));
-      }
   };
 
   // Helper for toggle actions
@@ -632,7 +608,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                               setShowDeleteConfirmModal(true);
                           }}
                           className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          title="Xóa dữ liệu (Cần mật khẩu)"
+                          title="Xóa vĩnh viễn (Cần mật khẩu)"
                       >
                           <Trash2 size={16} />
                       </button>
@@ -834,9 +810,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const isList12 = activeTabId === 'REMOVED';
   const isList11 = activeTabId === 'ENLISTED'; // Check for List 11
   
-  // Is List 4 (For Bulk Delete Feature)
-  const isList4 = activeTabId === 'ALL';
-
   const communeList = useMemo(() => {
     if (!filterProvince) return [];
     // @ts-ignore
@@ -1084,16 +1057,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                          <table className="w-full text-left border-collapse">
                             <thead className="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10 shadow-sm">
                                 <tr>
-                                    {isList4 && !isReadOnly && (
-                                        <th className="p-3 border-b border-gray-200 w-10 text-center">
-                                            <input 
-                                                type="checkbox" 
-                                                className="cursor-pointer rounded focus:ring-military-500"
-                                                checked={selectedRecruitIds.length > 0 && selectedRecruitIds.length === filteredRecruits.length}
-                                                onChange={toggleSelectAll}
-                                            />
-                                        </th>
-                                    )}
                                     <th className="p-3 border-b border-gray-200 w-10 text-center">#</th>
                                     <th className="p-3 border-b border-gray-200">Họ Tên / CCCD</th>
                                     <th className="p-3 border-b border-gray-200">Ngày sinh / Địa chỉ</th>
@@ -1108,17 +1071,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                             </thead>
                             <tbody className="text-sm divide-y divide-gray-100">
                                 {paginatedRecruits.map((r, idx) => (
-                                    <tr key={r.id} className={`hover:bg-blue-50/30 group transition-colors ${selectedRecruitIds.includes(r.id) ? 'bg-blue-50' : ''}`}>
-                                        {isList4 && !isReadOnly && (
-                                            <td className="p-3 text-center border-b border-gray-100">
-                                                <input 
-                                                    type="checkbox" 
-                                                    className="cursor-pointer rounded focus:ring-military-500"
-                                                    checked={selectedRecruitIds.includes(r.id)}
-                                                    onChange={() => toggleSelectRecruit(r.id)}
-                                                />
-                                            </td>
-                                        )}
+                                    <tr key={r.id} className="hover:bg-blue-50/30 group transition-colors">
                                         <td className="p-3 text-center text-gray-400">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</td>
                                         <td className="p-3">
                                             <div className="font-bold text-gray-900">{r.fullName}</div>
@@ -1227,29 +1180,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                             </tbody>
                          </table>
                      )}
-                     
-                     {/* BULK ACTION BAR */}
-                     {selectedRecruitIds.length > 0 && isList4 && (
-                         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-3 z-20 animate-in slide-in-from-bottom-2 fade-in">
-                             <span className="text-sm font-bold">{selectedRecruitIds.length} đã chọn</span>
-                             <div className="h-4 w-[1px] bg-gray-600"></div>
-                             <button 
-                                 onClick={() => {
-                                     setTargetDeleteId(null);
-                                     setShowDeleteConfirmModal(true);
-                                 }} 
-                                 className="flex items-center gap-1 text-red-400 hover:text-red-300 text-sm font-bold"
-                             >
-                                 <Trash2 size={16} /> Xóa {selectedRecruitIds.length} người
-                             </button>
-                             <button 
-                                 onClick={() => setSelectedRecruitIds([])} 
-                                 className="ml-2 text-gray-400 hover:text-white"
-                             >
-                                 <XCircle size={18} />
-                             </button>
-                         </div>
-                     )}
                  </div>
 
                  {/* Pagination & Export */}
@@ -1355,7 +1285,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         <p className="text-xs text-gray-500 mt-2 text-center px-2">
                             {targetDeleteId 
                                 ? "Bạn đang yêu cầu xóa vĩnh viễn 1 hồ sơ công dân khỏi dữ liệu quản lý của địa phương." 
-                                : `Bạn đang yêu cầu xóa vĩnh viễn ${selectedRecruitIds.length} hồ sơ khỏi dữ liệu quản lý của địa phương.`
+                                : "Bạn đang yêu cầu xóa vĩnh viễn hồ sơ."
                             }
                         </p>
                         <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-wide">Hành động này không thể hoàn tác!</p>
