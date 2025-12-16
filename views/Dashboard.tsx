@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../types';
 import { PROVINCES_VN, LOCATION_DATA } from '../constants';
@@ -234,7 +235,20 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
 
 
     // --- DATA FOR CHARTS (Use only valid source people to avoid skewing data) ---
-    const validRecruitsForCharts = allYearRecruits.filter(r => isValidSourceStatus(r.status));
+    // Fix: Chỉ hiển thị lên biểu đồ những người thực sự được đếm trong các Box (List 3 hoặc List 4+)
+    const validRecruitsForCharts = allYearRecruits.filter(r => {
+        // 1. Phải có trạng thái hợp lệ (chưa xóa, chưa loại)
+        if (!isValidSourceStatus(r.status)) return false;
+
+        // 2. Nếu là Danh sách 3 (17 tuổi) -> Hợp lệ
+        if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
+
+        // 3. Nếu là các trạng thái khác (Nguồn, Sơ tuyển...) -> Bắt buộc >= 18 tuổi
+        // Điều này giúp loại bỏ các trường hợp "Nguồn ảo" (nhập nhầm trạng thái Nguồn cho người 17 tuổi)
+        if (checkAge(r) < 18) return false;
+
+        return true;
+    });
 
     // Education
     const eduMap: Record<string, number> = {};
