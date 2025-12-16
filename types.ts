@@ -113,6 +113,8 @@ export interface Recruit {
   enlistmentType?: 'OFFICIAL' | 'RESERVE'; // 'OFFICIAL': Chính thức, 'RESERVE': Dự bị
   recruitmentYear: number;
   attachments?: RecruitAttachment[]; // Giấy tờ kèm theo (PDF)
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface FilterState {

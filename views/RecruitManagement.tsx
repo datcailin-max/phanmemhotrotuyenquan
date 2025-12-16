@@ -9,7 +9,7 @@ import {
   ChevronRight, BookX, ArrowRightCircle,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
   HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
-  Calendar, UserPlus, Trash2
+  Calendar, UserPlus, Trash2, Copy
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -513,6 +513,70 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       }
   };
 
+  // Logic to transfer data from previous year for List 1
+  const handleTransferFromPreviousYear = async () => {
+      const prevYear = sessionYear - 1;
+
+      // 1. Determine scope filter (similar to scopeRecruits but for prevYear)
+      let sourceData = recruits.filter(r => r.recruitmentYear === prevYear);
+
+      if (!isAdmin) {
+          if (user.unit.province && user.unit.commune) {
+              sourceData = sourceData.filter(r =>
+                  r.address.province === user.unit.province &&
+                  r.address.commune === user.unit.commune
+              );
+          } else if (isProvinceAdmin && user.unit.province) {
+               sourceData = sourceData.filter(r => r.address.province === user.unit.province);
+          }
+      } else {
+          // Admin filters
+          if (filterProvince) sourceData = sourceData.filter(r => r.address.province === filterProvince);
+          if (filterCommune) sourceData = sourceData.filter(r => r.address.commune === filterCommune);
+      }
+
+      // 2. Filter for List 1 status
+      const prevList1 = sourceData.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION);
+
+      if (prevList1.length === 0) {
+          alert(`Không tìm thấy công dân thuộc Danh sách 1 trong năm ${prevYear} (tại đơn vị/phạm vi này).`);
+          return;
+      }
+
+      if (!window.confirm(`Tìm thấy ${prevList1.length} hồ sơ trong DS 1 năm ${prevYear}. Bạn có muốn sao chép sang năm ${sessionYear}?`)) {
+          return;
+      }
+
+      let count = 0;
+      // 3. Iterate and Copy
+      for (const oldRecruit of prevList1) {
+          // Check for duplicate in CURRENT year
+          const exists = recruits.find(r =>
+              r.recruitmentYear === sessionYear &&
+              r.citizenId === oldRecruit.citizenId
+          );
+
+          if (!exists) {
+              const newRecruit: Recruit = {
+                  ...oldRecruit,
+                  id: Date.now().toString(36) + Math.random().toString(36).substring(2) + `_${count}`, // Ensure unique ID
+                  recruitmentYear: sessionYear,
+                  // We keep the status and reason as is
+                  createdAt: undefined,
+                  updatedAt: undefined
+              };
+              onUpdate(newRecruit); // Call the prop which calls API
+              count++;
+          }
+      }
+
+      if (count > 0) {
+          alert(`Đã chuyển thành công ${count} hồ sơ sang năm ${sessionYear}.`);
+      } else {
+          alert(`Tất cả hồ sơ từ năm ${prevYear} đã tồn tại trong năm ${sessionYear}.`);
+      }
+  };
+
   // New Helper: Update Health Grade Inline (For List 7)
   const handleHealthGradeChange = (recruit: Recruit, grade: number) => {
       let newStatus = recruit.status;
@@ -933,6 +997,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                  <p className="text-sm text-gray-500 mt-1">Quản lý danh sách và hồ sơ chi tiết</p>
                              </div>
                              <div className="flex gap-2">
+                                {/* Button: Transfer List 1 from Previous Year */}
+                                {activeTabId === 'NOT_ALLOWED_REG' && !isReadOnly && (
+                                    <button
+                                        onClick={handleTransferFromPreviousYear}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold shadow-sm"
+                                        title={`Sao chép danh sách 1 từ năm ${sessionYear - 1}`}
+                                    >
+                                        <Copy size={16} /> Lấy từ năm {sessionYear - 1}
+                                    </button>
+                                )}
+
                                 {/* Only show 'Thêm công dân' for Lists 1, 2, 3, 4 */}
                                 {!isReadOnly && ALLOW_ADD_CITIZEN_TABS.includes(activeTabId) && (
                                     <button onClick={handleCreate} className="flex items-center gap-2 px-4 py-2 bg-military-700 text-white rounded hover:bg-military-800 text-sm font-bold shadow-sm">
