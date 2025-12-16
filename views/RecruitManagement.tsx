@@ -845,12 +845,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
   return (
     <div className="flex flex-col h-full gap-4">
-        {/* HEADER: TITLE & ADMIN FILTERS */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-            <h2 className="text-xl font-bold uppercase text-gray-800 tracking-tight">
-                Quản lý công dân nhập ngũ {sessionYear + 1}
-            </h2>
-            {isAdmin && (
+        {/* HEADER: ADMIN FILTERS ONLY */}
+        {isAdmin && (
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-end items-center gap-4">
                 <div className="flex gap-2 items-center">
                     <div className="flex items-center gap-2 text-gray-700 font-bold whitespace-nowrap text-sm uppercase">
                         <Filter size={16} /> Phạm vi:
@@ -873,8 +870,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         {communeList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                 </div>
-            )}
-        </div>
+            </div>
+        )}
 
         <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
              {/* LEFT SIDEBAR */}
