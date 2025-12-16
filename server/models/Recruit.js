@@ -55,6 +55,8 @@ const recruitSchema = new mongoose.Schema({
     children: String
   },
   status: { type: String, required: true },
+  previousStatus: String, // Trạng thái cũ để khôi phục
+  previousDefermentReason: String, // Lý do cũ để khôi phục
   defermentReason: String,
   defermentProof: String, // Văn bản chứng minh (cho lý do chính sách)
   enlistmentUnit: String,
