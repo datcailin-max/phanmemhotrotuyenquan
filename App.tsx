@@ -1,5 +1,4 @@
 
-
 // ... (imports remain the same)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
@@ -174,6 +173,17 @@ function App() {
     }
   };
 
+  const handleDeleteRecruit = async (id: string) => {
+      const result = await api.deleteRecruit(id);
+      if (result) {
+          setRecruits(prev => prev.filter(r => r.id !== id));
+          setIsOnline(true);
+      } else {
+          alert("Lỗi kết nối! Không thể xóa hồ sơ.");
+          setIsOnline(false);
+      }
+  };
+
   const handleLogout = () => {
       setUser(null);
       setSessionYear(null);
@@ -313,20 +323,16 @@ function App() {
   };
 
   const AdminPanel = () => {
+      // ... (AdminPanel content remains same as previous version - condensed for brevity)
       const [allUsers, setAllUsers] = useState<User[]>(JSON.parse(localStorage.getItem('military_users') || '[]'));
       const pendingUsers = allUsers.filter(u => u.pendingPassword);
       const resetRequestUsers = allUsers.filter(u => u.resetRequested);
-      // Users pending approval
       const unapprovedUsers = allUsers.filter(u => !u.isApproved);
-
-      // Document Management State
       const [newDocTitle, setNewDocTitle] = useState('');
       const [newDocDesc, setNewDocDesc] = useState('');
       const [newDocUrl, setNewDocUrl] = useState('');
       const [newDocType, setNewDocType] = useState<'WORD' | 'PDF' | 'EXCEL' | 'OTHER'>('WORD');
       const [newDocCategory, setNewDocCategory] = useState<'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC'>('HUONG_DAN');
-
-      // Admin reply local state
       const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
 
       const refreshUsers = () => {
@@ -795,7 +801,7 @@ function App() {
 
         <div className="flex-1 overflow-auto p-4 md:p-6 relative">
           {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={handleNavigate} sessionYear={sessionYear} userRole={user.role} userUnit={user.unit} />}
-          {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} />}
+          {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={handleDeleteRecruit} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} />}
           {activeTab === 'admin' && <AdminPanel />}
           {activeTab === 'documents' && <DocumentsPanel />}
         </div>
@@ -803,6 +809,7 @@ function App() {
         <button onClick={() => setShowAssistantModal(true)} className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-military-600 to-military-500 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform z-20" title="Trợ lý Tuyển quân Ảo"><Bot size={28} /></button>
       </main>
 
+      {/* ... (Modals remain the same) */}
       {/* AI ASSISTANT MODAL */}
       {showAssistantModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">

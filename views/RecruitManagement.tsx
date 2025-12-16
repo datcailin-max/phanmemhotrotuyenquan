@@ -9,13 +9,14 @@ import {
   ChevronRight, BookX, ArrowRightCircle,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
   HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
-  Calendar, UserPlus, Trash2, Copy
+  Calendar, UserPlus, Trash2, Copy, Import
 } from 'lucide-react';
 
 interface RecruitManagementProps {
   recruits: Recruit[];
   user: User;
   onUpdate: (data: Recruit) => void;
+  onDelete: (id: string) => void;
   initialTab?: string;
   onTabChange?: (tabId: string) => void;
   sessionYear: number;
@@ -134,7 +135,7 @@ const TableInput = ({ value, onSave, placeholder }: { value: string, onSave: (va
 };
 
 const RecruitManagement: React.FC<RecruitManagementProps> = ({ 
-  recruits, user, onUpdate, initialTab = 'ALL', onTabChange, sessionYear
+  recruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear
 }) => {
   const [activeTabId, setActiveTabId] = useState(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
@@ -513,9 +514,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       }
   };
 
-  // Logic to transfer data from previous year for List 1
-  const handleTransferFromPreviousYear = async () => {
+  // Logic to transfer data from previous year for List 1 AND List 2
+  const handleTransferFromPreviousYear = async (targetStatus: RecruitmentStatus) => {
       const prevYear = sessionYear - 1;
+      const listName = targetStatus === RecruitmentStatus.NOT_ALLOWED_REGISTRATION ? "Danh sách 1 (Cấm ĐK)" : "Danh sách 2 (Miễn ĐK)";
 
       // 1. Determine scope filter (similar to scopeRecruits but for prevYear)
       let sourceData = recruits.filter(r => r.recruitmentYear === prevYear);
@@ -535,22 +537,22 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           if (filterCommune) sourceData = sourceData.filter(r => r.address.commune === filterCommune);
       }
 
-      // 2. Filter for List 1 status
-      const prevList1 = sourceData.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION);
+      // 2. Filter for List 1 or List 2 status
+      const prevList = sourceData.filter(r => r.status === targetStatus);
 
-      if (prevList1.length === 0) {
-          alert(`Không tìm thấy công dân thuộc Danh sách 1 trong năm ${prevYear} (tại đơn vị/phạm vi này).`);
+      if (prevList.length === 0) {
+          alert(`Không tìm thấy công dân thuộc ${listName} trong năm ${prevYear} (tại đơn vị/phạm vi này).`);
           return;
       }
 
-      if (!window.confirm(`Tìm thấy ${prevList1.length} hồ sơ trong DS 1 năm ${prevYear}. Bạn có muốn sao chép sang năm ${sessionYear}?`)) {
+      if (!window.confirm(`Tìm thấy ${prevList.length} hồ sơ trong ${listName} năm ${prevYear}. Bạn có muốn chuyển sang năm ${sessionYear}? (Hệ thống sẽ giữ nguyên danh sách hiện có và chỉ thêm mới các trường hợp chưa có trong năm nay).`)) {
           return;
       }
 
       let count = 0;
-      // 3. Iterate and Copy
-      for (const oldRecruit of prevList1) {
-          // Check for duplicate in CURRENT year
+      // 3. Iterate and Copy (Merge Strategy)
+      for (const oldRecruit of prevList) {
+          // Check for duplicate in CURRENT year based on citizenId
           const exists = recruits.find(r =>
               r.recruitmentYear === sessionYear &&
               r.citizenId === oldRecruit.citizenId
@@ -561,20 +563,142 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   ...oldRecruit,
                   id: Date.now().toString(36) + Math.random().toString(36).substring(2) + `_${count}`, // Ensure unique ID
                   recruitmentYear: sessionYear,
-                  // We keep the status and reason as is
+                  // We keep the status and reason as is from prev year
                   createdAt: undefined,
                   updatedAt: undefined
               };
               onUpdate(newRecruit); // Call the prop which calls API
               count++;
           }
+          // If exists, do nothing (preserve current data)
       }
 
       if (count > 0) {
-          alert(`Đã chuyển thành công ${count} hồ sơ sang năm ${sessionYear}.`);
+          alert(`Đã bổ sung thành công ${count} hồ sơ sang năm ${sessionYear}.`);
       } else {
-          alert(`Tất cả hồ sơ từ năm ${prevYear} đã tồn tại trong năm ${sessionYear}.`);
+          alert(`Tất cả hồ sơ từ năm ${prevYear} đã tồn tại trong năm ${sessionYear}. Không có dữ liệu mới được thêm.`);
       }
+  };
+
+  // Logic for importing List 14 from previous year (To populate List 4)
+  const handleImportFromList14 = async () => {
+      const prevYear = sessionYear - 1;
+      
+      // 1. Get previous year data (filtered by scope)
+      let sourceData = recruits.filter(r => r.recruitmentYear === prevYear);
+
+      if (!isAdmin) {
+          if (user.unit.province && user.unit.commune) {
+              sourceData = sourceData.filter(r =>
+                  r.address.province === user.unit.province &&
+                  r.address.commune === user.unit.commune
+              );
+          } else if (isProvinceAdmin && user.unit.province) {
+               sourceData = sourceData.filter(r => r.address.province === user.unit.province);
+          }
+      } else {
+          if (filterProvince) sourceData = sourceData.filter(r => r.address.province === filterProvince);
+          if (filterCommune) sourceData = sourceData.filter(r => r.address.commune === filterCommune);
+      }
+
+      // 2. Identify List 14 Candidates (from previous year's context)
+      // List 14 = First Time Reg + Remaining Source
+      // Logic mirrors 'NEXT_YEAR_SOURCE' in filteredRecruits
+      const list14Candidates = sourceData.filter(r => {
+          if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE || r.status === RecruitmentStatus.DELETED) return false;
+          
+          // Logic from List 3
+          if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
+
+          // Logic from List 13 (Remaining >= 18) - but using prev year status
+          // Filter out excluded lists (1, 2) and Enlisted (11)
+          if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || r.status === RecruitmentStatus.EXEMPT_REGISTRATION) return false;
+          if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL') return false;
+          
+          return true;
+      });
+
+      if (list14Candidates.length === 0) {
+          alert(`Không tìm thấy dữ liệu "Nguồn của năm sau" (List 14) từ năm ${prevYear}.`);
+          return;
+      }
+
+      if (!window.confirm(`Tìm thấy ${list14Candidates.length} hồ sơ trong List 14 năm ${prevYear}. Bạn có muốn nhập vào năm ${sessionYear}? (Trạng thái sẽ được reset về Nguồn, trừ các trường hợp Tạm hoãn/Miễn/TT50).`)) {
+          return;
+      }
+
+      let count = 0;
+      for (const oldRecruit of list14Candidates) {
+          // Check Duplicate
+          const exists = recruits.find(r => r.recruitmentYear === sessionYear && r.citizenId === oldRecruit.citizenId);
+          if (exists) continue;
+
+          // Determine New Status
+          let newStatus = RecruitmentStatus.SOURCE;
+          let newReason = ''; 
+
+          // Exceptions: Keep status for Exempt, Deferred, TT50
+          if (oldRecruit.status === RecruitmentStatus.EXEMPTED ||
+              oldRecruit.status === RecruitmentStatus.DEFERRED ||
+              oldRecruit.status === RecruitmentStatus.NOT_SELECTED_TT50) {
+              newStatus = oldRecruit.status;
+              newReason = oldRecruit.defermentReason || '';
+          }
+
+          const newRecruit: Recruit = {
+              ...oldRecruit,
+              id: Date.now().toString(36) + Math.random().toString(36).substring(2) + `_${count}`,
+              recruitmentYear: sessionYear,
+              status: newStatus,
+              defermentReason: newReason,
+              // If status is SOURCE, reset health grade to 0 (Need re-check)
+              // If status is DEFERRED/EXEMPTED, we might keep health if it was the reason, 
+              // but since we copy the object, health info is preserved. 
+              // We only explicitly reset healthGrade if moving to SOURCE to indicate "Unchecked".
+              physical: {
+                  ...oldRecruit.physical,
+                  healthGrade: newStatus === RecruitmentStatus.SOURCE ? 0 : oldRecruit.physical.healthGrade
+              },
+              createdAt: undefined,
+              updatedAt: undefined,
+              // Clear old enlistment info
+              enlistmentDate: undefined,
+              enlistmentUnit: undefined,
+              enlistmentType: 'OFFICIAL' // Default back
+          };
+
+          onUpdate(newRecruit);
+          count++;
+      }
+
+      if (count > 0) {
+          alert(`Đã nhập thành công ${count} hồ sơ từ năm ${prevYear}.`);
+      } else {
+          alert(`Dữ liệu từ năm ${prevYear} đã được đồng bộ đầy đủ trước đó.`);
+      }
+  };
+
+  // Logic to Empty Trash (Permanently Delete List 15)
+  const handleEmptyTrash = async () => {
+      // The filteredRecruits here are already filtered by DELETED_LIST active tab and user scope
+      // So we can safely iterate over them.
+      const trashCount = filteredRecruits.length;
+      
+      if (trashCount === 0) {
+          alert("Thùng rác đang trống.");
+          return;
+      }
+
+      if (!window.confirm(`CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn ${trashCount} hồ sơ trong thùng rác? Hành động này KHÔNG THỂ khôi phục!`)) {
+          return;
+      }
+
+      // Iterate and Delete
+      for (const r of filteredRecruits) {
+          onDelete(r.id);
+      }
+      
+      alert(`Đã xóa vĩnh viễn ${trashCount} hồ sơ khỏi hệ thống.`);
   };
 
   // New Helper: Update Health Grade Inline (For List 7)
@@ -794,13 +918,24 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
           case 'DELETED_LIST': // List 15
               return (
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center justify-center gap-2">
                       <button 
                           onClick={() => onUpdate({ ...recruit, status: recruit.previousStatus || RecruitmentStatus.SOURCE, previousStatus: undefined })} 
                           className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:text-green-600 hover:border-green-300"
                           title="Khôi phục lại danh sách cũ"
                       >
-                          <Undo2 size={14} /> Khôi phục
+                          <Undo2 size={14} />
+                      </button>
+                      <button 
+                          onClick={() => {
+                              if(window.confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn hồ sơ này? Hành động này không thể hoàn tác!')) {
+                                  onDelete(recruit.id);
+                              }
+                          }} 
+                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
+                          title="Xóa vĩnh viễn"
+                      >
+                          <Trash2 size={16} />
                       </button>
                   </div>
               );
@@ -1000,11 +1135,44 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                 {/* Button: Transfer List 1 from Previous Year */}
                                 {activeTabId === 'NOT_ALLOWED_REG' && !isReadOnly && (
                                     <button
-                                        onClick={handleTransferFromPreviousYear}
+                                        onClick={() => handleTransferFromPreviousYear(RecruitmentStatus.NOT_ALLOWED_REGISTRATION)}
                                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold shadow-sm"
                                         title={`Sao chép danh sách 1 từ năm ${sessionYear - 1}`}
                                     >
                                         <Copy size={16} /> Lấy từ năm {sessionYear - 1}
+                                    </button>
+                                )}
+
+                                {/* Button: Transfer List 2 from Previous Year (NEW) */}
+                                {activeTabId === 'EXEMPT_REG' && !isReadOnly && (
+                                    <button
+                                        onClick={() => handleTransferFromPreviousYear(RecruitmentStatus.EXEMPT_REGISTRATION)}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold shadow-sm"
+                                        title={`Sao chép danh sách 2 từ năm ${sessionYear - 1}`}
+                                    >
+                                        <Copy size={16} /> Lấy từ năm {sessionYear - 1}
+                                    </button>
+                                )}
+
+                                {/* Button: Import List 14 from Previous Year to List 4 (NEW) */}
+                                {activeTabId === 'ALL' && !isReadOnly && (
+                                    <button
+                                        onClick={handleImportFromList14}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold shadow-sm"
+                                        title={`Nhập nguồn năm sau (List 14) từ năm ${sessionYear - 1}`}
+                                    >
+                                        <Import size={16} /> Lấy từ năm {sessionYear - 1}
+                                    </button>
+                                )}
+
+                                {/* Button: Empty Trash (NEW) */}
+                                {activeTabId === 'DELETED_LIST' && !isReadOnly && (
+                                    <button
+                                        onClick={handleEmptyTrash}
+                                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-bold shadow-sm"
+                                        title="Xóa vĩnh viễn tất cả hồ sơ trong thùng rác"
+                                    >
+                                        <Trash2 size={16} /> Làm rỗng thùng rác
                                     </button>
                                 )}
 
