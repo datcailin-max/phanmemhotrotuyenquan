@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
 import { LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, EDUCATIONS } from '../constants';
@@ -624,7 +625,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           <UserX size={16} />
                       </button>
                       <button 
-                          onClick={() => {
+                          type="button"
+                          onClick={(e) => {
+                              e.stopPropagation();
                               setTargetDeleteId(recruit.id);
                               setShowDeleteConfirmModal(true);
                           }}
@@ -773,7 +776,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           <UserPlus size={16} />
                       </button>
                       <button 
-                          onClick={() => {
+                          type="button"
+                          onClick={(e) => {
+                              e.stopPropagation();
                               setTargetDeleteId(recruit.id);
                               setShowDeleteConfirmModal(true);
                           }}
@@ -801,7 +806,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           </button>
                       )}
                       <button 
-                          onClick={() => {
+                          type="button"
+                          onClick={(e) => {
+                              e.stopPropagation();
                               setTargetDeleteId(recruit.id);
                               setShowDeleteConfirmModal(true);
                           }}

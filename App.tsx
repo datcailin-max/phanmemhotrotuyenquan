@@ -174,13 +174,24 @@ function App() {
   };
 
   const handleDeleteRecruit = async (id: string) => {
-    const oldRecruits = [...recruits];
+    if (!id) return;
+    
+    // 1. Cập nhật giao diện ngay lập tức (Optimistic UI)
     setRecruits(prev => prev.filter(r => r.id !== id));
     
+    // 2. Gọi API xóa
     const success = await api.deleteRecruit(id);
+    
+    // 3. Nếu lỗi, tải lại toàn bộ dữ liệu từ Server để đảm bảo đồng bộ
+    // Không dùng rollback snapshot cũ vì có thể gây lỗi "Stale Closure"
     if (!success) {
-        alert("Lỗi kết nối Server! Không xóa được dữ liệu.");
-        setRecruits(oldRecruits);
+        // Thông báo lỗi nhẹ nhàng hoặc im lặng nếu muốn, ở đây alert để user biết
+        // alert("Lỗi kết nối Server! Đang đồng bộ lại dữ liệu..."); 
+        
+        const data = await api.getRecruits();
+        if (data) {
+            setRecruits(data);
+        }
         setIsOnline(false);
     } else {
         setIsOnline(true);
