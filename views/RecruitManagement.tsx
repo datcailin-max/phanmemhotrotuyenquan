@@ -675,7 +675,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       }
 
       const inputPass = prompt("Vui lòng nhập mật khẩu để xác nhận xóa vĩnh viễn:");
-      if (inputPass !== user.password) {
+      if (!inputPass || inputPass !== user.password) {
           alert("Mật khẩu không đúng! Không thể thực hiện hành động này.");
           return;
       }
@@ -899,6 +899,35 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   </div>
                );
 
+          case 'TT50': // List 5
+          case 'DEFERRED_LIST': // List 8
+          case 'DEFERRED_HEALTH':
+          case 'DEFERRED_EDUCATION':
+          case 'DEFERRED_POLICY':
+          case 'DEFERRED_DQTT':
+          case 'EXEMPTED_LIST': // List 9
+              return (
+                  <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
+                          <FileEdit size={16} />
+                      </button>
+                      <button 
+                          onClick={() => {
+                              // Khôi phục về Nguồn và xóa lý do
+                              onUpdate({ 
+                                  ...recruit, 
+                                  status: RecruitmentStatus.SOURCE, 
+                                  defermentReason: '' 
+                              });
+                          }} 
+                          className="p-1 text-green-600 hover:bg-green-50 rounded" 
+                          title="Khôi phục về Nguồn (Xóa lý do)"
+                      >
+                          <Undo2 size={16} />
+                      </button>
+                  </div>
+              );
+
           default:
               return (
                   <div className="flex items-center justify-center gap-1">
@@ -965,9 +994,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                               <Import size={16}/> Nhập từ List 14 ({sessionYear - 1})
                           </button>
                       )}
-                      {activeTabId === 'DELETED_LIST' && isAdmin && (
+                      {activeTabId === 'DELETED_LIST' && (
                           <button onClick={handleEmptyTrash} className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-bold shadow-sm">
-                              <Trash2 size={16}/> Dọn sạch thùng rác
+                              <Trash2 size={16}/> Xóa toàn bộ (Cần mật khẩu)
                           </button>
                       )}
 
