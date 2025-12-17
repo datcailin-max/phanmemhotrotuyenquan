@@ -769,6 +769,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       >
                           <UserPlus size={16} />
                       </button>
+                      <button 
+                          onClick={() => {
+                              if(window.confirm('Bạn có chắc chắn muốn chuyển hồ sơ này vào thùng rác (DS 15)?')) {
+                                  onUpdate({ 
+                                      ...recruit, 
+                                      status: RecruitmentStatus.DELETED, 
+                                      previousStatus: recruit.status 
+                                  });
+                              }
+                          }} 
+                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
+                          title="Xóa (Chuyển sang DS 15)"
+                      >
+                          <Trash2 size={16} />
+                      </button>
                   </div>
               );
 
@@ -791,6 +806,21 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           title="Khôi phục trạng thái cũ"
                       >
                           <Undo2 size={16} />
+                      </button>
+                      <button 
+                          onClick={() => {
+                              if(window.confirm('Bạn có chắc chắn muốn chuyển hồ sơ này vào thùng rác (DS 15)?')) {
+                                  onUpdate({ 
+                                      ...recruit, 
+                                      status: RecruitmentStatus.DELETED, 
+                                      previousStatus: recruit.status 
+                                  });
+                              }
+                          }} 
+                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
+                          title="Xóa (Chuyển sang DS 15)"
+                      >
+                          <Trash2 size={16} />
                       </button>
                   </div>
               );
