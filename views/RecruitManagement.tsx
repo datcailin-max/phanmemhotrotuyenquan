@@ -674,6 +674,12 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           return;
       }
 
+      const inputPass = prompt("Vui lòng nhập mật khẩu để xác nhận xóa vĩnh viễn:");
+      if (inputPass !== user.password) {
+          alert("Mật khẩu không đúng! Không thể thực hiện hành động này.");
+          return;
+      }
+
       // Iterate and Delete
       for (const r of filteredRecruits) {
           onDelete(r.id);
@@ -736,10 +742,59 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       onUpdate({ ...recruit, details: { ...recruit.details, gifted: val } });
   };
 
+  // List of Tab IDs where adding new citizens is allowed (1, 2, 3, 4)
+  const ALLOWED_ADD_TABS = ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL'];
+
   const renderActions = (recruit: Recruit) => {
       if (isReadOnly) return null;
 
       switch (activeTabId) {
+          case 'NOT_ALLOWED_REG': // List 1
+          case 'EXEMPT_REG': // List 2
+              return (
+                  <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
+                          <FileEdit size={16} />
+                      </button>
+                      <button 
+                          onClick={() => {
+                              onUpdate({ 
+                                  ...recruit, 
+                                  status: RecruitmentStatus.FIRST_TIME_REGISTRATION, 
+                                  previousStatus: recruit.status // Lưu lại để có thể khôi phục
+                              });
+                          }} 
+                          className="p-1 text-cyan-600 hover:bg-cyan-50 rounded" 
+                          title="Chuyển sang ĐK Lần đầu"
+                      >
+                          <UserPlus size={16} />
+                      </button>
+                  </div>
+              );
+
+          case 'FIRST_TIME_REG': // List 3
+              return (
+                  <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
+                          <FileEdit size={16} />
+                      </button>
+                      <button 
+                          onClick={() => {
+                              // Khôi phục về trạng thái cũ hoặc về Nguồn nếu không có trạng thái cũ
+                              onUpdate({ 
+                                  ...recruit, 
+                                  status: recruit.previousStatus || RecruitmentStatus.SOURCE, 
+                                  previousStatus: undefined 
+                              });
+                          }} 
+                          className="p-1 text-gray-500 hover:bg-gray-100 rounded" 
+                          title="Khôi phục trạng thái cũ"
+                      >
+                          <Undo2 size={16} />
+                      </button>
+                  </div>
+              );
+
           case 'ALL': // List 4
               return (
                   <div className="flex items-center justify-center gap-1">
@@ -774,6 +829,20 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       </button>
                       
                       <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
+
+                      <button 
+                          onClick={() => {
+                              onUpdate({ 
+                                  ...recruit, 
+                                  status: RecruitmentStatus.NOT_SELECTED_TT50, 
+                                  previousStatus: recruit.status 
+                              });
+                          }} 
+                          className={`p-1 rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800`} 
+                          title="Chưa tuyển chọn (TT50)"
+                      >
+                          <BookX size={16} />
+                      </button>
 
                       <button 
                           onClick={() => handleQuickStatusChange(recruit, RecruitmentStatus.EXEMPTED)} 
@@ -902,12 +971,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           </button>
                       )}
 
-                      <button 
-                          onClick={handleCreate} 
-                          className="flex items-center gap-2 px-4 py-2 bg-military-800 text-white rounded-md font-bold hover:bg-military-900 shadow-sm text-sm"
-                      >
-                          <Plus size={16} /> Thêm công dân
-                      </button>
+                      {ALLOWED_ADD_TABS.includes(activeTabId) && (
+                          <button 
+                              onClick={handleCreate} 
+                              className="flex items-center gap-2 px-4 py-2 bg-military-800 text-white rounded-md font-bold hover:bg-military-900 shadow-sm text-sm"
+                          >
+                              <Plus size={16} /> Thêm công dân
+                          </button>
+                      )}
                     </>
                   )}
               </div>
