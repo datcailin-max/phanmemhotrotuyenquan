@@ -230,6 +230,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   // Filter Recruits based on User Scope and Admin Filters
   const scopeRecruits = useMemo(() => {
       let filtered = recruits.filter(r => r.recruitmentYear === sessionYear);
+
+      // Exclude test data for Admin
+      if (isAdmin) {
+          filtered = filtered.filter(r => r.address.province !== 'Tỉnh THUNGHIEM');
+      }
       
       if (!isAdmin) {
           if (user.unit.province && user.unit.commune) {
@@ -488,30 +493,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       }
       
       onUpdate({ ...recruit, status: newStatus });
-  };
-
-  // Move to First Time Registration Helper
-  const handleMoveToFirstTimeReg = (recruit: Recruit) => {
-      onUpdate({
-          ...recruit,
-          previousStatus: recruit.status, // Save current status
-          previousDefermentReason: recruit.defermentReason, // Save current reason
-          status: RecruitmentStatus.FIRST_TIME_REGISTRATION,
-          defermentReason: '' // Clear reason
-      });
-  };
-
-  // Restore from First Time Registration Helper
-  const handleRestoreFromFirstTimeReg = (recruit: Recruit) => {
-      if (recruit.previousStatus) {
-          onUpdate({
-              ...recruit,
-              status: recruit.previousStatus,
-              defermentReason: recruit.previousDefermentReason || '',
-              previousStatus: undefined, // Clear history
-              previousDefermentReason: undefined
-          });
-      }
   };
 
   // Logic to transfer data from previous year for List 1 AND List 2
@@ -808,725 +789,392 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       >
                           <PauseCircle size={16} />
                       </button>
-                      <button 
-                          onClick={() => handleQuickStatusChange(recruit, RecruitmentStatus.NOT_SELECTED_TT50)} 
-                          className={`p-1 rounded ${recruit.status === RecruitmentStatus.NOT_SELECTED_TT50 ? 'bg-slate-200 text-slate-800' : 'text-slate-300 hover:bg-slate-50 hover:text-slate-600'}`} 
-                          title="Không tuyển chọn (TT50)"
-                      >
-                          <BookX size={16} />
-                      </button>
                   </div>
               );
-
-          case 'PRE_CHECK': // List 6
-              return (
-                  <div className="flex items-center justify-center gap-2">
-                      <button 
-                          onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.PRE_CHECK_PASSED })} 
-                          className={`p-1.5 rounded-full border ${recruit.status === RecruitmentStatus.PRE_CHECK_PASSED ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'}`}
-                          title="Đạt sơ tuyển"
-                      >
-                          <CheckCircle2 size={16} />
-                      </button>
-                      <button 
-                          onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.PRE_CHECK_FAILED })} 
-                          className={`p-1.5 rounded-full border ${recruit.status === RecruitmentStatus.PRE_CHECK_FAILED ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-500 border-orange-200 hover:bg-orange-50'}`}
-                          title="Không đạt sơ tuyển"
-                      >
-                          <XCircle size={16} />
-                      </button>
-                  </div>
-              );
-
-          case 'MED_EXAM': // List 7 - Toggle Switch for Finalize
-              if (recruit.physical.healthGrade && recruit.physical.healthGrade <= 3) {
-                  const isFinalized = [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(recruit.status);
-                  return (
-                      <button
-                          onClick={() => {
-                              if (isFinalized) {
-                                  // Toggle Off: Revert to Exam Passed, clear enlistment info
-                                  onUpdate({ ...recruit, status: RecruitmentStatus.MED_EXAM_PASSED, enlistmentType: undefined });
-                              } else {
-                                  // Toggle On: Move to Finalized (List 10), BUT clear enlistmentType (not default Official)
-                                  onUpdate({ ...recruit, status: RecruitmentStatus.FINALIZED, enlistmentType: undefined });
-                              }
-                          }}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm w-28 justify-center ${
-                              isFinalized
-                                  ? 'bg-green-600 text-white border-green-600 hover:bg-green-700'
-                                  : 'bg-white text-gray-400 border-gray-300 hover:border-green-500 hover:text-green-600'
-                          }`}
-                          title={isFinalized ? "Hủy chốt (Quay lại Đạt sức khỏe)" : "Chốt hồ sơ sang Danh sách 10"}
-                      >
-                          {isFinalized ? (
-                              <>
-                                  <CheckCircle2 size={14} /> <span>Đã chốt</span>
-                              </>
-                          ) : (
-                              <>
-                                  <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 group-hover:border-green-600"></div> <span>Chốt HS</span>
-                              </>
-                          )}
-                      </button>
-                  );
-              }
-              return <span className="text-gray-300 text-xs italic">Chưa đủ ĐK</span>;
-
-          case 'FINAL': // List 10
-          case 'FINAL_OFFICIAL':
-          case 'FINAL_RESERVE':
-              return (
+          
+          case 'REMOVED':
+               return (
                   <div className="flex items-center justify-center gap-1">
-                       <button 
-                          onClick={() => onUpdate({ ...recruit, enlistmentType: 'OFFICIAL' })}
-                          className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${recruit.enlistmentType === 'OFFICIAL' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-500 border-gray-300 hover:border-red-400 hover:text-red-500'}`}
-                          title="Chọn Chính thức"
-                       >
-                          Chính thức
-                       </button>
-                       <button 
-                          onClick={() => onUpdate({ ...recruit, enlistmentType: 'RESERVE' })}
-                          className={`px-2 py-1 rounded text-[10px] font-bold border transition-colors ${recruit.enlistmentType === 'RESERVE' ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-500 border-gray-300 hover:border-teal-400 hover:text-teal-500'}`}
-                          title="Chọn Dự bị"
-                       >
-                          Dự bị
-                       </button>
-                  </div>
-              );
-
-          case 'DEFERRED_LIST': // List 8
-          case 'DEFERRED_HEALTH':
-          case 'DEFERRED_EDUCATION':
-          case 'DEFERRED_POLICY':
-          case 'DEFERRED_DQTT':
-          case 'EXEMPTED_LIST': // List 9
-          case 'REMOVED': // List 12
-          case 'REMAINING': // List 13
-          case 'NEXT_YEAR_SOURCE': // List 14
-              return (
-                  <div className="flex items-center justify-center">
-                      <button 
-                          onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE })} 
-                          className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:text-blue-600 hover:border-blue-300"
-                          title="Khôi phục về Nguồn (DS 4)"
-                      >
-                          <Undo2 size={14} /> Khôi phục
-                      </button>
-                  </div>
-              );
-
-          case 'DELETED_LIST': // List 15
-              return (
-                  <div className="flex items-center justify-center gap-2">
-                      <button 
-                          onClick={() => onUpdate({ ...recruit, status: recruit.previousStatus || RecruitmentStatus.SOURCE, previousStatus: undefined })} 
-                          className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:text-green-600 hover:border-green-300"
-                          title="Khôi phục lại danh sách cũ"
-                      >
-                          <Undo2 size={14} />
-                      </button>
                       <button 
                           onClick={() => {
-                              if(window.confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa vĩnh viễn hồ sơ này? Hành động này không thể hoàn tác!')) {
-                                  onDelete(recruit.id);
-                              }
+                              onUpdate({ 
+                                  ...recruit, 
+                                  status: RecruitmentStatus.SOURCE, 
+                                  defermentReason: '' 
+                              });
                           }} 
-                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
-                          title="Xóa vĩnh viễn"
+                          className="p-1 text-green-600 hover:bg-green-50 rounded" 
+                          title="Khôi phục về Nguồn"
                       >
-                          <Trash2 size={16} />
+                          <Undo2 size={16} />
                       </button>
                   </div>
-              );
+               );
+          
+          case 'DELETED_LIST':
+               return (
+                  <div className="flex items-center justify-center gap-1">
+                      <button 
+                          onClick={() => {
+                              onUpdate({ 
+                                  ...recruit, 
+                                  status: recruit.previousStatus || RecruitmentStatus.SOURCE, 
+                                  previousStatus: undefined 
+                              });
+                          }} 
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded" 
+                          title="Khôi phục"
+                      >
+                          <Undo2 size={16} />
+                      </button>
+                  </div>
+               );
 
-          case 'NOT_ALLOWED_REG': // List 1
-          case 'EXEMPT_REG': // List 2
+          default:
               return (
                   <div className="flex items-center justify-center gap-1">
                       <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
                           <FileEdit size={16} />
                       </button>
-                      <button 
-                          onClick={() => {
-                              if(window.confirm('Bạn có chắc chắn muốn chuyển hồ sơ này vào thùng rác (DS 15)?')) {
-                                  onUpdate({ 
-                                      ...recruit, 
-                                      status: RecruitmentStatus.DELETED, 
-                                      previousStatus: recruit.status 
-                                  });
-                              }
-                          }} 
-                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
-                          title="Xóa (Chuyển sang DS 15)"
-                      >
-                          <Trash2 size={16} />
-                      </button>
-                      <button 
-                          onClick={() => handleMoveToFirstTimeReg(recruit)}
-                          className="p-1 text-cyan-600 hover:bg-cyan-50 rounded"
-                          title="Được đăng ký lần đầu (Chuyển sang DS 3)"
-                      >
-                          <UserPlus size={16} />
-                      </button>
                   </div>
               );
-
-          case 'FIRST_TIME_REG': // List 3
-              return (
-                  <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa">
-                          <FileEdit size={16} />
-                      </button>
-                      <button 
-                          onClick={() => {
-                              if(window.confirm('Bạn có chắc chắn muốn chuyển hồ sơ này vào thùng rác (DS 15)?')) {
-                                  onUpdate({ 
-                                      ...recruit, 
-                                      status: RecruitmentStatus.DELETED, 
-                                      previousStatus: recruit.status 
-                                  });
-                              }
-                          }} 
-                          className="p-1 text-red-500 hover:bg-red-50 rounded" 
-                          title="Xóa (Chuyển sang DS 15)"
-                      >
-                          <Trash2 size={16} />
-                      </button>
-                      {recruit.previousStatus && (
-                          <button 
-                              onClick={() => handleRestoreFromFirstTimeReg(recruit)}
-                              className="p-1 text-amber-600 hover:bg-amber-50 rounded"
-                              title={`Khôi phục về ${getStatusLabel(recruit.previousStatus)}`}
-                          >
-                              <Undo2 size={16} />
-                          </button>
-                      )}
-                  </div>
-              );
-
-          default: 
-              return <span className="text-gray-300">-</span>;
       }
   };
 
-  const isDeferredOrExemptedTab = activeTabId === 'DEFERRED_LIST' || activeTabId === 'EXEMPTED_LIST' || activeTabId.startsWith('DEFERRED_');
-  
-  // Specific checks for required columns
-  const isList7 = activeTabId.startsWith('MED_EXAM');
-  const isList8 = activeTabId.startsWith('DEFERRED_') || activeTabId === 'DEFERRED_LIST';
-  const isList9 = activeTabId === 'EXEMPTED_LIST';
-  const isList12 = activeTabId === 'REMOVED';
-  const isList11 = activeTabId === 'ENLISTED'; // Check for List 11
-  
-  const communeList = useMemo(() => {
-    if (!filterProvince) return [];
-    // @ts-ignore
-    const data = LOCATION_DATA[filterProvince];
-    return data ? Object.keys(data) : [];
-  }, [filterProvince]);
-
-  const handleExportCSV = () => {
-    const headers = ["STT", "Họ tên", "CCCD", "Ngày sinh", "Địa chỉ", "Học vấn", "Sức khỏe", "Trạng thái", "Năng khiếu", "Chi tiết"];
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
-        + headers.join(",") + "\n"
-        + filteredRecruits.map((r, i) => {
-            const row = [
-                i + 1,
-                `"${r.fullName}"`,
-                `"${r.citizenId || ''}"`,
-                `"${r.dob}"`,
-                `"${r.address.village}, ${r.address.commune}"`,
-                `"${r.details.education}"`,
-                r.physical.healthGrade || '',
-                `"${getStatusLabel(r.status)}"`,
-                `"${r.details.gifted || ''}"`,
-                `"${r.defermentReason || ''}"`
-            ];
-            return row.join(",");
-        }).join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `DS_TuyenQuan_${sessionYear}_${activeTab.id}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Define Lists where Adding Citizen is allowed
-  const ALLOW_ADD_CITIZEN_TABS = ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL'];
-
-  const isAdvancedFilterActive = !!advFilterEducation || !!advFilterHealth || !!advFilterPolitical;
-
   return (
-    <div className="flex flex-col h-full gap-4">
-        {/* HEADER: TITLE & ADMIN FILTERS */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-            <h2 className="text-xl font-bold uppercase text-gray-800 tracking-tight">
-                Quản lý công dân nhập ngũ {sessionYear}
-            </h2>
-            {isAdmin && (
-                <div className="flex gap-2 items-center">
-                    <div className="flex items-center gap-2 text-gray-700 font-bold whitespace-nowrap text-sm uppercase">
-                        <Filter size={16} /> Phạm vi:
-                    </div>
-                    <select 
-                        className="border border-gray-300 rounded p-1.5 text-sm"
-                        value={filterProvince}
-                        onChange={(e) => { setFilterProvince(e.target.value); setFilterCommune(''); }}
-                    >
-                        <option value="">-- Cả nước --</option>
-                        {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <select 
-                        className="border border-gray-300 rounded p-1.5 text-sm disabled:bg-gray-100"
-                        value={filterCommune}
-                        onChange={(e) => setFilterCommune(e.target.value)}
-                        disabled={!filterProvince}
-                    >
-                        <option value="">-- Toàn tỉnh --</option>
-                        {communeList.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-            )}
-        </div>
+    <div className="flex h-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* 1. SIDEBAR TABS (Left side) */}
+      <div className="w-64 flex-shrink-0 bg-gray-50 border-r border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Danh sách quản lý</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+              {visibleTabs.map(tab => (
+                  <button
+                      key={tab.id}
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`w-full flex items-center gap-2 px-3 py-3 text-xs font-bold text-left rounded-md transition-all ${
+                          activeTabId === tab.id 
+                          ? `${tab.color} text-white shadow-md` 
+                          : `${tab.lightColor} ${tab.textColor} hover:brightness-95`
+                      }`}
+                  >
+                      {tab.icon && <tab.icon size={16} className="shrink-0" />}
+                      <span className="line-clamp-2">{tab.label}</span>
+                  </button>
+              ))}
+          </div>
+      </div>
 
-        <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
-             {/* LEFT SIDEBAR */}
-             <div className="w-full md:w-64 flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 overflow-y-auto custom-scrollbar flex flex-col">
-                 <div className="p-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 text-sm uppercase">Danh sách quản lý</div>
-                 <div className="p-2 space-y-1">
-                     {visibleTabs.map(tab => (
-                         <button
-                             key={tab.id}
-                             onClick={() => handleTabChange(tab.id)}
-                             title={tab.label}
-                             className={`w-full text-left px-2 py-2.5 rounded-r-lg border-l-4 transition-all flex items-center gap-2 mb-1 shadow-sm
-                                 ${activeTabId === tab.id 
-                                     ? `${tab.color} ${tab.borderColor} text-white` 
-                                     : `${tab.lightColor} ${tab.textColor} ${tab.borderColor} hover:opacity-80`
-                                 }
-                                 ${'isSub' in tab ? 'pl-6' : ''}
-                             `}
-                         >
-                             <tab.icon size={16} className={`shrink-0 ${activeTabId === tab.id ? 'text-white' : tab.textColor}`} />
-                             <span className="font-bold text-[11px] uppercase whitespace-nowrap truncate">{tab.label}</span>
-                         </button>
-                     ))}
-                 </div>
-             </div>
+      {/* 2. MAIN CONTENT (Right side) */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white">
+          
+          {/* HEADER: Title & Actions */}
+          <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white shrink-0">
+              <div>
+                  <h2 className={`text-xl font-bold flex items-center gap-2 ${activeTab.textColor}`}>
+                      {activeTab.icon && <activeTab.icon size={24} />} {activeTab.label}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Quản lý danh sách và hồ sơ chi tiết</p>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                  {!isReadOnly && (
+                    <>
+                      {activeTabId === 'NOT_ALLOWED_REG' && (
+                          <button onClick={() => handleTransferFromPreviousYear(RecruitmentStatus.NOT_ALLOWED_REGISTRATION)} className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-xs font-bold shadow-sm">
+                              <Import size={16}/> Lấy từ năm {sessionYear - 1}
+                          </button>
+                      )}
+                      {activeTabId === 'EXEMPT_REG' && (
+                          <button onClick={() => handleTransferFromPreviousYear(RecruitmentStatus.EXEMPT_REGISTRATION)} className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-xs font-bold shadow-sm">
+                              <Import size={16}/> Lấy từ năm {sessionYear - 1}
+                          </button>
+                      )}
+                      {activeTabId === 'ALL' && (
+                          <button onClick={handleImportFromList14} className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-xs font-bold shadow-sm">
+                              <Import size={16}/> Nhập từ List 14 ({sessionYear - 1})
+                          </button>
+                      )}
+                      {activeTabId === 'DELETED_LIST' && isAdmin && (
+                          <button onClick={handleEmptyTrash} className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-bold shadow-sm">
+                              <Trash2 size={16}/> Dọn sạch thùng rác
+                          </button>
+                      )}
 
-             {/* MAIN CONTENT AREA */}
-             <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col min-h-0">
-                 {/* Toolbar */}
-                 <div className="p-4 border-b border-gray-200">
-                     <div className="flex flex-col gap-4">
-                         {/* Title & Stats */}
-                         <div className="flex justify-between items-start">
-                             <div>
-                                 <h3 className={`text-lg font-bold flex items-center gap-2 ${activeTab.textColor}`}>
-                                     <activeTab.icon size={20} /> {activeTab.label}
-                                 </h3>
-                                 <p className="text-sm text-gray-500 mt-1">Quản lý danh sách và hồ sơ chi tiết</p>
-                             </div>
-                             <div className="flex gap-2">
-                                {/* Button: Transfer List 1 from Previous Year */}
-                                {activeTabId === 'NOT_ALLOWED_REG' && !isReadOnly && (
-                                    <button
-                                        onClick={() => handleTransferFromPreviousYear(RecruitmentStatus.NOT_ALLOWED_REGISTRATION)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold shadow-sm"
-                                        title={`Sao chép danh sách 1 từ năm ${sessionYear - 1}`}
-                                    >
-                                        <Copy size={16} /> Lấy từ năm {sessionYear - 1}
-                                    </button>
-                                )}
+                      <button 
+                          onClick={handleCreate} 
+                          className="flex items-center gap-2 px-4 py-2 bg-military-800 text-white rounded-md font-bold hover:bg-military-900 shadow-sm text-sm"
+                      >
+                          <Plus size={16} /> Thêm công dân
+                      </button>
+                    </>
+                  )}
+              </div>
+          </div>
 
-                                {/* Button: Transfer List 2 from Previous Year (NEW) */}
-                                {activeTabId === 'EXEMPT_REG' && !isReadOnly && (
-                                    <button
-                                        onClick={() => handleTransferFromPreviousYear(RecruitmentStatus.EXEMPT_REGISTRATION)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold shadow-sm"
-                                        title={`Sao chép danh sách 2 từ năm ${sessionYear - 1}`}
-                                    >
-                                        <Copy size={16} /> Lấy từ năm {sessionYear - 1}
-                                    </button>
-                                )}
+          {/* TOOLBAR: Filters */}
+          <div className="p-3 border-b border-gray-200 bg-gray-50/50 flex flex-wrap gap-2 items-center">
+              <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                  <input 
+                      type="text" 
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-military-500 bg-white" 
+                      placeholder="Tên, số CCCD..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+              </div>
+              
+              <input 
+                  type="text"
+                  className="border border-gray-300 rounded px-3 py-2 text-sm bg-white w-40"
+                  placeholder="Nhập tên thôn/ấp..."
+                  value={filterVillage}
+                  onChange={(e) => setFilterVillage(e.target.value)}
+              />
 
-                                {/* Button: Import List 14 from Previous Year to List 4 (NEW) */}
-                                {activeTabId === 'ALL' && !isReadOnly && (
-                                    <button
-                                        onClick={handleImportFromList14}
-                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm font-bold shadow-sm"
-                                        title={`Nhập nguồn năm sau (List 14) từ năm ${sessionYear - 1}`}
-                                    >
-                                        <Import size={16} /> Lấy từ năm {sessionYear - 1}
-                                    </button>
-                                )}
+              <select
+                    className="border border-gray-300 rounded px-3 py-2 text-sm bg-white"
+                    value={filterAgeRange}
+                    onChange={(e) => setFilterAgeRange(e.target.value)}
+              >
+                  <option value="">-- Tuổi --</option>
+                  <option value="18-25">18 - 25</option>
+                  <option value="26-27">26 - 27</option>
+              </select>
 
-                                {/* Button: Empty Trash (NEW) */}
-                                {activeTabId === 'DELETED_LIST' && !isReadOnly && (
-                                    <button
-                                        onClick={handleEmptyTrash}
-                                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-bold shadow-sm"
-                                        title="Xóa vĩnh viễn tất cả hồ sơ trong thùng rác"
-                                    >
-                                        <Trash2 size={16} /> Làm rỗng thùng rác
-                                    </button>
-                                )}
+              {/* Advanced Filter Button */}
+              <div className="relative" ref={advancedFilterRef}>
+                  <button 
+                      onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+                      className={`flex items-center gap-2 px-3 py-2 border rounded hover:bg-white text-sm font-medium ${showAdvancedFilter || advFilterEducation || advFilterHealth || advFilterPolitical ? 'border-military-500 text-military-700 bg-military-50' : 'border-gray-300 text-gray-600 bg-white'}`}
+                  >
+                      <Filter size={16} /> Bộ lọc khác
+                  </button>
+                  {showAdvancedFilter && (
+                      <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 shadow-xl rounded-lg p-4 z-20 animate-in fade-in zoom-in-95">
+                          <h4 className="font-bold text-sm text-gray-700 mb-3 uppercase">Bộ lọc nâng cao</h4>
+                          <div className="space-y-3">
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 mb-1">Trình độ</label>
+                                  <select className="w-full border rounded p-1.5 text-sm" value={advFilterEducation} onChange={(e) => setAdvFilterEducation(e.target.value)}>
+                                      <option value="">Tất cả</option>
+                                      {EDUCATIONS.map(e => <option key={e} value={e}>{e}</option>)}
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 mb-1">Sức khỏe (Loại)</label>
+                                  <select className="w-full border rounded p-1.5 text-sm" value={advFilterHealth} onChange={(e) => setAdvFilterHealth(e.target.value)}>
+                                      <option value="">Tất cả</option>
+                                      {[1,2,3,4,5,6].map(h => <option key={h} value={h}>Loại {h}</option>)}
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-gray-500 mb-1">Chính trị</label>
+                                  <select className="w-full border rounded p-1.5 text-sm" value={advFilterPolitical} onChange={(e) => setAdvFilterPolitical(e.target.value)}>
+                                      <option value="">Tất cả</option>
+                                      <option value="None">Quần chúng</option>
+                                      <option value="Doan_Vien">Đoàn viên</option>
+                                      <option value="Dang_Vien">Đảng viên</option>
+                                  </select>
+                              </div>
+                              <button 
+                                  onClick={() => { setAdvFilterEducation(''); setAdvFilterHealth(''); setAdvFilterPolitical(''); }}
+                                  className="w-full py-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                              >
+                                  Xóa bộ lọc
+                              </button>
+                          </div>
+                      </div>
+                  )}
+              </div>
 
-                                {/* Only show 'Thêm công dân' for Lists 1, 2, 3, 4 */}
-                                {!isReadOnly && ALLOW_ADD_CITIZEN_TABS.includes(activeTabId) && (
-                                    <button onClick={handleCreate} className="flex items-center gap-2 px-4 py-2 bg-military-700 text-white rounded hover:bg-military-800 text-sm font-bold shadow-sm">
-                                        <Plus size={16} /> Thêm công dân
-                                    </button>
-                                )}
-                             </div>
-                         </div>
+              <button 
+                className="p-2 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-500 transition-colors" 
+                title="Làm mới bộ lọc" 
+                onClick={() => {setSearchTerm(''); setFilterVillage(''); setFilterAgeRange(''); setAdvFilterEducation(''); setAdvFilterHealth(''); setAdvFilterPolitical('');}}
+              >
+                  <RefreshCw size={16} />
+              </button>
+          </div>
 
-                         {/* Search & Filter Bar */}
-                         <div className="flex flex-col md:flex-row gap-2 items-center bg-gray-50 p-2 rounded border border-gray-100">
-                             <div className="relative flex-1 w-full">
-                                 <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                                 <input 
-                                     type="text" 
-                                     placeholder="Tên, số CCCD..." 
-                                     className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-military-500"
-                                     value={searchTerm}
-                                     onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                                 />
-                             </div>
-                             <div className="w-full md:w-auto flex items-center gap-2 relative">
-                                <input 
-                                    type="text" 
-                                    placeholder="Nhập tên thôn/ấp..." 
-                                    className="p-2 border border-gray-300 rounded text-sm w-full md:w-40 focus:ring-1 focus:ring-military-500" 
-                                    value={filterVillage}
-                                    onChange={(e) => setFilterVillage(e.target.value)}
-                                />
-                                <select 
-                                    className="p-2 border border-gray-300 rounded text-sm w-full md:w-32 focus:ring-1 focus:ring-military-500"
-                                    value={filterAgeRange}
-                                    onChange={(e) => setFilterAgeRange(e.target.value)}
-                                >
-                                    <option value="">-- Tuổi --</option>
-                                    <option value="18-25">18-25 tuổi</option>
-                                    <option value="26-27">26-27 tuổi</option>
-                                </select>
-                                <button 
-                                    onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
-                                    className={`px-3 py-2 border rounded text-sm font-bold whitespace-nowrap flex items-center gap-1 transition-colors ${showAdvancedFilter || isAdvancedFilterActive ? 'bg-military-600 text-white border-military-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-100'}`}
-                                >
-                                    <Filter size={14}/> Bộ lọc khác
-                                </button>
-                                
-                                {/* Advanced Filter Dropdown Panel */}
-                                {showAdvancedFilter && (
-                                    <div ref={advancedFilterRef} className="absolute top-full right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-                                            <h4 className="text-sm font-bold text-gray-700">Bộ lọc nâng cao</h4>
-                                            <button onClick={() => setShowAdvancedFilter(false)} className="text-gray-400 hover:text-red-500"><XCircle size={16}/></button>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">Trình độ học vấn</label>
-                                                <select className="w-full p-2 border border-gray-300 rounded text-xs" value={advFilterEducation} onChange={(e) => setAdvFilterEducation(e.target.value)}>
-                                                    <option value="">-- Tất cả --</option>
-                                                    {EDUCATIONS.map(edu => <option key={edu} value={edu}>{edu}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">Sức khỏe (Loại)</label>
-                                                <select className="w-full p-2 border border-gray-300 rounded text-xs" value={advFilterHealth} onChange={(e) => setAdvFilterHealth(e.target.value)}>
-                                                    <option value="">-- Tất cả --</option>
-                                                    <option value="1">Loại 1</option>
-                                                    <option value="2">Loại 2</option>
-                                                    <option value="3">Loại 3</option>
-                                                    <option value="4">Loại 4</option>
-                                                    <option value="5">Loại 5</option>
-                                                    <option value="6">Loại 6</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">Chính trị</label>
-                                                <select className="w-full p-2 border border-gray-300 rounded text-xs" value={advFilterPolitical} onChange={(e) => setAdvFilterPolitical(e.target.value)}>
-                                                    <option value="">-- Tất cả --</option>
-                                                    <option value="Dang_Vien">Đảng viên</option>
-                                                    <option value="Doan_Vien">Đoàn viên</option>
-                                                    <option value="None">Quần chúng</option>
-                                                </select>
-                                            </div>
-                                            <div className="pt-2 border-t border-gray-100 flex justify-end">
-                                                <button 
-                                                    onClick={() => {
-                                                        setAdvFilterEducation('');
-                                                        setAdvFilterHealth('');
-                                                        setAdvFilterPolitical('');
-                                                    }}
-                                                    className="text-xs text-red-500 hover:underline"
-                                                >
-                                                    Xóa bộ lọc
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+          {/* 3. TABLE DATA */}
+          <div className="flex-1 overflow-auto bg-white relative">
+              <table className="w-full text-left border-collapse">
+                  <thead className="bg-gray-100 text-xs text-gray-600 uppercase sticky top-0 z-10 shadow-sm">
+                      <tr>
+                          <th className="p-3 border-b text-center w-12">STT</th>
+                          <th className="p-3 border-b min-w-[200px]">Họ và tên / CCCD</th>
+                          <th className="p-3 border-b text-center">Năm sinh</th>
+                          <th className="p-3 border-b">Địa chỉ (Thôn/Ấp)</th>
+                          <th className="p-3 border-b">Trình độ / Chính trị / SK</th>
+                          <th className="p-3 border-b min-w-[150px]">Tình trạng / Lý do</th>
+                          <th className="p-3 border-b text-right">Thao tác</th>
+                      </tr>
+                  </thead>
+                  <tbody className="text-sm divide-y divide-gray-100">
+                      {paginatedRecruits.length === 0 ? (
+                          <tr>
+                              <td colSpan={7} className="p-8 text-center text-gray-500 italic">
+                                  Không có dữ liệu phù hợp.
+                              </td>
+                          </tr>
+                      ) : (
+                          paginatedRecruits.map((recruit, index) => {
+                              const statusColor = getStatusColor(recruit.status);
+                              return (
+                                  <tr key={recruit.id} className="hover:bg-gray-50 transition-colors group">
+                                      <td className="p-3 text-center text-gray-500">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
+                                      <td className="p-3">
+                                          <div className="font-bold text-gray-900 text-base">{recruit.fullName}</div>
+                                          <div className="flex items-center gap-2 mt-1">
+                                              <span className="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">{recruit.citizenId || '---'}</span>
+                                          </div>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                          {recruit.dob ? recruit.dob.split('-')[0] : '---'}
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="text-sm font-medium">{recruit.address.village}</div>
+                                          <div className="text-xs text-gray-500">{recruit.address.commune}</div>
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="flex flex-col gap-1">
+                                              <div className="flex items-center gap-1 text-xs">
+                                                  <GraduationCap size={12} className="text-blue-500"/> 
+                                                  <span className="font-medium">{recruit.details.education}</span>
+                                              </div>
+                                              <div className="flex items-center gap-1 text-xs">
+                                                  <Flag size={12} className={recruit.details.politicalStatus === 'Dang_Vien' ? 'text-red-600' : recruit.details.politicalStatus === 'Doan_Vien' ? 'text-blue-600' : 'text-gray-400'}/>
+                                                  <span>{recruit.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : recruit.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng'}</span>
+                                              </div>
+                                              <div className="flex items-center gap-1 text-xs">
+                                                  <HeartPulse size={12} className={recruit.physical.healthGrade === 1 ? 'text-green-600' : (recruit.physical.healthGrade || 0) >= 4 ? 'text-red-500' : 'text-amber-500'}/>
+                                                  {/* Allow Inline Edit for Health Grade if Active Tab is related to Health or Pre-Check/Med-Exam */}
+                                                  {!isReadOnly && (activeTabId === 'PRE_CHECK' || activeTabId === 'MED_EXAM') ? (
+                                                      <select 
+                                                          className="border-none bg-transparent p-0 text-xs font-bold cursor-pointer focus:ring-0"
+                                                          value={recruit.physical.healthGrade || 0}
+                                                          onChange={(e) => handleHealthGradeChange(recruit, Number(e.target.value))}
+                                                          onClick={(e) => e.stopPropagation()}
+                                                      >
+                                                          <option value="0">--</option>
+                                                          {[1,2,3,4,5,6].map(g => <option key={g} value={g}>Loại {g}</option>)}
+                                                      </select>
+                                                  ) : (
+                                                      <span className="font-bold">{recruit.physical.healthGrade ? `Loại ${recruit.physical.healthGrade}` : 'Chưa khám'}</span>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      </td>
+                                      <td className="p-3">
+                                          <span className={`inline-block px-2 py-1 rounded text-xs font-bold border ${statusColor} mb-1`}>
+                                              {getStatusLabel(recruit.status)}
+                                          </span>
+                                          {/* Inline Edit for Reason (If deferred/exempt) */}
+                                          {(recruit.status === RecruitmentStatus.DEFERRED || recruit.status === RecruitmentStatus.EXEMPTED) && !isReadOnly ? (
+                                              <div className="mt-1">
+                                                  <TableInput 
+                                                      value={recruit.defermentReason || ''}
+                                                      onSave={(val) => handleReasonChange(recruit, val)}
+                                                      placeholder="Nhập lý do..."
+                                                  />
+                                              </div>
+                                          ) : (
+                                              recruit.defermentReason && <div className="text-xs text-gray-600 italic mt-1 max-w-[200px] truncate" title={recruit.defermentReason}>{recruit.defermentReason}</div>
+                                      )}
+                                      
+                                      {recruit.details.gifted && <div className="text-[10px] text-purple-600 font-bold mt-1 flex items-center gap-1"><AlertTriangle size={10}/> NK: {recruit.details.gifted}</div>}
+                                  </td>
+                                  <td className="p-3 text-right">
+                                      {renderActions(recruit)}
+                                  </td>
+                              </tr>
+                          );
+                      })
+                  )}
+              </tbody>
+          </table>
+      </div>
 
-                                <button onClick={() => {
-                                    setSearchTerm(''); 
-                                    setFilterVillage('');
-                                    setFilterAgeRange('');
-                                    setAdvFilterEducation('');
-                                    setAdvFilterHealth('');
-                                    setAdvFilterPolitical('');
-                                    setCurrentPage(1);
-                                }} className="p-2 text-gray-500 hover:text-military-600" title="Làm mới">
-                                    <RefreshCw size={16}/>
-                                </button>
-                             </div>
-                         </div>
-                     </div>
-                 </div>
+      {/* 4. PAGINATION */}
+      {totalPages > 1 && (
+          <div className="p-3 border-t border-gray-200 flex items-center justify-between bg-gray-50 shrink-0">
+              <div className="text-xs text-gray-500">
+                  Hiển thị {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredRecruits.length)} trên {filteredRecruits.length}
+              </div>
+              <div className="flex gap-1">
+                  <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 border rounded hover:bg-white disabled:opacity-50"
+                  >
+                      <ChevronLeft size={16}/>
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                      <button
+                          key={p}
+                          onClick={() => setCurrentPage(p)}
+                          className={`w-8 h-8 flex items-center justify-center border rounded text-xs font-bold ${currentPage === p ? 'bg-military-600 text-white border-military-600' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                      >
+                          {p}
+                      </button>
+                  ))}
+                  <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 border rounded hover:bg-white disabled:opacity-50"
+                  >
+                      <ChevronRight size={16}/>
+                  </button>
+              </div>
+          </div>
+      )}
+      </div>
 
-                 {/* Table Data */}
-                 <div className="flex-1 overflow-auto relative">
-                     {filteredRecruits.length === 0 ? (
-                         <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
-                             <ShieldOff size={48} className="mb-3 opacity-20" />
-                             <p className="text-lg font-medium">Không tìm thấy dữ liệu</p>
-                             <p className="text-sm">Vui lòng thử lại với bộ lọc khác</p>
-                             {(searchTerm || filterProvince || filterCommune || filterVillage || filterAgeRange || isAdvancedFilterActive) && (
-                                <button onClick={() => { 
-                                    setSearchTerm(''); setFilterProvince(''); setFilterCommune(''); 
-                                    setFilterVillage(''); setFilterAgeRange('');
-                                    setAdvFilterEducation(''); setAdvFilterHealth(''); setAdvFilterPolitical('');
-                                }} className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm font-bold">
-                                    Xóa bộ lọc
-                                </button>
-                             )}
-                         </div>
-                     ) : (
-                         <table className="w-full text-left border-collapse">
-                            <thead className="bg-gray-100 text-xs uppercase text-gray-600 sticky top-0 z-10 shadow-sm">
-                                <tr>
-                                    <th className="p-3 border-b border-gray-200 w-10 text-center">#</th>
-                                    <th className="p-3 border-b border-gray-200">Họ Tên / CCCD</th>
-                                    <th className="p-3 border-b border-gray-200">Ngày sinh / Địa chỉ</th>
-                                    <th className="p-3 border-b border-gray-200">Học vấn / Nghề nghiệp</th>
-                                    <th className="p-3 border-b border-gray-200 text-center">{isList7 ? 'PL Sức khỏe (Chọn)' : 'Sức khỏe'}</th>
-                                    {isList11 && <th className="p-3 border-b border-gray-200 text-center">Năng khiếu</th>}
-                                    <th className="p-3 border-b border-gray-200 text-center">
-                                        {(isList8 || isList9) ? 'Lý do (Chọn)' : isList12 ? 'Lý do loại' : (isDeferredOrExemptedTab ? 'Trạng thái / Lý do' : 'Trạng thái')}
-                                    </th>
-                                    <th className="p-3 border-b border-gray-200 text-center">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm divide-y divide-gray-100">
-                                {paginatedRecruits.map((r, idx) => (
-                                    <tr key={r.id} className="hover:bg-blue-50/30 group transition-colors">
-                                        <td className="p-3 text-center text-gray-400">{(currentPage - 1) * ITEMS_PER_PAGE + idx + 1}</td>
-                                        <td className="p-3">
-                                            <div className="font-bold text-gray-900">{r.fullName}</div>
-                                            <div className="text-xs text-gray-500 font-mono tracking-wide">{r.citizenId || '---'}</div>
-                                        </td>
-                                        <td className="p-3">
-                                            <div className="font-medium text-gray-800">{r.dob.split('-')[0]} ({checkAge(r)} tuổi)</div>
-                                            <div className="text-xs text-gray-500 truncate max-w-[150px]" title={`${r.address.village}, ${r.address.commune}`}>, {r.address.commune}</div>
-                                        </td>
-                                        <td className="p-3">
-                                            <div className="font-medium text-gray-800">{r.details.education}</div>
-                                            <div className="text-xs text-gray-500 truncate max-w-[100px]">{r.details.job || '---'}</div>
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            {isList7 && !isReadOnly ? (
-                                                <select 
-                                                    className={`p-1 rounded border text-xs font-bold ${
-                                                        (r.physical.healthGrade || 0) >= 1 && (r.physical.healthGrade || 0) <= 3 ? 'text-green-700 border-green-200 bg-green-50' : 
-                                                        (r.physical.healthGrade || 0) >= 4 ? 'text-red-700 border-red-200 bg-red-50' : 'text-gray-500 border-gray-200'
-                                                    }`}
-                                                    value={r.physical.healthGrade || 0}
-                                                    onChange={(e) => handleHealthGradeChange(r, Number(e.target.value))}
-                                                >
-                                                    <option value="0">--</option>
-                                                    <option value="1">Loại 1</option>
-                                                    <option value="2">Loại 2</option>
-                                                    <option value="3">Loại 3</option>
-                                                    <option value="4">Loại 4</option>
-                                                    <option value="5">Loại 5</option>
-                                                    <option value="6">Loại 6</option>
-                                                </select>
-                                            ) : (
-                                                r.physical.healthGrade ? (
-                                                    <span className={`inline-block w-8 h-8 leading-8 rounded-full text-xs font-bold ${
-                                                        r.physical.healthGrade === 1 ? 'bg-emerald-100 text-emerald-700' :
-                                                        r.physical.healthGrade === 2 ? 'bg-green-100 text-green-700' :
-                                                        r.physical.healthGrade === 3 ? 'bg-yellow-100 text-yellow-700' :
-                                                        'bg-orange-100 text-orange-700'
-                                                    }`}>
-                                                        {r.physical.healthGrade}
-                                                    </span>
-                                                ) : <span className="text-gray-300">...</span>
-                                            )}
-                                        </td>
-                                        
-                                        {isList11 && (
-                                            <td className="p-3 text-center">
-                                                {isReadOnly ? (
-                                                    <span className="text-xs">{r.details.gifted || '---'}</span>
-                                                ) : (
-                                                    <TableInput 
-                                                        value={r.details.gifted || ''} 
-                                                        onSave={(val) => handleGiftedChange(r, val)} 
-                                                        placeholder="Nhập..."
-                                                    />
-                                                )}
-                                            </td>
-                                        )}
+      {/* MODALS */}
+      {showForm && (
+          <RecruitForm 
+              initialData={editingRecruit}
+              initialStatus={activeTab.status?.[0] || RecruitmentStatus.SOURCE}
+              user={user}
+              onSubmit={handleSave}
+              onClose={() => setShowForm(false)}
+              sessionYear={sessionYear}
+          />
+      )}
 
-                                        <td className="p-3 text-center">
-                                             <div className="flex flex-col items-center">
-                                                 {(isList8 || isList9) && !isReadOnly ? (
-                                                     <select
-                                                        className="w-full max-w-[200px] p-1 border border-gray-300 rounded text-xs truncate"
-                                                        value={r.defermentReason || ''}
-                                                        onChange={(e) => handleReasonChange(r, e.target.value)}
-                                                        title={r.defermentReason}
-                                                     >
-                                                         <option value="">-- Chọn lý do --</option>
-                                                         {(isList8 ? LEGAL_DEFERMENT_REASONS : LEGAL_EXEMPTION_REASONS).map((reason, idx) => (
-                                                             <option key={idx} value={reason} title={reason}>{reason}</option>
-                                                         ))}
-                                                     </select>
-                                                 ) : isList12 && !isReadOnly ? (
-                                                     <input
-                                                        type="text"
-                                                        className="w-full max-w-[200px] p-1 border border-gray-300 rounded text-xs"
-                                                        value={r.defermentReason || ''}
-                                                        placeholder="Nhập lý do loại..."
-                                                        onChange={(e) => handleReasonChange(r, e.target.value)}
-                                                     />
-                                                 ) : (
-                                                     <>
-                                                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getStatusColor(r.status)}`}>
-                                                             {getStatusLabel(r.status)}
-                                                         </span>
-                                                         {r.enlistmentType && (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && (
-                                                             <span className={`text-[9px] mt-0.5 font-bold uppercase ${r.enlistmentType === 'OFFICIAL' ? 'text-red-600' : 'text-teal-600'}`}>
-                                                                 ({r.enlistmentType === 'OFFICIAL' ? 'Chính thức' : 'Dự bị'})
-                                                             </span>
-                                                         )}
-                                                         {r.defermentReason && (
-                                                             <span className="text-[10px] text-gray-500 mt-1 max-w-[200px] italic leading-tight" title={r.defermentReason}>
-                                                                 {r.defermentReason}
-                                                             </span>
-                                                         )}
-                                                     </>
-                                                 )}
-                                             </div>
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            {renderActions(r)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                         </table>
-                     )}
-                 </div>
-
-                 {/* Pagination & Export */}
-                 <div className="p-3 border-t border-gray-200 flex items-center justify-between bg-gray-50 rounded-b-lg">
-                     <div className="text-xs text-gray-500 italic">
-                         Hiển thị {paginatedRecruits.length} / {filteredRecruits.length} hồ sơ <span className="hidden md:inline">- Dữ liệu năm {sessionYear}</span>
-                     </div>
-                     
-                     <div className="flex items-center gap-3">
-                         {filteredRecruits.length > 0 && (
-                            <button onClick={handleExportCSV} className="text-xs font-bold text-gray-600 hover:text-military-700 flex items-center gap-1 bg-white border border-gray-300 px-2 py-1 rounded shadow-sm">
-                                <Download size={12}/> Xuất Excel
-                            </button>
-                         )}
-
-                         {totalPages > 1 && (
-                             <div className="flex gap-1">
-                                <button 
-                                    disabled={currentPage === 1}
-                                    onClick={() => setCurrentPage(p => p - 1)}
-                                    className="p-1 rounded hover:bg-white disabled:opacity-50"
-                                >
-                                    <ChevronLeft size={16} />
-                                </button>
-                                <span className="text-xs font-bold leading-6 px-2">{currentPage} / {totalPages}</span>
-                                <button 
-                                    disabled={currentPage === totalPages}
-                                    onClick={() => setCurrentPage(p => p + 1)}
-                                    className="p-1 rounded hover:bg-white disabled:opacity-50"
-                                >
-                                    <ChevronRight size={16} />
-                                </button>
-                             </div>
-                         )}
-                     </div>
-                 </div>
-             </div>
-        </div>
-
-        {/* RECRUIT FORM MODAL */}
-        {showForm && (
-            <RecruitForm 
-                initialData={editingRecruit}
-                initialStatus={
-                    activeTabId === 'NOT_ALLOWED_REG' ? RecruitmentStatus.NOT_ALLOWED_REGISTRATION :
-                    activeTabId === 'EXEMPT_REG' ? RecruitmentStatus.EXEMPT_REGISTRATION :
-                    activeTabId === 'FIRST_TIME_REG' ? RecruitmentStatus.FIRST_TIME_REGISTRATION :
-                    undefined
-                }
-                user={user}
-                onSubmit={handleSave}
-                onClose={() => setShowForm(false)}
-                sessionYear={sessionYear}
-            />
-        )}
-
-        {/* REMOVE REASON MODAL (Soft Delete) */}
-        {showRemoveModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <AlertTriangle className="text-red-500" /> Xác nhận Loại khỏi nguồn
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                        Vui lòng nhập lý do loại công dân <span className="font-bold text-gray-800">{recruitToRemove?.fullName}</span> khỏi nguồn NVQS:
-                    </p>
-                    <textarea 
-                        className="w-full border border-gray-300 rounded-md p-3 text-sm focus:ring-2 focus:ring-red-500 outline-none mb-4"
-                        rows={3}
-                        placeholder="Ví dụ: Chuyển khẩu đi nơi khác, Đã chết, Hết tuổi..."
-                        value={removeReason}
-                        onChange={(e) => setRemoveReason(e.target.value)}
-                        autoFocus
-                    />
-                    <div className="flex justify-end gap-3">
-                        <button 
-                            onClick={() => { setShowRemoveModal(false); setRecruitToRemove(null); setRemoveReason(''); }}
-                            className="px-4 py-2 border border-gray-300 rounded text-gray-700 text-sm font-bold hover:bg-gray-50"
-                        >
-                            Hủy bỏ
-                        </button>
-                        <button 
-                            onClick={handleConfirmRemove}
-                            disabled={!removeReason.trim()}
-                            className="px-4 py-2 bg-red-600 text-white rounded text-sm font-bold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Xác nhận Loại
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
+      {showRemoveModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+                  <h3 className="font-bold text-lg text-gray-800 mb-2">Xác nhận loại khỏi nguồn</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                      Bạn có chắc chắn muốn đưa công dân <b>{recruitToRemove?.fullName}</b> ra khỏi nguồn quản lý? 
+                  </p>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Lý do loại bỏ (Bắt buộc):</label>
+                  <textarea 
+                      className="w-full border border-gray-300 rounded p-2 text-sm mb-4"
+                      rows={3}
+                      placeholder="VD: Chuyển hộ khẩu đi nơi khác, chết, mất tích..."
+                      value={removeReason}
+                      onChange={(e) => setRemoveReason(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2">
+                      <button onClick={() => setShowRemoveModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-bold text-sm">Hủy</button>
+                      <button 
+                          onClick={handleConfirmRemove}
+                          disabled={!removeReason.trim()}
+                          className="px-4 py-2 bg-red-600 text-white rounded font-bold text-sm hover:bg-red-700 disabled:bg-gray-400"
+                      >
+                          Xác nhận loại bỏ
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
-}
+};
 
 export default RecruitManagement;

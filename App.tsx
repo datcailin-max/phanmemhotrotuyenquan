@@ -21,8 +21,6 @@ import {
   Lock, 
   Unlock, 
   BellRing,
-  Bot,
-  Send,
   FileText,
   Download,
   Trash2,
@@ -44,7 +42,6 @@ import RecruitManagement from './views/RecruitManagement';
 import Login from './views/Login';
 import YearSelection from './views/YearSelection';
 import { api } from './api';
-import { GoogleGenAI } from "@google/genai";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -77,15 +74,6 @@ function App() {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackContent, setFeedbackContent] = useState('');
 
-  // Assistant Modal State
-  const [showAssistantModal, setShowAssistantModal] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-      { id: '1', role: 'model', text: 'Xin chào đồng chí! Tôi là Trợ lý tuyển quân ảo. Tôi có thể giúp gì cho đồng chí về số liệu tuyển quân tại địa phương? (Ví dụ: "Có bao nhiêu thanh niên bị miễn?", "Danh sách nhập ngũ năm nay bao nhiêu người?")', timestamp: Date.now() }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-  const [isAiThinking, setIsAiThinking] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
   // Documents State
   const [documents, setDocuments] = useState<ResearchDocument[]>([]);
 
@@ -116,11 +104,6 @@ function App() {
       setDocuments(newDocs);
       localStorage.setItem('military_documents', JSON.stringify(newDocs));
   };
-
-  // Scroll chat to bottom
-  useEffect(() => {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, showAssistantModal]);
 
   // FETCH DATA FROM SERVER
   useEffect(() => {
@@ -251,75 +234,6 @@ function App() {
       
       setFeedbackContent('');
       alert("Đã gửi ý kiến thành công! Admin sẽ xem xét và phản hồi.");
-  };
-
-  // --- AI ASSISTANT LOGIC ---
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || isAiThinking || !user) return;
-
-    const userMessage = chatInput;
-    setChatInput('');
-    setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text: userMessage, timestamp: Date.now() }]);
-    setIsAiThinking(true);
-
-    try {
-        let relevantRecruits = recruits;
-        if (user.role === 'PROVINCE_ADMIN') {
-            relevantRecruits = recruits.filter(r => r.recruitmentYear === sessionYear && r.address.province === user.unit.province);
-        } else if (user.role !== 'ADMIN') {
-            relevantRecruits = recruits.filter(r => r.recruitmentYear === sessionYear && r.address.commune === user.unit.commune);
-        } else {
-            relevantRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
-        }
-
-        const simplifiedData = relevantRecruits.map(r => ({
-            status: r.status,
-            dob: r.dob,
-            edu: r.details.education,
-            health: r.physical.healthGrade,
-            deferment: r.defermentReason || 'Không',
-            ethnicity: r.details.ethnicity,
-            village: r.address.village
-        }));
-
-        const dataContext = JSON.stringify(simplifiedData);
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) throw new Error("API Key not found");
-        
-        const ai = new GoogleGenAI({ apiKey: apiKey });
-        const systemInstruction = `Bạn là Trợ lý Tuyển quân ảo. Bạn đang hỗ trợ cán bộ tại ${user.role === 'ADMIN' ? 'Huyện/Tỉnh' : user.unit.commune || user.unit.province}. 
-        Nhiệm vụ: Trả lời câu hỏi dựa trên dữ liệu JSON được cung cấp.
-        Dữ liệu bao gồm các trường: status (trạng thái), dob (ngày sinh), edu (học vấn), health (loại sức khỏe), deferment (lý do hoãn/miễn).
-        
-        Quy tắc:
-        1. Chỉ trả lời dựa trên dữ liệu. Nếu không biết, nói không có dữ liệu.
-        2. Status key: 
-           - NGUON: Nguồn 
-           - SO_KHAM_DAT/KHONG_DAT: Sơ tuyển
-           - KHAM_TUYEN_DAT/KHONG_DAT: Khám tuyển
-           - TAM_HOAN: Tạm hoãn
-           - MIEN_KHAM: Miễn
-           - NHAP_NGU: Nhập ngũ
-        3. Trả lời ngắn gọn, súc tích, chuyên nghiệp kiểu quân đội.
-        
-        Dữ liệu hiện tại (Năm ${sessionYear}): ${dataContext}`;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-            config: { systemInstruction: systemInstruction }
-        });
-
-        const reply = response.text || "Xin lỗi, không có dữ liệu trả về từ hệ thống.";
-        setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: reply, timestamp: Date.now() }]);
-
-    } catch (error) {
-        console.error("AI Error:", error);
-        setChatMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Xin lỗi, hệ thống đang bận hoặc chưa cấu hình API Key. Vui lòng thử lại sau.', timestamp: Date.now() }]);
-    } finally {
-        setIsAiThinking(false);
-    }
   };
 
   const AdminPanel = () => {
@@ -805,31 +719,7 @@ function App() {
           {activeTab === 'admin' && <AdminPanel />}
           {activeTab === 'documents' && <DocumentsPanel />}
         </div>
-
-        <button onClick={() => setShowAssistantModal(true)} className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-military-600 to-military-500 rounded-full shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform z-20" title="Trợ lý Tuyển quân Ảo"><Bot size={28} /></button>
       </main>
-
-      {/* ... (Modals remain the same) */}
-      {/* AI ASSISTANT MODAL */}
-      {showAssistantModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
-             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg h-[600px] flex flex-col overflow-hidden animate-in zoom-in-95">
-                 <div className="bg-gradient-to-r from-military-700 to-military-600 p-4 text-white flex justify-between items-center shrink-0">
-                     <div className="flex items-center gap-3"><div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md"><Bot size={24} /></div><div><h3 className="font-bold text-lg">Trợ lý Tuyển quân</h3><p className="text-xs text-military-100 opacity-80">Hỗ trợ tra cứu số liệu địa phương</p></div></div>
-                     <button onClick={() => setShowAssistantModal(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors"><X size={20}/></button>
-                 </div>
-                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 custom-scrollbar">
-                     {chatMessages.map(msg => (<div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] p-3 rounded-lg text-sm shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'}`}>{msg.text.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-1' : ''}>{line}</p>)}<div className={`text-[10px] mt-1 opacity-70 ${msg.role === 'user' ? 'text-blue-100 text-right' : 'text-gray-400'}`}>{new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div></div></div>))}
-                     {isAiThinking && <div className="flex justify-start"><div className="bg-white p-3 rounded-lg rounded-bl-none border border-gray-200 shadow-sm flex gap-1"><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0s'}}></div><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div><div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div></div></div>}
-                     <div ref={chatEndRef} />
-                 </div>
-                 <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-gray-200 shrink-0 flex gap-2">
-                     <input type="text" className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-military-500 focus:ring-2 focus:ring-military-100" placeholder="Nhập câu hỏi..." value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={isAiThinking} />
-                     <button type="submit" disabled={!chatInput.trim() || isAiThinking} className="w-10 h-10 bg-military-600 text-white rounded-full flex items-center justify-center hover:bg-military-700 disabled:bg-gray-300 transition-colors shadow-sm"><Send size={18} className={isAiThinking ? 'opacity-0' : 'ml-0.5'} /></button>
-                 </form>
-             </div>
-          </div>
-      )}
 
       {/* Change Password Modal */}
       {showPasswordModal && (

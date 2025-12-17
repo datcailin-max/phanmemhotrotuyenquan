@@ -1,3 +1,4 @@
+
 import { Recruit, RecruitmentStatus, User } from './types';
 
 // Helper để loại bỏ dấu tiếng Việt (dùng cho tạo username/search)
@@ -604,13 +605,13 @@ export const MOCK_USERS: User[] = [
     },
     {
         username: 'THUNGHIEM',
-        fullName: 'Ban CHQS Xã Demo',
+        fullName: 'Ban CHQS Phường Thử Nghiệm',
         password: '1235',
         role: 'EDITOR',
         personalName: 'Tài khoản dùng thử',
         position: 'Cán bộ',
         phoneNumber: '0000000000',
-        unit: { province: 'Tuyên Quang', commune: 'Phường An Tường' }, // Dummy location
+        unit: { province: 'Tỉnh THUNGHIEM', commune: 'Phường THUNGHIEM' }, // Updated for Test Account
         isApproved: true
     }
 ];

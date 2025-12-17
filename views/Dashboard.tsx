@@ -26,7 +26,10 @@ import {
   Ban,
   Shield,
   BookX,
-  UserPlus
+  UserPlus,
+  TrendingUp,
+  Briefcase,
+  Landmark
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -94,6 +97,11 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
   const allYearRecruits = useMemo(() => {
       let filtered = recruits.filter(r => r.recruitmentYear === sessionYear);
       
+      // Exclude test data for Admin
+      if (userRole === 'ADMIN') {
+          filtered = filtered.filter(r => r.address.province !== 'Tỉnh THUNGHIEM');
+      }
+
       if (userRole !== 'ADMIN') {
           if (userUnit && userUnit.province && userUnit.commune) {
               filtered = filtered.filter(r => 
@@ -277,14 +285,27 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
     });
     const villageChartData = Object.entries(villageMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 10);
     
-    // Ethnicity & Religion
+    // Ethnicity & Religion & Job
     const ethnicityMap: Record<string, number> = {};
-    validRecruitsForCharts.forEach(r => { const e = r.details.ethnicity || 'Chưa cập nhật'; ethnicityMap[e] = (ethnicityMap[e] || 0) + 1; });
-    const ethnicityData = Object.entries(ethnicityMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
-
     const religionMap: Record<string, number> = {};
-    validRecruitsForCharts.forEach(r => { const rName = r.details.religion || 'Chưa cập nhật'; religionMap[rName] = (religionMap[rName] || 0) + 1; });
-    const religionData = Object.entries(religionMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
+    const jobMap: Record<string, number> = {};
+
+    validRecruitsForCharts.forEach(r => { 
+        const e = r.details.ethnicity || 'Chưa cập nhật'; 
+        ethnicityMap[e] = (ethnicityMap[e] || 0) + 1; 
+
+        const rName = r.details.religion || 'Chưa cập nhật'; 
+        religionMap[rName] = (religionMap[rName] || 0) + 1;
+
+        const j = r.details.job || 'Chưa cập nhật';
+        // Simple grouping for display if needed, but raw is fine for now
+        jobMap[j] = (jobMap[j] || 0) + 1;
+    });
+
+    const ethnicityData = Object.entries(ethnicityMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 5);
+    const religionData = Object.entries(religionMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 5);
+    // Job Data: Show ALL, no slice
+    const jobData = Object.entries(jobMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
 
     // Health
     const healthGrade1 = validRecruitsForCharts.filter(r => r.physical.healthGrade === 1).length;
@@ -326,7 +347,8 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
         
         dangVien, doanVien,
         healthGrade1, healthGrade2, healthGrade3, healthGrade4,
-        eduChartData, ageChartData, villageChartData, ethnicityData, religionData,
+        eduChartData, ageChartData, villageChartData, 
+        ethnicityData, religionData, jobData,
         heightStats, weightStats, bmiStats,
         
         // Export total count for percentage calculation in JSX
@@ -348,21 +370,52 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
       return "TOÀN QUỐC (TỔNG HỢP)";
   }, [userRole, userUnit, filterProvince, filterCommune]);
 
-  // --- MULTI YEAR STATS CALCULATION (UNCHANGED LOGIC) ---
-  const multiYearStats = useMemo(() => {
-      const stats: Record<number, number> = {};
+  // --- MULTI YEAR COMPARISON LOGIC (NEW) ---
+  const yearlyComparisonData = useMemo(() => {
+      const stats: Record<number, { year: string, source: number, enlisted: number }> = {};
+
       recruits.forEach(r => {
-          if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return;
-          if (userRole !== 'ADMIN') {
-              if (!userUnit || r.address.province !== userUnit.province || r.address.commune !== userUnit.commune) return;
-          } else {
+          // 1. Filter Scope (Admin/Unit) - Apply same filters as Dashboard but ignore Session Year
+          if (userRole === 'ADMIN') {
+              if (r.address.province === 'Tỉnh THUNGHIEM') return; // Exclude test data
               if (filterProvince && r.address.province !== filterProvince) return;
               if (filterCommune && r.address.commune !== filterCommune) return;
+          } else {
+               if (userUnit && (r.address.province !== userUnit.province || r.address.commune !== userUnit.commune)) return;
           }
+
           const y = r.recruitmentYear;
-          stats[y] = (stats[y] || 0) + 1;
+          if (!stats[y]) stats[y] = { year: `Năm ${y}`, source: 0, enlisted: 0 };
+
+          // 2. Check Source Condition (List 4 logic approximately)
+          // Calc Age for that specific year
+          const birthYear = parseInt(r.dob.split('-')[0] || '0');
+          const age = y - birthYear;
+          
+          // Exclude specific statuses (List 1, 2, 3, 12, 15)
+          const isNotSource = 
+              r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION ||
+              r.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
+              r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION || // List 4 excludes List 3 usually
+              r.status === RecruitmentStatus.REMOVED_FROM_SOURCE ||
+              r.status === RecruitmentStatus.DELETED ||
+              age < 18;
+
+          if (!isNotSource) {
+              stats[y].source++;
+          }
+
+          // 3. Check Enlisted Condition (List 11 logic)
+          const isEnlisted = 
+              (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') ||
+              (r.status === RecruitmentStatus.FINALIZED && r.enlistmentType === 'OFFICIAL');
+          
+          if (isEnlisted) {
+              stats[y].enlisted++;
+          }
       });
-      return Object.entries(stats).map(([year, count]) => ({ year: `Năm ${year}`, count, rawYear: parseInt(year) })).sort((a, b) => a.rawYear - b.rawYear);
+
+      return Object.values(stats).sort((a, b) => parseInt(a.year.split(' ')[1]) - parseInt(b.year.split(' ')[1]));
   }, [recruits, filterProvince, filterCommune, userRole, userUnit]);
 
   return (
@@ -619,6 +672,101 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
               </div>
           </div>
       </div>
+
+      {/* SECTION 2.1: THỐNG KÊ CHẤT LƯỢNG CHÍNH TRỊ & XÃ HỘI */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+           <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase border-b pb-2">
+               <Flag size={18} className="text-red-600" /> Chất lượng Chính trị & Xã hội
+           </h3>
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                {/* 1. CHÍNH TRỊ */}
+                <div className="bg-red-50 p-4 rounded-lg border border-red-100 flex flex-col items-center justify-center">
+                    <h4 className="text-xs font-bold text-red-700 uppercase mb-2">Đảng viên</h4>
+                    <div className="text-3xl font-bold text-red-600 mb-1">{stats.dangVien}</div>
+                    <div className="text-[10px] text-red-500 font-medium bg-red-100 px-2 py-0.5 rounded-full mb-3">
+                        {((stats.dangVien / (stats.totalValidForCharts || 1)) * 100).toFixed(1)}% Tổng nguồn
+                    </div>
+                    
+                    <div className="w-full border-t border-red-200 pt-2 flex justify-between items-center px-2">
+                        <span className="text-xs font-bold text-blue-700">Đoàn viên</span>
+                        <span className="text-sm font-bold text-blue-800">{stats.doanVien}</span>
+                    </div>
+                </div>
+
+                {/* 2. DÂN TỘC */}
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <h4 className="text-xs font-bold text-gray-600 uppercase mb-2 flex items-center gap-2">
+                        <Users size={14} className="text-indigo-500"/> Dân tộc
+                    </h4>
+                    <div className="space-y-2">
+                        {stats.ethnicityData.map((item, idx) => (
+                            <div key={item.name} className="flex flex-col">
+                                <div className="flex justify-between text-xs mb-0.5">
+                                    <span className="font-medium text-gray-700">{item.name}</span>
+                                    <span className="font-bold text-gray-900">{item.value}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div 
+                                        className="bg-indigo-500 h-1.5 rounded-full" 
+                                        style={{width: `${(item.value / (stats.totalValidForCharts || 1)) * 100}%`}}
+                                    ></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 3. TÔN GIÁO */}
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <h4 className="text-xs font-bold text-gray-600 uppercase mb-2 flex items-center gap-2">
+                        <Landmark size={14} className="text-purple-500"/> Tôn giáo
+                    </h4>
+                    <div className="space-y-2">
+                        {stats.religionData.map((item, idx) => (
+                            <div key={item.name} className="flex flex-col">
+                                <div className="flex justify-between text-xs mb-0.5">
+                                    <span className="font-medium text-gray-700">{item.name}</span>
+                                    <span className="font-bold text-gray-900">{item.value}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div 
+                                        className="bg-purple-500 h-1.5 rounded-full" 
+                                        style={{width: `${(item.value / (stats.totalValidForCharts || 1)) * 100}%`}}
+                                    ></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 4. NGHỀ NGHIỆP */}
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <h4 className="text-xs font-bold text-gray-600 uppercase mb-2 flex items-center gap-2">
+                        <Briefcase size={14} className="text-teal-500"/> Nghề nghiệp
+                    </h4>
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                        {stats.jobData.length > 0 ? stats.jobData.map((item, idx) => (
+                            <div key={item.name} className="flex flex-col">
+                                <div className="flex justify-between text-xs mb-0.5">
+                                    <span className="font-medium text-gray-700 truncate max-w-[120px]" title={item.name}>{item.name}</span>
+                                    <span className="font-bold text-gray-900">{item.value}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div 
+                                        className="bg-teal-500 h-1.5 rounded-full" 
+                                        style={{width: `${(item.value / (stats.totalValidForCharts || 1)) * 100}%`}}
+                                    ></div>
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="text-center text-gray-400 text-xs py-4">Chưa có dữ liệu</div>
+                        )}
+                    </div>
+                </div>
+
+           </div>
+      </div>
       
       {/* SECTION 2.5: THỂ TRẠNG */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -674,6 +822,36 @@ const Dashboard: React.FC<DashboardProps> = ({ recruits, onNavigate, sessionYear
                     </div>
                 </div>
            </div>
+      </div>
+
+      {/* SECTION 3: COMPARISON CHART (SOURCE vs ENLISTED OVER YEARS) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+          <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 uppercase border-b pb-2">
+              <TrendingUp size={18} className="text-military-600"/> So sánh Nguồn & Kết quả Nhập ngũ qua các năm
+          </h3>
+          <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={yearlyComparisonData} margin={{top: 20, right: 30, left: 20, bottom: 5}}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6"/>
+                      <XAxis dataKey="year" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip 
+                          contentStyle={{borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} 
+                          cursor={{fill: '#f9fafb'}}
+                      />
+                      <Legend iconType="circle" iconSize={10} wrapperStyle={{paddingTop: '10px'}}/>
+                      <Bar name="Tổng nguồn (List 4)" dataKey="source" fill={COLORS.neutral} radius={[4, 4, 0, 0]} barSize={30}>
+                          <LabelList dataKey="source" position="top" fontSize={10} fontWeight="bold" fill="#6b7280" />
+                      </Bar>
+                      <Bar name="Đã nhập ngũ (List 11)" dataKey="enlisted" fill={COLORS.danger} radius={[4, 4, 0, 0]} barSize={30}>
+                          <LabelList dataKey="enlisted" position="top" fontSize={10} fontWeight="bold" fill="#ef4444" />
+                      </Bar>
+                  </BarChart>
+              </ResponsiveContainer>
+          </div>
+          <div className="mt-2 text-center text-xs text-gray-500 italic">
+              * Biểu đồ hiển thị dữ liệu lịch sử của tất cả các năm (không phụ thuộc vào năm đang chọn) để phục vụ so sánh.
+          </div>
       </div>
     </div>
   );
