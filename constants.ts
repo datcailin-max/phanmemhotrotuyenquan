@@ -547,7 +547,7 @@ export const LEGAL_DEFERMENT_REASONS = [
     "5. Người thuộc diện di dân, giãn dân trong 03 năm đầu đến các xã đặc biệt khó khăn theo dự án phát triển kinh tế - xã hội của Nhà nước do Ủy ban nhân dân cấp tỉnh trở lên quyết định",
     "6. Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật",
     "7. Đang học tại cơ sở giáo dục phổ thông; đang được đào tạo trình độ đại học hệ chính quy thuộc cơ sở giáo dục đại học, trình độ cao đẳng hệ chính quy thuộc cơ sở giáo dục nghề nghiệp trong thời gian một khóa đào tạo của một trình độ đào tạo",
-    "8. Đang là DQTT (Dân quân thường trực)"
+    "8. Đang là dân quân thường trực (theo Điều 49 Luật DQTV 2019)"
 ];
 
 // Danh sách các lý do được coi là "Chính sách" (2,3,4,5,6)
@@ -562,8 +562,8 @@ export const POLICY_DEFERMENT_REASONS = [
 export const LEGAL_EXEMPTION_REASONS = [
     "Con của liệt sĩ, con của thương binh hạng một",
     "Một anh hoặc một em trai của liệt sĩ",
-    "Một con của thương binh hạng hai; một con của bệnh binh suy giảm khả năng lao động từ 81% trở lên; một con của người nhiễm chất độc da cam suy giảm khả năng lao động từ 81% trở lên",
-    "Người làm công tác cơ yếu không phải là quân nhân, CAND",
+    "Một con của thương binh hạng hai; một con của bệnh binh suy giảm khả năng lao động từ 81% trở lên; một con của người nhiễm chất độc da cam suy giảm khả năng lao động từ 81 % trở lên",
+    "Người làm công tác cơ yếu không phải là quân nhân, Công an nhân dân",
     "Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật từ 24 tháng trở lên"
 ];
 

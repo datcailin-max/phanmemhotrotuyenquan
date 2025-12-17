@@ -101,39 +101,6 @@ const getStatusColor = (status: RecruitmentStatus) => {
     }
 }
 
-// Optimized Input Component to avoid re-rendering entire table on typing
-const TableInput = ({ value, onSave, placeholder }: { value: string, onSave: (val: string) => void, placeholder?: string }) => {
-    const [localValue, setLocalValue] = useState(value);
-
-    useEffect(() => {
-        setLocalValue(value);
-    }, [value]);
-
-    const handleBlur = () => {
-        if (localValue !== value) {
-            onSave(localValue);
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.currentTarget.blur();
-        }
-    };
-
-    return (
-        <input
-            type="text"
-            className="w-full min-w-[100px] p-1 border border-gray-300 rounded text-xs focus:border-military-500 focus:ring-1 focus:ring-military-500"
-            placeholder={placeholder}
-            value={localValue}
-            onChange={(e) => setLocalValue(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-        />
-    );
-};
-
 const RecruitManagement: React.FC<RecruitManagementProps> = ({ 
   recruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear
 }) => {
@@ -1205,11 +1172,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                           {/* Inline Edit for Reason (If deferred/exempt) */}
                                           {(recruit.status === RecruitmentStatus.DEFERRED || recruit.status === RecruitmentStatus.EXEMPTED) && !isReadOnly ? (
                                               <div className="mt-1">
-                                                  <TableInput 
+                                                  <select 
+                                                      className="w-full min-w-[150px] max-w-[250px] p-1 border border-gray-300 rounded text-xs focus:border-military-500 focus:ring-1 focus:ring-military-500"
                                                       value={recruit.defermentReason || ''}
-                                                      onSave={(val) => handleReasonChange(recruit, val)}
-                                                      placeholder="Nhập lý do..."
-                                                  />
+                                                      onChange={(e) => handleReasonChange(recruit, e.target.value)}
+                                                      onClick={(e) => e.stopPropagation()}
+                                                  >
+                                                      <option value="">-- Chọn lý do --</option>
+                                                      {(recruit.status === RecruitmentStatus.DEFERRED ? LEGAL_DEFERMENT_REASONS : LEGAL_EXEMPTION_REASONS).map((reason, idx) => (
+                                                          <option key={idx} value={reason} title={reason}>{reason.length > 60 ? reason.substring(0, 60) + '...' : reason}</option>
+                                                      ))}
+                                                  </select>
                                               </div>
                                           ) : (
                                               recruit.defermentReason && <div className="text-xs text-gray-600 italic mt-1 max-w-[200px] truncate" title={recruit.defermentReason}>{recruit.defermentReason}</div>
