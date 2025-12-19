@@ -1,42 +1,13 @@
 
-// ... (imports remain the same)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  LayoutDashboard, 
-  Users, 
-  FileCheck, 
-  Menu, 
-  ShieldAlert, 
-  LogOut, 
-  Key, 
-  X, 
-  HelpCircle, 
-  CalendarDays, 
-  Wifi, 
-  WifiOff, 
-  UserCog, 
-  Check, 
-  Phone, 
-  Mail, 
-  Lock, 
-  Unlock, 
-  BellRing,
-  FileText,
-  Download,
-  Trash2,
-  Plus,
-  File,
-  Book,
-  Scale,
-  ScrollText,
-  MessageSquare,
-  RefreshCw,
-  UserPlus,
-  Reply,
-  History
+  LayoutDashboard, Users, FileCheck, Menu, ShieldAlert, LogOut, Key, X, HelpCircle, CalendarDays, 
+  Wifi, WifiOff, UserCog, Check, Phone, Mail, Lock, Unlock, BellRing, FileText, Download, 
+  Trash2, Plus, File, Book, Scale, ScrollText, MessageSquare, RefreshCw, UserPlus, Reply, History, Search, Filter,
+  Award, Briefcase, User as UserIcon, Settings, UserCircle, AlertTriangle, Info, CheckCircle2
 } from 'lucide-react';
-import { Recruit, User, ResearchDocument, ChatMessage, RecruitmentStatus, Feedback } from './types';
-import { INITIAL_RECRUITS } from './constants';
+import { Recruit, User, ResearchDocument, RecruitmentStatus, Feedback } from './types';
+import { MOCK_USERS, LOCATION_DATA, PROVINCES_VN, generateUnitUsername } from './constants';
 import Dashboard from './views/Dashboard';
 import RecruitManagement from './views/RecruitManagement';
 import Login from './views/Login';
@@ -47,85 +18,64 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessionYear, setSessionYear] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'documents'>('dashboard');
-  
-  // State to control which sub-tab of RecruitManagement is active
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
-
   const [recruits, setRecruits] = useState<Recruit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-
-  // Desktop sidebar state (collapsed/expanded)
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  
-  // Mobile sidebar state (hidden/visible)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Password Modal
+  
+  // Modals
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  
+  // Profile State
+  const [profileData, setProfileData] = useState({
+      personalName: '',
+      rank: '',
+      position: '',
+      email: '',
+      phoneNumber: ''
+  });
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changePassMsg, setChangePassMsg] = useState('');
-
-  // Support Modal State
-  const [showSupportModal, setShowSupportModal] = useState(false);
   
-  // Feedback Modal State (For Local Users)
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackContent, setFeedbackContent] = useState('');
-
-  // Documents State
   const [documents, setDocuments] = useState<ResearchDocument[]>([]);
-
-  // Feedbacks List (For Admin)
-  const [allFeedbacks, setAllFeedbacks] = useState<Feedback[]>([]);
-
-  // Admin Update Trigger (to refresh sidebar badge)
   const [adminUpdateTrigger, setAdminUpdateTrigger] = useState(0);
 
-  // Load Data on start
   useEffect(() => {
       const savedDocs = localStorage.getItem('military_documents');
       if (savedDocs) setDocuments(JSON.parse(savedDocs));
-      else {
-          setDocuments([
-             { id: '1', title: 'Luật Nghĩa vụ quân sự 2015', description: 'Luật số 78/2015/QH13 quy định về nghĩa vụ quân sự.', url: '#', uploadDate: '2024-01-01', fileType: 'PDF', category: 'LUAT' },
-             { id: '2', title: 'Thông tư 148/2018/TT-BQP', description: 'Quy định tuyển chọn và gọi công dân nhập ngũ.', url: '#', uploadDate: '2024-10-20', fileType: 'PDF', category: 'THONG_TU' },
-             { id: '3', title: 'Hướng dẫn rà soát chính sách miễn hoãn 2025', description: 'Hướng dẫn chi tiết các bước rà soát cấp xã/phường.', url: '#', uploadDate: '2024-11-05', fileType: 'WORD', category: 'HUONG_DAN' }
-          ]);
-      }
-
-      // Load Feedbacks
-      const savedFeedbacks = localStorage.getItem('military_feedbacks');
-      if (savedFeedbacks) setAllFeedbacks(JSON.parse(savedFeedbacks));
   }, []);
 
-  const saveDocuments = (newDocs: ResearchDocument[]) => {
-      setDocuments(newDocs);
-      localStorage.setItem('military_documents', JSON.stringify(newDocs));
-  };
+  useEffect(() => {
+    if (user) {
+        setProfileData({
+            personalName: user.personalName || '',
+            rank: user.rank || '',
+            position: user.position || '',
+            email: user.email || '',
+            phoneNumber: user.phoneNumber || ''
+        });
+    }
+  }, [user]);
 
-  // FETCH DATA FROM SERVER
   useEffect(() => {
     const fetchData = async () => {
       if (user && sessionYear) {
         setIsLoading(true);
         const data = await api.getRecruits();
-        
-        if (data !== null) {
-            setRecruits(data);
-            setIsOnline(true);
-        } else {
-            setRecruits([]); 
-            setIsOnline(false);
-        }
+        if (data !== null) { setRecruits(data); setIsOnline(true); } 
+        else { setRecruits([]); setIsOnline(false); }
         setIsLoading(false);
       }
     };
     fetchData();
   }, [user, sessionYear]);
 
-  // Close mobile menu when navigating
   const handleNavigate = (tabId: string) => {
       setActiveRecruitSubTab(tabId);
       setActiveTab('recruits');
@@ -135,675 +85,472 @@ function App() {
   const handleUpdateRecruit = async (updatedRecruit: Recruit) => {
     const oldRecruits = [...recruits];
     const exists = recruits.find(r => r.id === updatedRecruit.id);
-    
-    setRecruits(prev => {
-      if (exists) {
-        return prev.map(r => r.id === updatedRecruit.id ? updatedRecruit : r);
-      }
-      return [...prev, updatedRecruit];
-    });
-
-    let result;
-    if (exists) result = await api.updateRecruit(updatedRecruit);
-    else result = await api.createRecruit(updatedRecruit);
-
-    if (!result) {
-        alert("Lỗi kết nối Server! Không lưu được dữ liệu.");
-        setRecruits(oldRecruits);
-        setIsOnline(false);
-    } else {
-        setIsOnline(true);
-    }
+    setRecruits(prev => exists ? prev.map(r => r.id === updatedRecruit.id ? updatedRecruit : r) : [...prev, updatedRecruit]);
+    let result = exists ? await api.updateRecruit(updatedRecruit) : await api.createRecruit(updatedRecruit);
+    if (!result) { alert("Lỗi kết nối Server!"); setRecruits(oldRecruits); setIsOnline(false); } else { setIsOnline(true); }
   };
 
   const handleDeleteRecruit = async (id: string) => {
-      const result = await api.deleteRecruit(id);
-      if (result) {
-          setRecruits(prev => prev.filter(r => r.id !== id));
-          setIsOnline(true);
-      } else {
-          alert("Lỗi kết nối! Không thể xóa hồ sơ.");
-          setIsOnline(false);
-      }
+      if (await api.deleteRecruit(id)) { setRecruits(prev => prev.filter(r => r.id !== id)); setIsOnline(true); } 
+      else { alert("Lỗi kết nối!"); setIsOnline(false); }
   };
 
-  const handleLogout = () => {
-      setUser(null);
-      setSessionYear(null);
-      setActiveTab('dashboard');
-  };
+  const handleLogout = () => { setUser(null); setSessionYear(null); setActiveTab('dashboard'); };
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 1) return;
-    
-    if (newPassword !== confirmPassword) {
-        setChangePassMsg("Mật khẩu xác nhận không khớp!");
-        return;
-    }
-
+    if (newPassword !== confirmPassword) { setChangePassMsg("Mật khẩu xác nhận không khớp!"); return; }
     const savedUsers = JSON.parse(localStorage.getItem('military_users') || '[]');
-    
-    if (user?.role === 'ADMIN') {
-        const updatedUsers = savedUsers.map((u: User) => {
-            if (u.username === user?.username) {
-                return { ...u, password: newPassword };
-            }
-            return u;
-        });
-        localStorage.setItem('military_users', JSON.stringify(updatedUsers));
-        if (user) setUser({ ...user, password: newPassword });
-        setChangePassMsg("Đổi mật khẩu thành công!");
-    } else {
-        const updatedUsers = savedUsers.map((u: User) => {
-            if (u.username === user?.username) {
-                return { ...u, pendingPassword: newPassword };
-            }
-            return u;
-        });
-        localStorage.setItem('military_users', JSON.stringify(updatedUsers));
-        setChangePassMsg("Đã gửi yêu cầu đổi mật khẩu tới Quản trị viên.");
-    }
-
-    setAdminUpdateTrigger(prev => prev + 1);
-
-    setTimeout(() => {
-        setShowPasswordModal(false);
-        setNewPassword('');
-        setConfirmPassword('');
-        setChangePassMsg('');
-    }, 2000);
+    const updatedUsers = savedUsers.map((u: User) => u.username === user?.username ? { ...u, password: newPassword } : u);
+    localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+    if (user) setUser({ ...user, password: newPassword });
+    setChangePassMsg("Đổi mật khẩu thành công!");
+    setTimeout(() => { setShowPasswordModal(false); setNewPassword(''); setConfirmPassword(''); setChangePassMsg(''); }, 2000);
   };
 
-  const handleSendFeedback = (e: React.FormEvent) => {
+  const handleUpdateProfile = (e: React.FormEvent) => {
       e.preventDefault();
-      if (!feedbackContent.trim() || !user) return;
-
-      const newFeedback: Feedback = {
-          id: Date.now().toString(),
-          username: user.username,
-          unitName: user.fullName,
-          content: feedbackContent,
-          timestamp: Date.now(),
-          isRead: false
-      };
-
-      const updatedFeedbacks = [newFeedback, ...allFeedbacks];
-      setAllFeedbacks(updatedFeedbacks);
-      localStorage.setItem('military_feedbacks', JSON.stringify(updatedFeedbacks));
-      
-      setFeedbackContent('');
-      alert("Đã gửi ý kiến thành công! Admin sẽ xem xét và phản hồi.");
+      const savedUsers = JSON.parse(localStorage.getItem('military_users') || '[]');
+      const updatedUsers = savedUsers.map((u: User) => 
+          u.username === user?.username 
+          ? { ...u, ...profileData } 
+          : u
+      );
+      localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+      if (user) setUser({ ...user, ...profileData });
+      alert("Cập nhật hồ sơ cán bộ thành công!");
+      setShowProfileModal(false);
   };
 
   const AdminPanel = () => {
-      // ... (AdminPanel content remains same as previous version - condensed for brevity)
-      const [allUsers, setAllUsers] = useState<User[]>(JSON.parse(localStorage.getItem('military_users') || '[]'));
-      const pendingUsers = allUsers.filter(u => u.pendingPassword);
-      const resetRequestUsers = allUsers.filter(u => u.resetRequested);
-      const unapprovedUsers = allUsers.filter(u => !u.isApproved);
-      const [newDocTitle, setNewDocTitle] = useState('');
-      const [newDocDesc, setNewDocDesc] = useState('');
-      const [newDocUrl, setNewDocUrl] = useState('');
-      const [newDocType, setNewDocType] = useState<'WORD' | 'PDF' | 'EXCEL' | 'OTHER'>('WORD');
-      const [newDocCategory, setNewDocCategory] = useState<'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC'>('HUONG_DAN');
-      const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+      const [allActiveUsers, setAllActiveUsers] = useState<User[]>(JSON.parse(localStorage.getItem('military_users') || '[]'));
+      const [adminSearch, setAdminSearch] = useState('');
+      const [adminProvinceFilter, setAdminProvinceFilter] = useState('');
 
       const refreshUsers = () => {
-          setAllUsers(JSON.parse(localStorage.getItem('military_users') || '[]'));
+          setAllActiveUsers(JSON.parse(localStorage.getItem('military_users') || '[]'));
           setAdminUpdateTrigger(prev => prev + 1);
       };
 
-      const approveUserRegistration = (username: string) => {
-          const updatedUsers = allUsers.map(u => {
-              if (u.username === username) return { ...u, isApproved: true };
-              return u;
-          });
-          localStorage.setItem('military_users', JSON.stringify(updatedUsers));
-          refreshUsers();
-          alert(`Đã duyệt tài khoản ${username}`);
-      };
+      const allPossibleUnitAccounts = useMemo(() => {
+          const accounts: User[] = [];
+          const activeMap = new Map();
+          allActiveUsers.forEach(u => activeMap.set(u.username, u));
 
-      const approvePassword = (username: string) => {
-          const updatedUsers = allUsers.map(u => {
-              if (u.username === username && u.pendingPassword) {
-                  return { ...u, password: u.pendingPassword, pendingPassword: undefined };
-              }
-              return u;
+          PROVINCES_VN.forEach(p => {
+              const uName = generateUnitUsername(p, '', 'PROVINCE');
+              if (activeMap.has(uName)) accounts.push(activeMap.get(uName));
+              else accounts.push({ username: uName, password: '1', fullName: `Bộ CHQS Tỉnh ${p}`, role: 'PROVINCE_ADMIN', unit: { province: p, commune: '' }, isLocked: true });
           });
-          localStorage.setItem('military_users', JSON.stringify(updatedUsers));
-          refreshUsers();
-          alert(`Đã duyệt mật khẩu cho ${username}`);
-      };
 
-      const approveReset = (username: string) => {
-          const newPass = prompt(`Cấp mật khẩu mới cho ${username}:`, "1");
-          if (newPass) {
-              const updatedUsers = allUsers.map(u => {
-                  if (u.username === username) {
-                      return { ...u, password: newPass, resetRequested: undefined };
-                  }
-                  return u;
+          Object.keys(LOCATION_DATA).forEach(p => {
+              // @ts-ignore
+              Object.keys(LOCATION_DATA[p]).forEach(c => {
+                  ['1', '2'].forEach(type => {
+                      const uName = generateUnitUsername(p, c, type as '1' | '2');
+                      if (activeMap.has(uName)) accounts.push(activeMap.get(uName));
+                      else accounts.push({ username: uName, password: '1', fullName: `Ban CHQS ${c} (TK ${type})`, role: type === '1' ? 'EDITOR' : 'VIEWER', unit: { province: p, commune: c }, isLocked: true });
+                  });
               });
-              localStorage.setItem('military_users', JSON.stringify(updatedUsers));
-              refreshUsers();
-              alert(`Đã cấp mật khẩu mới cho ${username}`);
-          }
-      };
-
-      const toggleLockUser = (username: string, currentStatus: boolean | undefined) => {
-          if (username === user?.username) {
-              alert("Không thể tự khóa tài khoản của chính mình!");
-              return;
-          }
-          const updatedUsers = allUsers.map(u => {
-              if (u.username === username) {
-                  return { ...u, isLocked: !currentStatus };
-              }
-              return u;
           });
-          localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+
+          let filtered = accounts;
+          if (adminProvinceFilter) filtered = filtered.filter(a => a.unit.province === adminProvinceFilter);
+          if (adminSearch) {
+              const s = adminSearch.toLowerCase();
+              filtered = filtered.filter(a => 
+                a.username.toLowerCase().includes(s) || 
+                a.fullName.toLowerCase().includes(s) || 
+                (a.personalName && a.personalName.toLowerCase().includes(s))
+              );
+          }
+          return filtered;
+      }, [allActiveUsers, adminProvinceFilter, adminSearch]);
+
+      const adminStats = useMemo(() => {
+          const total = allPossibleUnitAccounts.length;
+          const open = allPossibleUnitAccounts.filter(u => !u.isLocked).length;
+          const locked = total - open;
+          return { total, open, locked };
+      }, [allPossibleUnitAccounts]);
+
+      const toggleLockUser = (u: User) => {
+          if (u.username === 'ADMIN') return;
+          const users = JSON.parse(localStorage.getItem('military_users') || '[]');
+          const idx = users.findIndex((user: User) => user.username === u.username);
+          if (idx !== -1) {
+              users[idx].isLocked = !u.isLocked;
+          } else {
+              users.push({ ...u, isLocked: false }); 
+          }
+          localStorage.setItem('military_users', JSON.stringify(users));
           refreshUsers();
       };
 
-      const resetUserPassword = (username: string) => {
-          const newPass = prompt(`Nhập mật khẩu mới cho tài khoản ${username}:`);
+      const resetUserPassword = (u: User) => {
+          const newPass = prompt(`Đặt lại mật khẩu cho ${u.username}:`, "1");
           if (newPass) {
-              const updatedUsers = allUsers.map(u => {
-                  if (u.username === username) {
-                      return { ...u, password: newPass, pendingPassword: undefined, resetRequested: undefined };
-                  }
-                  return u;
-              });
-              localStorage.setItem('military_users', JSON.stringify(updatedUsers));
+              const users = JSON.parse(localStorage.getItem('military_users') || '[]');
+              const idx = users.findIndex((user: User) => user.username === u.username);
+              if (idx !== -1) users[idx].password = newPass;
+              else users.push({ ...u, password: newPass });
+              localStorage.setItem('military_users', JSON.stringify(users));
               refreshUsers();
-              alert(`Đã đổi mật khẩu cho ${username} thành công.`);
+              alert("Đã đặt lại mật khẩu thành mật khẩu mặc định (1).");
           }
-      };
-
-      const handleAddDocument = (e: React.FormEvent) => {
-          e.preventDefault();
-          if(!newDocTitle) return;
-          const newDoc: ResearchDocument = {
-              id: Date.now().toString(),
-              title: newDocTitle,
-              description: newDocDesc,
-              url: newDocUrl || '#',
-              fileType: newDocType,
-              category: newDocCategory,
-              uploadDate: new Date().toISOString().split('T')[0]
-          };
-          saveDocuments([...documents, newDoc]);
-          setNewDocTitle(''); setNewDocDesc(''); setNewDocUrl('');
-          alert("Đã cập nhật tài liệu thành công!");
-      };
-
-      const handleDeleteDocument = (id: string) => {
-          if(window.confirm("Xác nhận xóa tài liệu này?")) {
-              saveDocuments(documents.filter(d => d.id !== id));
-          }
-      };
-
-      const handleDeleteFeedback = (id: string) => {
-          if(window.confirm("Xóa ý kiến này?")) {
-              const updated = allFeedbacks.filter(f => f.id !== id);
-              setAllFeedbacks(updated);
-              localStorage.setItem('military_feedbacks', JSON.stringify(updated));
-          }
-      };
-
-      const handleReplyFeedback = (id: string) => {
-          const replyText = replyInputs[id];
-          if (!replyText || !replyText.trim()) return;
-
-          const updatedFeedbacks = allFeedbacks.map(f => {
-              if (f.id === id) {
-                  return { ...f, reply: replyText, replyTimestamp: Date.now() };
-              }
-              return f;
-          });
-          setAllFeedbacks(updatedFeedbacks);
-          localStorage.setItem('military_feedbacks', JSON.stringify(updatedFeedbacks));
-          
-          setReplyInputs(prev => {
-              const next = {...prev};
-              delete next[id];
-              return next;
-          });
-          alert("Đã gửi trả lời.");
       };
 
       return (
-          <div className="space-y-6 m-6">
-              
-              {/* NOTIFICATIONS SECTION */}
-              {(pendingUsers.length > 0 || resetRequestUsers.length > 0 || unapprovedUsers.length > 0) && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* New User Approval */}
-                      {unapprovedUsers.length > 0 && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2 col-span-1 lg:col-span-2">
-                              <h3 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
-                                  <UserPlus size={18} className="animate-pulse"/> Duyệt tài khoản đăng ký mới
-                              </h3>
-                              <div className="overflow-x-auto mt-2 bg-white rounded border border-blue-100 shadow-sm">
-                                  <table className="w-full text-left text-sm">
-                                      <thead className="bg-blue-100 text-xs text-blue-900 uppercase">
-                                          <tr><th className="p-2">Tài khoản</th><th className="p-2">Đơn vị</th><th className="p-2">Người đăng ký</th><th className="p-2 text-center">Xử lý</th></tr>
-                                      </thead>
-                                      <tbody>
-                                          {unapprovedUsers.map(u => (
-                                              <tr key={u.username} className="border-b border-gray-100 last:border-0">
-                                                  <td className="p-2 font-bold">{u.username}</td>
-                                                  <td className="p-2">{u.fullName}</td>
-                                                  <td className="p-2">{u.personalName} ({u.phoneNumber})</td>
-                                                  <td className="p-2 text-center">
-                                                      <button onClick={() => approveUserRegistration(u.username)} className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-blue-700 flex items-center gap-1 mx-auto"><Check size={14} /> Duyệt</button>
-                                                  </td>
-                                              </tr>
-                                          ))}
-                                      </tbody>
-                                  </table>
-                              </div>
-                          </div>
-                      )}
-
-                      {/* Password Change Requests */}
-                      {pendingUsers.length > 0 && (
-                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
-                              <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
-                                  <BellRing size={18} className="animate-bounce"/> Yêu cầu đổi mật khẩu
-                              </h3>
-                              <div className="overflow-x-auto mt-2 bg-white rounded border border-amber-100 shadow-sm">
-                                  <table className="w-full text-left text-sm">
-                                      <thead className="bg-amber-100 text-xs text-amber-900 uppercase">
-                                          <tr><th className="p-2">Tài khoản</th><th className="p-2">Đơn vị</th><th className="p-2">Mật khẩu mới</th><th className="p-2 text-center">Xử lý</th></tr>
-                                      </thead>
-                                      <tbody>
-                                          {pendingUsers.map(u => (
-                                              <tr key={u.username} className="border-b border-gray-100 last:border-0">
-                                                  <td className="p-2 font-bold">{u.username}</td>
-                                                  <td className="p-2">{u.fullName}</td>
-                                                  <td className="p-2 font-mono">{u.pendingPassword}</td>
-                                                  <td className="p-2 text-center">
-                                                      <button onClick={() => approvePassword(u.username)} className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-green-700 flex items-center gap-1 mx-auto"><Check size={14} /> Duyệt</button>
-                                                  </td>
-                                              </tr>
-                                          ))}
-                                      </tbody>
-                                  </table>
-                              </div>
-                          </div>
-                      )}
-
-                      {/* Password Reset Requests (Forgot PW) */}
-                      {resetRequestUsers.length > 0 && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
-                              <h3 className="font-bold text-red-800 mb-2 flex items-center gap-2">
-                                  <RefreshCw size={18} className="animate-spin-slow"/> Yêu cầu cấp lại mật khẩu (Quên)
-                              </h3>
-                              <div className="overflow-x-auto mt-2 bg-white rounded border border-red-100 shadow-sm">
-                                  <table className="w-full text-left text-sm">
-                                      <thead className="bg-red-100 text-xs text-red-900 uppercase">
-                                          <tr><th className="p-2">Tài khoản</th><th className="p-2">Đơn vị</th><th className="p-2 text-center">Xử lý</th></tr>
-                                      </thead>
-                                      <tbody>
-                                          {resetRequestUsers.map(u => (
-                                              <tr key={u.username} className="border-b border-gray-100 last:border-0">
-                                                  <td className="p-2 font-bold">{u.username}</td>
-                                                  <td className="p-2">{u.fullName}</td>
-                                                  <td className="p-2 text-center">
-                                                      <button onClick={() => approveReset(u.username)} className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-blue-700 flex items-center gap-1 mx-auto"><Key size={14} /> Cấp mới</button>
-                                                  </td>
-                                              </tr>
-                                          ))}
-                                      </tbody>
-                                  </table>
-                              </div>
-                          </div>
-                      )}
+          <div className="space-y-6 m-6 animate-in fade-in duration-500">
+              {/* ADMIN STATISTICS ROW */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4">
+                      <div className="p-3 bg-military-100 rounded-lg text-military-700">
+                          <Users size={28} />
+                      </div>
+                      <div>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tổng số đơn vị</p>
+                          <p className="text-2xl font-black text-gray-900 leading-none mt-1">{adminStats.total}</p>
+                      </div>
                   </div>
-              )}
+                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4 border-l-4 border-l-green-500">
+                      <div className="p-3 bg-green-50 rounded-lg text-green-600">
+                          <CheckCircle2 size={28} />
+                      </div>
+                      <div>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Đã mở tài khoản</p>
+                          <p className="text-2xl font-black text-green-700 leading-none mt-1">{adminStats.open}</p>
+                      </div>
+                  </div>
+                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4 border-l-4 border-l-red-500">
+                      <div className="p-3 bg-red-50 rounded-lg text-red-600">
+                          <Lock size={28} />
+                      </div>
+                      <div>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Chưa mở (Đang khóa)</p>
+                          <p className="text-2xl font-black text-red-700 leading-none mt-1">{adminStats.locked}</p>
+                      </div>
+                  </div>
+              </div>
 
-               {/* FEEDBACK SECTION */}
-               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h2 className="text-xl font-bold text-military-700 mb-4 flex items-center gap-2">
-                      <MessageSquare /> Hộp thư Ý kiến từ Địa phương ({allFeedbacks.length})
-                    </h2>
-                    <div className="max-h-[500px] overflow-y-auto border rounded bg-gray-50 p-2 space-y-3">
-                        {allFeedbacks.length === 0 ? (
-                            <p className="text-center text-gray-500 italic py-4">Chưa có ý kiến nào.</p>
-                        ) : (
-                            allFeedbacks.map(fb => (
-                                <div key={fb.id} className="bg-white p-4 rounded border border-gray-200 shadow-sm flex flex-col gap-2">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-bold text-military-700 text-sm">{fb.unitName}</span>
-                                                <span className="text-xs text-gray-400">({new Date(fb.timestamp).toLocaleString()})</span>
-                                            </div>
-                                            <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded border border-gray-100">{fb.content}</p>
-                                        </div>
-                                        <button onClick={() => handleDeleteFeedback(fb.id)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={16}/></button>
-                                    </div>
-                                    
-                                    {/* Admin Reply Section */}
-                                    <div className="ml-4 pl-4 border-l-2 border-gray-200 mt-2">
-                                        {fb.reply ? (
-                                            <div className="bg-green-50 p-2 rounded border border-green-100">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-bold text-green-700 text-xs flex items-center gap-1"><Reply size={12}/> Admin đã trả lời</span>
-                                                    <span className="text-[10px] text-gray-400">({fb.replyTimestamp ? new Date(fb.replyTimestamp).toLocaleString() : ''})</span>
-                                                </div>
-                                                <p className="text-sm text-gray-800">{fb.reply}</p>
-                                            </div>
-                                        ) : (
-                                            <div className="flex gap-2 items-center">
-                                                <input 
-                                                    type="text" 
-                                                    className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
-                                                    placeholder="Nhập nội dung trả lời..."
-                                                    value={replyInputs[fb.id] || ''}
-                                                    onChange={(e) => setReplyInputs({...replyInputs, [fb.id]: e.target.value})}
-                                                />
-                                                <button 
-                                                    onClick={() => handleReplyFeedback(fb.id)}
-                                                    className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700"
-                                                >
-                                                    Gửi trả lời
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-               </div>
-
-               {/* DOCUMENT MANAGEMENT */}
-               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h2 className="text-xl font-bold text-military-700 mb-4 flex items-center gap-2">
-                      <FileText /> Cập nhật Tài liệu & Văn bản Pháp luật
-                    </h2>
-                    {/* ... (Existing Doc Form - Condensed) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <form onSubmit={handleAddDocument} className="bg-gray-50 p-4 rounded border border-gray-200 h-fit">
-                            <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Thêm văn bản mới</h4>
-                            <div className="space-y-3">
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">Tên tài liệu</label><input required type="text" className="w-full p-2 border rounded text-sm" value={newDocTitle} onChange={e => setNewDocTitle(e.target.value)} /></div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Loại</label><select className="w-full p-2 border rounded text-sm" value={newDocCategory} onChange={(e:any) => setNewDocCategory(e.target.value)}><option value="LUAT">Luật</option><option value="NGHI_DINH">Nghị định</option><option value="THONG_TU">Thông tư</option><option value="QUYET_DINH">Quyết định</option><option value="HUONG_DAN">Hướng dẫn</option><option value="KHAC">Khác</option></select></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 mb-1">Định dạng</label><select className="w-full p-2 border rounded text-sm" value={newDocType} onChange={(e:any) => setNewDocType(e.target.value)}><option value="PDF">PDF</option><option value="WORD">Word</option><option value="EXCEL">Excel</option></select></div>
-                                </div>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">Mô tả</label><textarea className="w-full p-2 border rounded text-sm" rows={2} value={newDocDesc} onChange={e => setNewDocDesc(e.target.value)} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">Link tải</label><input type="text" className="w-full p-2 border rounded text-sm" value={newDocUrl} onChange={e => setNewDocUrl(e.target.value)} /></div>
-                                <button type="submit" className="w-full py-2 bg-military-600 text-white font-bold rounded hover:bg-military-700 flex items-center justify-center gap-2"><Plus size={16} /> Cập nhật</button>
-                            </div>
-                        </form>
+              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div className="flex justify-between items-center mb-6">
                         <div>
-                            <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Tài liệu hiện có</h4>
-                            <div className="border rounded bg-white overflow-hidden max-h-[300px] overflow-y-auto">
-                                <table className="w-full text-left text-sm"><thead className="bg-gray-100 text-gray-600 uppercase text-xs sticky top-0"><tr><th className="p-3">Tên tài liệu</th><th className="p-3 text-center">Xóa</th></tr></thead><tbody className="divide-y divide-gray-100">{documents.map(doc => (<tr key={doc.id} className="hover:bg-gray-50"><td className="p-3"><div className="font-bold">{doc.title}</div><span className="text-[10px] text-gray-500">{doc.category} - {doc.uploadDate}</span></td><td className="p-3 text-center"><button onClick={() => handleDeleteDocument(doc.id)} className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16}/></button></td></tr>))}</tbody></table>
-                            </div>
+                            <h2 className="text-xl font-bold text-military-700 flex items-center gap-2"><Settings className="text-military-600" /> Hệ thống Quản trị Master</h2>
+                            <p className="text-xs text-gray-500 mt-1">Phê duyệt và kích hoạt tài khoản cán bộ tại các địa phương</p>
                         </div>
                     </div>
-               </div>
 
-              {/* ALL USERS LIST */}
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                  <h2 className="text-xl font-bold text-military-700 mb-4 flex items-center gap-2">
-                      <Users /> Danh sách Cán bộ & Tài khoản ({allUsers.length})
-                  </h2>
-                  <div className="overflow-x-auto border border-gray-200 rounded-lg max-h-[500px] overflow-y-auto">
-                      <table className="w-full text-left border-collapse">
-                          <thead className="bg-gray-100 text-xs text-gray-600 uppercase sticky top-0">
-                              <tr><th className="p-3">TT</th><th className="p-3">Đơn vị</th><th className="p-3">Cán bộ</th><th className="p-3">SĐT</th><th className="p-3 text-center">Vai trò</th><th className="p-3 text-center">Trạng thái</th><th className="p-3 text-center">Thao tác</th></tr>
-                          </thead>
-                          <tbody className="text-sm divide-y divide-gray-100">
-                              {allUsers.map((u, idx) => (
-                                  <tr key={u.username} className={`hover:bg-gray-50 ${u.isLocked ? 'bg-red-50/50' : ''}`}>
-                                      <td className="p-3 text-center text-gray-500">{idx + 1}</td>
-                                      <td className="p-3"><div className="font-bold">{u.fullName}</div><div className="text-xs text-gray-500 font-mono">{u.username}</div></td>
-                                      <td className="p-3 font-medium">{u.personalName || '---'}</td>
-                                      <td className="p-3 font-mono">{u.phoneNumber || '---'}</td>
-                                      <td className="p-3 text-center text-xs font-bold text-gray-600">{u.role === 'PROVINCE_ADMIN' ? 'Cấp Tỉnh' : u.role === 'ADMIN' ? 'ADMIN' : 'Cấp Xã'}</td>
-                                      <td className="p-3 text-center">{u.isLocked ? <span className="text-xs font-bold text-red-600">Đã khóa</span> : <span className="text-xs font-bold text-green-600">Hoạt động</span>}</td>
-                                      <td className="p-3"><div className="flex items-center justify-center gap-2"><button onClick={() => toggleLockUser(u.username, u.isLocked)} className={`p-1.5 rounded ${u.isLocked ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`} disabled={u.role === 'ADMIN'}>{u.isLocked ? <Unlock size={16}/> : <Lock size={16}/>}</button><button onClick={() => resetUserPassword(u.username)} className="p-1.5 rounded bg-amber-100 text-amber-700"><Key size={16}/></button></div></td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
-                  </div>
+                    <div className="flex flex-wrap gap-3 mb-6 items-center bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <div className="relative flex-1 min-w-[300px]">
+                            <Search className="absolute left-3 top-2.5 text-gray-400" size={16}/>
+                            <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-md text-sm bg-white" placeholder="Tìm tên đơn vị, tên cán bộ hoặc username..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase">Lọc theo:</span>
+                            <select className="border p-2 rounded-md text-sm bg-white min-w-[200px]" value={adminProvinceFilter} onChange={e => setAdminProvinceFilter(e.target.value)}>
+                                <option value="">Tất cả Tỉnh/Thành</option>
+                                {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto border rounded-xl max-h-[650px] overflow-y-auto custom-scrollbar shadow-inner">
+                        <table className="w-full text-left text-sm border-collapse">
+                            <thead className="bg-military-900 text-military-100 uppercase text-[10px] font-bold sticky top-0 z-10">
+                                <tr>
+                                    <th className="p-4 border-b border-military-800">Cơ quan / Tài khoản</th>
+                                    <th className="p-4 border-b border-military-800">Thông tin cán bộ phụ trách</th>
+                                    <th className="p-4 border-b border-military-800 text-center">Tình trạng</th>
+                                    <th className="p-4 border-b border-military-800 text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                                {allPossibleUnitAccounts.slice(0, 300).map(u => (
+                                    <tr key={u.username} className={`hover:bg-military-50 transition-colors ${u.isLocked ? 'bg-red-50/20' : ''}`}>
+                                        <td className="p-4">
+                                            <div className="font-bold text-military-800 text-sm leading-snug">{u.fullName}</div>
+                                            <div className="text-[10px] font-mono text-gray-500 mt-1 flex items-center gap-1.5 uppercase tracking-tighter">
+                                               <span className="bg-gray-100 px-1.5 py-0.5 rounded border">{u.username}</span>
+                                               <span className="text-military-400">|</span>
+                                               <span className={u.role === 'PROVINCE_ADMIN' ? 'text-red-600 font-bold' : 'text-blue-600 font-bold'}>
+                                                  {u.role === 'PROVINCE_ADMIN' ? 'BỘ CHQS TỈNH' : (u.role === 'VIEWER' ? 'BAN CHQS - TK CHỈ HUY' : 'BAN CHQS - TK NHẬP LIỆU')}
+                                               </span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4">
+                                            {u.personalName ? (
+                                                <div className="space-y-1">
+                                                    <div className="text-xs font-bold text-gray-800 flex items-center gap-1.5 uppercase">
+                                                        <Award size={12} className="text-amber-500"/> {u.rank || '--'} {u.personalName}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-500 font-medium italic">{u.position}</div>
+                                                    <div className="flex items-center gap-3 mt-1.5">
+                                                        {u.phoneNumber && <span className="flex items-center gap-1 text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded shadow-sm text-blue-700 font-bold"><Phone size={10}/> {u.phoneNumber}</span>}
+                                                        {u.email && <span className="flex items-center gap-1 text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded shadow-sm text-gray-600"><Mail size={10}/> {u.email}</span>}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5 text-[10px] text-gray-400 italic">
+                                                    <AlertTriangle size={12}/> Đơn vị chưa cập nhật hồ sơ cán bộ
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            {u.isLocked ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 text-[10px] font-bold border border-red-200 shadow-sm uppercase tracking-wider">
+                                                    <Lock size={12}/> Đang khóa
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold border border-green-200 shadow-sm uppercase tracking-wider">
+                                                    <Check size={12}/> Đã duyệt
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button 
+                                                    onClick={() => toggleLockUser(u)} 
+                                                    title={u.isLocked ? "Mở khóa và cấp quyền truy cập" : "Khóa tài khoản này"}
+                                                    className={`p-2 rounded-lg shadow-sm transition-all transform active:scale-90 ${u.isLocked ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                                                >
+                                                    {u.isLocked ? <Unlock size={16}/> : <Lock size={16}/>}
+                                                </button>
+                                                <button 
+                                                    onClick={() => resetUserPassword(u)} 
+                                                    title="Đặt lại mật khẩu mặc định (1)"
+                                                    className="p-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600 shadow-sm transition-all transform active:scale-90"
+                                                >
+                                                    <RefreshCw size={16}/>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {allPossibleUnitAccounts.length > 300 && <div className="p-6 text-center text-gray-400 italic text-xs bg-gray-50 border-t">Chỉ hiển thị 300 kết quả đầu tiên. Vui lòng sử dụng bộ lọc Tỉnh/Thành hoặc Ô tìm kiếm.</div>}
+                    </div>
               </div>
           </div>
       )
   };
 
-  const DocumentsPanel = () => {
-      // (Keep existing DocumentsPanel code)
-      return (
-          <div className="p-6 m-6 bg-white rounded-lg shadow-sm border border-gray-200 min-h-[500px]">
-              <h2 className="text-xl font-bold text-military-700 mb-6 flex items-center gap-2">
-                  <FileText /> Tài liệu Nghiên cứu & Văn bản Pháp luật
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {documents.length === 0 ? <div className="col-span-3 text-center py-10 text-gray-500 italic">Chưa có tài liệu nào.</div> : documents.map(doc => (
-                      <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md bg-gray-50 flex flex-col justify-between">
-                          <div className="flex items-start gap-3 mb-3">
-                              <div className="p-2 bg-gray-200 rounded shrink-0"><File size={24} /></div>
-                              <div>
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 uppercase mb-1 inline-block">{doc.category}</span>
-                                  <h4 className="font-bold text-gray-800 text-sm">{doc.title}</h4>
-                                  <p className="text-xs text-gray-500 mt-1">{doc.uploadDate}</p>
-                              </div>
-                          </div>
-                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="w-full mt-2 py-2 bg-white border border-gray-300 rounded text-center text-sm font-bold text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2"><Download size={14} /> Tải về ({doc.fileType})</a>
-                      </div>
-                  ))}
+  const DocumentsPanel = () => (
+      <div className="p-6 m-6 bg-white rounded-lg shadow-sm border border-gray-200 min-h-[500px]">
+          <h2 className="text-xl font-bold text-military-700 mb-6 flex items-center gap-2"><FileText /> Tài liệu & Văn bản Pháp luật</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{documents.map(doc => (
+              <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md bg-gray-50 flex flex-col justify-between transition-all">
+                  <div className="flex items-start gap-3 mb-3"><div className="p-2 bg-gray-200 rounded shrink-0"><File size={24} /></div><div><span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 uppercase mb-1 inline-block">{doc.category}</span><h4 className="font-bold text-gray-800 text-sm leading-tight">{doc.title}</h4><p className="text-xs text-gray-500 mt-1">{doc.uploadDate}</p></div></div>
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="w-full mt-2 py-2 bg-white border border-gray-300 rounded text-center text-sm font-bold text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2 transition-colors"><Download size={14} /> Tải về ({doc.fileType})</a>
               </div>
-          </div>
-      );
-  };
+          ))}</div>
+      </div>
+  );
 
   if (!user) return <Login onLogin={setUser} />;
   if (!sessionYear) return <YearSelection onSelectYear={setSessionYear} currentUser={user} />;
 
-  const pendingRequestsCount = (() => {
-      if (user.role !== 'ADMIN') return 0;
-      const allUsers: User[] = JSON.parse(localStorage.getItem('military_users') || '[]');
-      return allUsers.filter(u => u.pendingPassword || u.resetRequested || !u.isApproved).length;
-  })();
-
-  const SidebarContent = () => (
-    <>
-      <div className="p-4 flex items-center justify-between border-b border-military-800 h-16 shrink-0">
-          {(isSidebarOpen || isMobileMenuOpen) ? (
-             <span className="font-bold text-lg tracking-wider text-military-100 flex items-center gap-2">
-                <ShieldAlert className="text-amber-500" /> TUYỂN QUÂN
-             </span>
-          ) : (
-             <ShieldAlert className="text-amber-500 mx-auto" />
-          )}
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="hidden md:block p-2 hover:bg-military-800 rounded text-military-200"><Menu size={20} /></button>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-2 hover:bg-military-800 rounded text-military-200"><X size={20} /></button>
-      </div>
-
-      <nav className="flex-1 py-6 px-2 space-y-2 overflow-y-auto">
-          {(isSidebarOpen || isMobileMenuOpen) && (
-              <div className="px-4 mb-4">
-                  <div className="bg-military-800 rounded p-2 flex items-center justify-between border border-military-700">
-                      <div className="flex items-center gap-2 text-military-200 text-xs font-bold uppercase"><CalendarDays size={14}/> Năm tuyển quân</div>
-                      <div className="text-amber-400 font-bold">{sessionYear}</div>
-                  </div>
-              </div>
-          )}
-
-          <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-white text-gray-900 border-l-4 border-amber-500 font-bold' : 'text-military-200 hover:bg-military-800'}`}>
-            <LayoutDashboard size={20} className="shrink-0" />{(isSidebarOpen || isMobileMenuOpen) && <span>TỔNG QUAN</span>}
-          </button>
-          
-          <button onClick={() => { setActiveTab('recruits'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'recruits' ? 'bg-white text-gray-900 border-l-4 border-amber-500 font-bold' : 'text-military-200 hover:bg-military-800'}`}>
-            <Users size={20} className="shrink-0" />{(isSidebarOpen || isMobileMenuOpen) && <span>CHI TIẾT</span>}
-          </button>
-
-          <button onClick={() => { setActiveTab('documents'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'documents' ? 'bg-white text-gray-900 border-l-4 border-amber-500 font-bold' : 'text-military-200 hover:bg-military-800'}`}>
-            <FileText size={20} className="shrink-0" />{(isSidebarOpen || isMobileMenuOpen) && <span>TÀI LIỆU</span>}
-          </button>
-
-          {user.role === 'ADMIN' && (
-              <button onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'admin' ? 'bg-white text-gray-900 border-l-4 border-amber-500 font-bold' : 'text-military-200 hover:bg-military-800'}`}>
-                <div className="relative shrink-0"><UserCog size={20} />{pendingRequestsCount > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold animate-pulse">{pendingRequestsCount}</span>}</div>
-                {(isSidebarOpen || isMobileMenuOpen) && <div className="flex items-center justify-between w-full"><span>QUẢN TRỊ</span>{pendingRequestsCount > 0 && <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{pendingRequestsCount}</span>}</div>}
-              </button>
-          )}
-      </nav>
-
-      <div className="p-4 border-t border-military-800 space-y-2 shrink-0">
-             {/* Send Feedback Button for Locals */}
-             {user.role !== 'ADMIN' && (
-                 <button onClick={() => { setShowFeedbackModal(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-military-200 hover:bg-military-800 transition-colors">
-                    <MessageSquare size={20} className="shrink-0 text-amber-400" />
-                    {(isSidebarOpen || isMobileMenuOpen) && <span className="font-medium text-amber-100">Gửi ý kiến</span>}
-                 </button>
-             )}
-
-             <button onClick={() => { setShowSupportModal(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-military-200 hover:bg-military-800 transition-colors">
-                <HelpCircle size={20} className="shrink-0 text-cyan-400" />
-                {(isSidebarOpen || isMobileMenuOpen) && <span className="font-medium text-cyan-100">Trợ giúp</span>}
-             </button>
-             <button onClick={() => { setShowPasswordModal(true); setIsMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-military-200 hover:bg-military-800 transition-colors">
-                <Key size={20} className="shrink-0" />
-                {(isSidebarOpen || isMobileMenuOpen) && <span className="font-medium">Đổi mật khẩu</span>}
-             </button>
-             <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-red-200 hover:bg-red-900/30 hover:text-red-100 transition-colors">
-                <LogOut size={20} className="shrink-0" />
-                {(isSidebarOpen || isMobileMenuOpen) && <span className="font-medium">Đăng xuất</span>}
-             </button>
-      </div>
-    </>
-  );
-
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 overflow-hidden relative">
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
+      {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />}
+      
       <aside className={`fixed md:relative inset-y-0 left-0 z-40 bg-military-900 text-white shadow-2xl transition-all duration-300 flex flex-col ${isMobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'} ${isSidebarOpen ? 'md:w-64' : 'md:w-20'}`}>
-        <SidebarContent />
+        <div className="p-4 flex items-center justify-between border-b border-military-800 h-16">
+            <span className="font-bold text-lg tracking-wider text-military-100 flex items-center gap-2">
+                <ShieldAlert className="text-amber-500" /> 
+                {isSidebarOpen && <span className="text-sm font-black uppercase">Tuyển quân</span>}
+            </span>
+            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="hidden md:block p-2 rounded text-military-200 hover:bg-military-800"><Menu size={20} /></button>
+        </div>
+        
+        <nav className="flex-1 py-6 px-2 space-y-2 overflow-y-auto custom-scrollbar">
+          <button onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-white text-military-900 font-bold shadow-md scale-[1.02]' : 'text-military-200 hover:bg-military-800'}`}><LayoutDashboard size={20} />{isSidebarOpen && <span className="text-xs font-bold uppercase tracking-wider">Tổng quan</span>}</button>
+          <button onClick={() => { setActiveTab('recruits'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'recruits' ? 'bg-white text-military-900 font-bold shadow-md scale-[1.02]' : 'text-military-200 hover:bg-military-800'}`}><Users size={20} />{isSidebarOpen && <span className="text-xs font-bold uppercase tracking-wider">Hồ sơ công dân</span>}</button>
+          <button onClick={() => { setActiveTab('documents'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'documents' ? 'bg-white text-military-900 font-bold shadow-md scale-[1.02]' : 'text-military-200 hover:bg-military-800'}`}><FileText size={20} />{isSidebarOpen && <span className="text-xs font-bold uppercase tracking-wider">Văn bản</span>}</button>
+          {user.role === 'ADMIN' && (
+              <button onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'admin' ? 'bg-white text-military-900 font-bold shadow-md scale-[1.02]' : 'text-military-200 hover:bg-military-800 border-t border-military-800 pt-4'}`}>
+                  <Settings size={20} className="text-amber-500" />
+                  {isSidebarOpen && <span className="text-xs font-bold uppercase tracking-wider">Quản trị Master</span>}
+              </button>
+          )}
+        </nav>
+
+        <div className="p-4 border-t border-military-800 space-y-2 bg-military-950/30">
+             <button onClick={() => setShowSupportModal(true)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-military-200 hover:bg-military-800 transition-colors group">
+                 <HelpCircle size={18} className="group-hover:text-cyan-400" />{isSidebarOpen && <span className="text-[10px] font-bold uppercase">Hỗ trợ kỹ thuật</span>}
+             </button>
+             <button onClick={() => setShowProfileModal(true)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-military-200 hover:bg-military-800 transition-colors group"><UserCircle size={18} className="group-hover:text-blue-400" />{isSidebarOpen && <span className="text-[10px] font-bold uppercase">Hồ sơ cán bộ</span>}</button>
+             <button onClick={() => setShowPasswordModal(true)} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-military-200 hover:bg-military-800 transition-colors group"><Key size={18} className="group-hover:text-amber-400" />{isSidebarOpen && <span className="text-[10px] font-bold uppercase">Đổi mật khẩu</span>}</button>
+             <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-300 hover:bg-red-900/30 transition-colors group"><LogOut size={18} className="group-hover:text-red-400" />{isSidebarOpen && <span className="text-[10px] font-bold uppercase">Đăng xuất</span>}</button>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gray-50 h-full relative">
-        <header className="h-16 bg-white border-b border-gray-200 shadow-sm flex items-center justify-between px-4 md:px-6 z-10 shrink-0">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 z-10 shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
-             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-md"><Menu size={24} /></button>
-             <h1 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-tight truncate max-w-[200px] md:max-w-none flex flex-col">
-                <span>{activeTab === 'dashboard' ? `Quy trình tuyển quân ${sessionYear}` : activeTab === 'admin' ? 'Quản trị hệ thống' : activeTab === 'documents' ? 'Tài liệu nghiên cứu' : `Quản lý công dân nhập ngũ ${sessionYear}`}</span>
-                {isLoading && <span className="text-[10px] text-gray-400 normal-case font-normal animate-pulse">Đang đồng bộ dữ liệu...</span>}
-             </h1>
+              <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-md"><Menu size={24} /></button>
+              <h1 className="text-lg font-black uppercase text-military-800 tracking-tight">
+                  {activeTab === 'dashboard' ? `Phân tích dữ liệu Tuyển quân ${sessionYear}` : activeTab === 'admin' ? 'Quản trị Tài khoản Hệ thống' : activeTab === 'documents' ? 'Thư viện Văn bản & Pháp luật' : `Quản lý hồ sơ công dân ${sessionYear}`}
+              </h1>
           </div>
-          
           <div className="flex items-center gap-4">
-             <div className="hidden md:flex items-center gap-1 text-xs font-bold px-2 py-1 rounded border border-gray-200">{isOnline ? <><Wifi size={14} className="text-green-600"/> <span className="text-green-700">Online</span></> : <><WifiOff size={14} className="text-red-600"/> <span className="text-red-700">Offline</span></>}</div>
-             <button onClick={() => setSessionYear(null)} className="hidden md:flex items-center gap-2 text-sm font-bold text-military-700 bg-military-50 px-3 py-1.5 rounded hover:bg-military-100 border border-military-200" title="Đổi năm tuyển quân"><CalendarDays size={16}/> {sessionYear}</button>
-             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-military-600 flex items-center justify-center text-white font-bold border border-military-700 shrink-0">{user.username.substring(0,2).toUpperCase()}</div>
-                <div className="text-sm hidden md:block">
-                    <p className="font-bold text-gray-900">{user.role === 'ADMIN' ? 'QUẢN TRỊ VIÊN' : user.fullName}</p>
-                    <p className="text-xs text-gray-600">{user.role === 'ADMIN' ? 'Cấp Huyện/Tỉnh' : user.role === 'PROVINCE_ADMIN' ? 'Bộ CHQS Tỉnh' : `${user.unit.commune}, ${user.unit.province}`}</p>
-                </div>
-             </div>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-auto p-4 md:p-6 relative">
-          {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={handleNavigate} sessionYear={sessionYear} userRole={user.role} userUnit={user.unit} />}
-          {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={handleDeleteRecruit} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} />}
-          {activeTab === 'admin' && <AdminPanel />}
-          {activeTab === 'documents' && <DocumentsPanel />}
-        </div>
-      </main>
-
-      {/* Change Password Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-             <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-                 <h3 className="text-lg font-bold text-gray-900 mb-4">Đổi mật khẩu</h3>
-                 {changePassMsg ? <div className="text-green-600 font-bold text-center py-4 px-2">{changePassMsg}</div> : (
-                     <form onSubmit={handleChangePassword}>
-                         <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label><input type="password" required className="w-full border border-gray-300 rounded p-2 mb-3 text-gray-900 bg-white" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-                         <label className="block text-sm font-medium text-gray-700 mb-1">Nhập lại mật khẩu</label><input type="password" required className="w-full border border-gray-300 rounded p-2 mb-4 text-gray-900 bg-white" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
-                         <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowPasswordModal(false)} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded">Hủy</button><button type="submit" className="px-3 py-2 bg-military-600 text-white rounded hover:bg-military-700">Xác nhận</button></div>
-                     </form>
-                 )}
-             </div>
-        </div>
-      )}
-
-      {/* Support Modal */}
-      {showSupportModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-             <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-                 <div className="flex items-center gap-2 mb-4"><HelpCircle className="text-cyan-600" size={24}/><h3 className="text-lg font-bold text-gray-900">Thông tin hỗ trợ</h3></div>
-                 <div className="space-y-3 mb-6 bg-cyan-50 p-4 rounded border border-cyan-100">
-                    <div><p className="text-xs text-cyan-700 uppercase font-bold">Admin / Tác giả</p><p className="text-lg font-bold text-gray-900">Thới Hạ Sang</p></div>
-                    <div><div className="flex items-center gap-2"><Phone size={16} className="text-cyan-700"/><p className="text-xs text-cyan-700 uppercase font-bold">Số điện thoại / Zalo</p></div><p className="text-lg font-mono font-bold text-gray-900">0334429954</p></div>
-                    <div><div className="flex items-center gap-2"><Mail size={16} className="text-cyan-700"/><p className="text-xs text-cyan-700 uppercase font-bold">Email</p></div><p className="text-lg font-mono font-bold text-gray-900 break-words">thoihasang@gmail.com</p></div>
-                    <div className="text-xs text-gray-500 italic mt-2 border-t border-cyan-200 pt-2">Vui lòng liên hệ trong giờ hành chính để được hỗ trợ tốt nhất về nghiệp vụ và phần mềm.</div>
-                 </div>
-                 <div className="flex justify-end"><button onClick={() => setShowSupportModal(false)} className="px-4 py-2 bg-military-600 text-white rounded font-bold hover:bg-military-700">Đóng</button></div>
-             </div>
-        </div>
-      )}
-
-      {/* Feedback Modal (For Users) */}
-      {showFeedbackModal && user && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-lg shadow-xl w-full max-w-md flex flex-col max-h-[90vh]">
-                  <div className="p-6 border-b border-gray-100">
-                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><MessageSquare className="text-amber-500"/> Gửi ý kiến về Admin</h3>
+              <button onClick={() => setSessionYear(null)} className="flex items-center gap-2 text-sm font-bold bg-military-50 text-military-700 px-3 py-1.5 rounded-md border border-military-200 hover:bg-military-100 transition-all shadow-sm">
+                  <CalendarDays size={16}/> NĂM {sessionYear}
+              </button>
+              <div className="flex items-center gap-3 border-l pl-4 border-gray-200">
+                  <div className="w-9 h-9 rounded-lg bg-military-700 flex items-center justify-center text-white font-bold text-xs shadow-md border border-military-600">
+                      {user.username.substring(0,2).toUpperCase()}
                   </div>
-                  
-                  <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                       <form onSubmit={handleSendFeedback} className="mb-6">
-                          <textarea 
-                              className="w-full border border-gray-300 rounded p-3 text-sm focus:ring-2 focus:ring-amber-500 mb-4" 
-                              rows={4} 
-                              placeholder="Nhập nội dung ý kiến, kiến nghị..."
-                              value={feedbackContent}
-                              onChange={(e) => setFeedbackContent(e.target.value)}
-                              required
-                          />
-                          <div className="flex justify-end gap-2">
-                              <button type="button" onClick={() => setShowFeedbackModal(false)} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm font-bold">Đóng</button>
-                              <button type="submit" className="px-3 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 text-sm font-bold">Gửi đi</button>
-                          </div>
-                      </form>
-
-                      {/* Feedback History */}
-                      <div className="border-t border-gray-100 pt-4">
-                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2 uppercase"><History size={16}/> Lịch sử ý kiến</h4>
-                          <div className="space-y-3">
-                              {allFeedbacks.filter(f => f.username === user.username).length === 0 ? (
-                                  <p className="text-center text-gray-400 text-sm italic">Chưa có lịch sử.</p>
-                              ) : (
-                                  allFeedbacks.filter(f => f.username === user.username).map(fb => (
-                                      <div key={fb.id} className="bg-gray-50 rounded p-3 border border-gray-200">
-                                          <div className="text-xs text-gray-400 mb-1">{new Date(fb.timestamp).toLocaleString()}</div>
-                                          <p className="text-sm font-bold text-gray-800 mb-2">{fb.content}</p>
-                                          {fb.reply ? (
-                                              <div className="bg-green-50 p-2 rounded border border-green-100 mt-2">
-                                                   <div className="flex items-center gap-1 text-xs font-bold text-green-700 mb-1"><Reply size={12}/> Admin trả lời:</div>
-                                                   <p className="text-sm text-gray-800">{fb.reply}</p>
-                                              </div>
-                                          ) : (
-                                              <div className="text-[10px] text-amber-600 italic bg-amber-50 px-2 py-1 rounded inline-block">Đang chờ phản hồi...</div>
-                                          )}
-                                      </div>
-                                  ))
-                              )}
-                          </div>
-                      </div>
+                  <div className="text-[11px] hidden lg:block leading-tight">
+                      <p className="font-black text-gray-900 uppercase tracking-tighter">{user.fullName}</p>
+                      <p className="text-gray-500 font-medium">{user.personalName ? `${user.rank || ''} ${user.personalName}` : 'Cán bộ chưa định danh'}</p>
                   </div>
               </div>
           </div>
+        </header>
+
+        <div className="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
+            {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={handleNavigate} sessionYear={sessionYear} userRole={user.role} userUnit={user.unit} />}
+            {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={handleDeleteRecruit} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} />}
+            {activeTab === 'admin' && <AdminPanel />}
+            {activeTab === 'documents' && <DocumentsPanel />}
+        </div>
+      </main>
+
+      {/* MODAL CẬP NHẬT HỒ SƠ CÁN BỘ ĐỊA PHƯƠNG */}
+      {showProfileModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 animate-in fade-in duration-300 backdrop-blur-sm">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
+                  <div className="bg-military-800 p-5 flex justify-between items-center text-white">
+                      <h3 className="font-bold uppercase tracking-wide flex items-center gap-2 text-sm"><UserCircle size={20} className="text-blue-400"/> Cập nhật hồ sơ cán bộ phụ trách</h3>
+                      <button onClick={() => setShowProfileModal(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                  </div>
+                  <form onSubmit={handleUpdateProfile} className="p-6 space-y-5 bg-white">
+                      <div className="bg-amber-50 p-4 rounded-lg text-[11px] text-amber-800 leading-relaxed border border-amber-200 mb-2 flex items-start gap-3">
+                         <Info size={24} className="shrink-0 mt-0.5 text-amber-600"/>
+                         <p>Thông tin này vô cùng quan trọng để Master Admin nhận diện đơn vị và hỗ trợ kịp thời khi có yêu cầu phê duyệt hoặc xử lý sự cố. Vui lòng cung cấp chính xác.</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Họ và tên cán bộ</label>
+                              <input type="text" required className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-2 focus:ring-military-500 outline-none text-sm transition-all" value={profileData.personalName} onChange={e => setProfileData({...profileData, personalName: e.target.value})} placeholder="VD: Nguyễn Văn A" />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Cấp bậc quân hàm</label>
+                              <select className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-2 focus:ring-military-500 outline-none text-sm bg-white cursor-pointer" value={profileData.rank} onChange={e => setProfileData({...profileData, rank: e.target.value})}>
+                                  <option value="">-- Chọn --</option>
+                                  <option value="Thượng úy">Thượng úy</option>
+                                  <option value="Đại úy">Đại úy</option>
+                                  <option value="Thiếu tá">Thiếu tá</option>
+                                  <option value="Trung tá">Trung tá</option>
+                                  <option value="Thượng tá">Thượng tá</option>
+                                  <option value="Đại tá">Đại tá</option>
+                                  <option value="QNCN">QNCN</option>
+                                  <option value="Khác">Khác / Công chức</option>
+                              </select>
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Chức vụ tại đơn vị</label>
+                          <input type="text" required className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-2 focus:ring-military-500 outline-none text-sm" value={profileData.position} onChange={e => setProfileData({...profileData, position: e.target.value})} placeholder="VD: Chỉ huy trưởng, Trợ lý Tuyển quân..." />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Số điện thoại liên hệ</label>
+                              <input type="tel" required className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-2 focus:ring-military-500 outline-none text-sm font-mono" value={profileData.phoneNumber} onChange={e => setProfileData({...profileData, phoneNumber: e.target.value})} placeholder="09xxxxxxxx" />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Địa chỉ Email</label>
+                              <input type="email" className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-2 focus:ring-military-500 outline-none text-sm" value={profileData.email} onChange={e => setProfileData({...profileData, email: e.target.value})} placeholder="canbo@gmail.com" />
+                          </div>
+                      </div>
+
+                      <div className="pt-6 border-t flex justify-end gap-3">
+                          <button type="button" onClick={() => setShowProfileModal(false)} className="px-5 py-2.5 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-md transition-all uppercase tracking-widest">Hủy bỏ</button>
+                          <button type="submit" className="px-7 py-2.5 bg-military-700 text-white rounded-md font-black hover:bg-military-800 shadow-xl transition-all flex items-center gap-2 transform active:scale-95 uppercase text-xs tracking-wider">
+                              <Check size={18}/> Lưu hồ sơ
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 animate-in fade-in duration-300 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden border border-gray-200">
+                <div className="bg-amber-600 p-5 text-white font-bold flex justify-between items-center">
+                    <h3 className="uppercase tracking-widest flex items-center gap-2 text-sm"><Key size={20}/> Đổi mật khẩu đăng nhập</h3>
+                    <button onClick={() => setShowPasswordModal(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                </div>
+                <div className="p-6">
+                    {changePassMsg ? (
+                        <div className="bg-green-50 text-green-700 font-bold py-10 text-center rounded-lg border border-green-200 animate-in zoom-in duration-300">
+                            <Check className="mx-auto mb-3 bg-green-500 text-white p-2 rounded-full" size={40}/> 
+                            <p className="text-sm uppercase tracking-wide">{changePassMsg}</p>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleChangePassword} className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-tight">Mật khẩu mới</label>
+                                <input type="password" required className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-2 focus:ring-amber-500 outline-none" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-tight">Nhập lại mật khẩu</label>
+                                <input type="password" required className="w-full border border-gray-300 p-2.5 rounded-md focus:ring-2 focus:ring-amber-500 outline-none" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                            </div>
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button type="button" onClick={() => setShowPasswordModal(false)} className="px-5 py-2 text-xs font-bold text-gray-500 uppercase tracking-widest hover:bg-gray-100 rounded-md">Hủy</button>
+                                <button type="submit" className="px-7 py-2 bg-amber-600 text-white rounded-md font-black shadow-lg transition-all hover:bg-amber-700 uppercase text-xs tracking-widest transform active:scale-95">Xác nhận</button>
+                            </div>
+                        </form>
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
+
+      {showSupportModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 animate-in fade-in duration-300 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 relative border border-gray-100">
+                <button onClick={() => setShowSupportModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors"><X size={20}/></button>
+                <div className="flex flex-col items-center text-center mb-8">
+                    <div className="p-4 bg-cyan-50 rounded-2xl text-cyan-600 mb-4 shadow-inner"><HelpCircle size={48}/></div>
+                    <h3 className="text-xl font-black text-military-800 uppercase tracking-tighter">Hỗ trợ kỹ thuật & Vận hành</h3>
+                    <p className="text-xs text-gray-500 mt-1 font-medium italic">Vui lòng liên hệ tác giả khi cần phê duyệt tài khoản hoặc gặp lỗi hệ thống</p>
+                </div>
+                <div className="space-y-4 mb-8 bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-4 border-b border-gray-200 pb-4">
+                        <div className="p-2 bg-military-800 rounded-lg text-amber-400"><Award size={24}/></div>
+                        <div className="text-left">
+                            <p className="text-[10px] uppercase font-black text-gray-400 tracking-widest">Chủ nhiệm đề tài / Tác giả</p>
+                            <p className="font-bold text-military-800 text-base">Đại úy Thới Hạ Sang</p>
+                        </div>
+                    </div>
+                    <div className="space-y-3 pt-2 text-left">
+                        <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-blue-100 rounded text-blue-700"><Phone size={16}/></div>
+                            <div>
+                                <p className="text-[9px] uppercase font-bold text-gray-400">Điện thoại / Zalo</p>
+                                <p className="font-black text-blue-800 text-base">0334 429 954</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="p-1.5 bg-red-100 rounded text-red-700"><Mail size={16}/></div>
+                            <div>
+                                <p className="text-[9px] uppercase font-bold text-gray-400">Địa chỉ Email</p>
+                                <p className="font-bold text-gray-700 text-sm">thoihasang@gmail.com</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button onClick={() => setShowSupportModal(false)} className="w-full py-3.5 bg-military-800 text-white rounded-xl font-black hover:bg-military-900 shadow-xl transition-all transform active:scale-95 uppercase text-xs tracking-widest">Đã hiểu</button>
+            </div>
+        </div>
       )}
     </div>
   );

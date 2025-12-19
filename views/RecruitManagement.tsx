@@ -9,7 +9,7 @@ import {
   ChevronRight, BookX, ArrowRightCircle,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
   HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
-  Calendar, UserPlus, Trash2, Copy, Import
+  Calendar, UserPlus, Trash2, Copy, Import, Landmark, MapPin
 } from 'lucide-react';
 
 interface RecruitManagementProps {
@@ -132,7 +132,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
   const isAdmin = user.role === 'ADMIN';
   const isProvinceAdmin = user.role === 'PROVINCE_ADMIN';
-  const isReadOnly = user.role === 'VIEWER' || isProvinceAdmin;
+  // UPDATE: ADMIN (Master Admin) is now READ ONLY in this view to oversee only.
+  const isReadOnly = user.role === 'VIEWER' || isProvinceAdmin || isAdmin;
+
+  // Commune list for Admin filters
+  const adminCommuneList = useMemo(() => {
+      if (!filterProvince) return [];
+      // @ts-ignore
+      const provinceData = LOCATION_DATA[filterProvince];
+      return provinceData ? Object.keys(provinceData) : [];
+  }, [filterProvince]);
 
   // Close advanced filter on outside click
   useEffect(() => {
@@ -213,7 +222,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                filtered = filtered.filter(r => r.address.province === user.unit.province);
           }
       } else {
-          // Admin filters
+          // Admin filters (Dynamic from UI selects)
           if (filterProvince) filtered = filtered.filter(r => r.address.province === filterProvince);
           if (filterCommune) filtered = filtered.filter(r => r.address.commune === filterCommune);
       }
@@ -361,8 +370,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   // Logic from List 3
                   if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
 
-                  // Logic from List 13 (Remaining >= 18)
-                  if (checkAge(r) < 18) return false;
+                  // Logic from List 13 (Remaining >= 18) - but using prev year status
+                  // Filter out excluded lists (1, 2) and Enlisted (11)
                   if (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || r.status === RecruitmentStatus.EXEMPT_REGISTRATION) return false;
                   if ((r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL') return false;
                   
@@ -713,7 +722,15 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const ALLOWED_ADD_TABS = ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL'];
 
   const renderActions = (recruit: Recruit) => {
-      if (isReadOnly) return null;
+      if (isReadOnly) {
+          return (
+              <div className="flex items-center justify-center gap-1">
+                  <button onClick={() => handleEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Xem chi tiết">
+                      <FileSignature size={16} />
+                  </button>
+              </div>
+          );
+      }
 
       switch (activeTabId) {
           case 'NOT_ALLOWED_REG': // List 1
@@ -1007,11 +1024,45 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       )}
                     </>
                   )}
+                  {isReadOnly && isAdmin && (
+                       <div className="bg-amber-50 px-3 py-1.5 rounded border border-amber-200 text-[11px] font-bold text-amber-700 flex items-center gap-2 uppercase">
+                           <Shield size={16}/> Chế độ giám sát (Chỉ xem)
+                       </div>
+                  )}
               </div>
           </div>
 
           {/* TOOLBAR: Filters */}
           <div className="p-3 border-b border-gray-200 bg-gray-50/50 flex flex-wrap gap-2 items-center">
+              {/* ADMIN SCOPE FILTERS */}
+              {isAdmin && (
+                  <div className="flex items-center gap-2 mr-2 border-r pr-2 border-gray-300">
+                      <div className="flex items-center gap-1">
+                          <Landmark size={14} className="text-military-600"/>
+                          <select 
+                            className="border border-gray-300 rounded px-2 py-1 text-xs bg-white w-32 font-bold"
+                            value={filterProvince}
+                            onChange={(e) => { setFilterProvince(e.target.value); setFilterCommune(''); }}
+                          >
+                              <option value="">-- Toàn quốc --</option>
+                              {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                      </div>
+                      <div className="flex items-center gap-1">
+                          <MapPin size={14} className="text-military-600"/>
+                          <select 
+                            className="border border-gray-300 rounded px-2 py-1 text-xs bg-white w-32 font-bold disabled:bg-gray-100"
+                            value={filterCommune}
+                            onChange={(e) => setFilterCommune(e.target.value)}
+                            disabled={!filterProvince}
+                          >
+                              <option value="">-- Toàn tỉnh --</option>
+                              {adminCommuneList.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                      </div>
+                  </div>
+              )}
+
               <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                   <input 
@@ -1090,7 +1141,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
               <button 
                 className="p-2 border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-500 transition-colors" 
                 title="Làm mới bộ lọc" 
-                onClick={() => {setSearchTerm(''); setFilterVillage(''); setFilterAgeRange(''); setAdvFilterEducation(''); setAdvFilterHealth(''); setAdvFilterPolitical('');}}
+                onClick={() => {setSearchTerm(''); setFilterVillage(''); setFilterAgeRange(''); setAdvFilterEducation(''); setAdvFilterHealth(''); setAdvFilterPolitical(''); if(isAdmin){setFilterProvince(''); setFilterCommune('');}}}
               >
                   <RefreshCw size={16} />
               </button>
@@ -1104,7 +1155,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                           <th className="p-3 border-b text-center w-12">STT</th>
                           <th className="p-3 border-b min-w-[200px]">Họ và tên / CCCD</th>
                           <th className="p-3 border-b text-center">Năm sinh</th>
-                          <th className="p-3 border-b">Địa chỉ (Thôn/Ấp)</th>
+                          <th className="p-3 border-b">Địa chỉ (Thôn/Ấp) {isAdmin && "/ Đơn vị"}</th>
                           <th className="p-3 border-b">Trình độ / Chính trị / SK</th>
                           <th className="p-3 border-b min-w-[150px]">Tình trạng / Lý do</th>
                           <th className="p-3 border-b text-right">Thao tác</th>
@@ -1113,7 +1164,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                   <tbody className="text-sm divide-y divide-gray-100">
                       {paginatedRecruits.length === 0 ? (
                           <tr>
-                              <td colSpan={7} className="p-8 text-center text-gray-500 italic">
+                              <td colSpan={isAdmin ? 8 : 7} className="p-8 text-center text-gray-500 italic">
                                   Không có dữ liệu phù hợp.
                               </td>
                           </tr>
@@ -1134,7 +1185,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                       </td>
                                       <td className="p-3">
                                           <div className="text-sm font-medium">{recruit.address.village}</div>
-                                          <div className="text-xs text-gray-500">{recruit.address.commune}</div>
+                                          <div className="text-xs text-gray-500">{recruit.address.commune} {isAdmin && `, ${recruit.address.province}`}</div>
                                       </td>
                                       <td className="p-3">
                                           <div className="flex flex-col gap-1">
@@ -1148,7 +1199,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                               </div>
                                               <div className="flex items-center gap-1 text-xs">
                                                   <HeartPulse size={12} className={recruit.physical.healthGrade === 1 ? 'text-green-600' : (recruit.physical.healthGrade || 0) >= 4 ? 'text-red-500' : 'text-amber-500'}/>
-                                                  {/* Allow Inline Edit for Health Grade if Active Tab is related to Health or Pre-Check/Med-Exam */}
+                                                  {/* Allow Inline Edit for Health Grade if Active Tab is related to Health or Pre-Check/Med-Exam AND NOT Read Only */}
                                                   {!isReadOnly && (activeTabId === 'PRE_CHECK' || activeTabId === 'MED_EXAM') ? (
                                                       <select 
                                                           className="border-none bg-transparent p-0 text-xs font-bold cursor-pointer focus:ring-0"
@@ -1169,7 +1220,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                                           <span className={`inline-block px-2 py-1 rounded text-xs font-bold border ${statusColor} mb-1`}>
                                               {getStatusLabel(recruit.status)}
                                           </span>
-                                          {/* Inline Edit for Reason (If deferred/exempt) */}
+                                          {/* Inline Edit for Reason (If deferred/exempt) AND NOT Read Only */}
                                           {(recruit.status === RecruitmentStatus.DEFERRED || recruit.status === RecruitmentStatus.EXEMPTED) && !isReadOnly ? (
                                               <div className="mt-1">
                                                   <select 

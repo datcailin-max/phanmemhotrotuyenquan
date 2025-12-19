@@ -21,20 +21,20 @@ export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER' | 'PROVINCE_ADMIN';
 
 export interface User {
   username: string;
-  fullName: string; // Tên hiển thị (thường là đơn vị)
-  personalName?: string; // Họ và tên người đăng ký
+  fullName: string; // Tên đơn vị (VD: Ban CHQS Xã Mỹ Hòa Hưng)
+  personalName?: string; // Họ và tên cán bộ
+  rank?: string; // Cấp bậc
   position?: string; // Chức vụ
-  phoneNumber?: string; // Số điện thoại
+  email?: string; // Email
+  phoneNumber?: string; // Số điện thoại cán bộ
   password?: string;
   role: UserRole;
   unit: {
     province: string;
-    commune: string; // Nếu là cấp Tỉnh thì commune để trống
+    commune: string;
   };
-  pendingPassword?: string; // Mật khẩu mới đang chờ duyệt (Đổi MK)
-  resetRequested?: boolean; // Yêu cầu cấp lại mật khẩu (Quên MK)
-  isLocked?: boolean; // Vô hiệu hóa nhập dữ liệu
-  isApproved?: boolean; // Đã được Admin duyệt hay chưa
+  isLocked?: boolean; // Mặc định true cho tài khoản mới
+  isApproved?: boolean;
 }
 
 export interface Feedback {
@@ -44,75 +44,75 @@ export interface Feedback {
     content: string;
     timestamp: number;
     isRead: boolean;
-    reply?: string; // Nội dung trả lời của Admin
-    replyTimestamp?: number; // Thời gian trả lời
+    reply?: string;
+    replyTimestamp?: number;
 }
 
 export interface FamilyMember {
   fullName: string;
-  birthYear?: string; // Năm sinh
-  job: string; // Nhập tay
+  birthYear?: string;
+  job: string;
   phoneNumber: string;
 }
 
 export interface RecruitAttachment {
   name: string;
-  url: string; // Base64 string
-  type: string; // 'application/pdf'
+  url: string;
+  type: string;
   uploadDate: string;
 }
 
 export interface Recruit {
   id: string;
-  citizenId: string; // Số CCCD
+  citizenId: string;
   fullName: string;
   dob: string;
-  phoneNumber: string; // Số điện thoại thanh niên
+  phoneNumber: string;
   avatarUrl?: string;
   address: {
-    province: string; // Tỉnh/Thành phố
-    commune: string; // Xã/Phường
-    village: string; // Thôn/Ấp
-    street?: string; // Số nhà, đường (tùy chọn)
+    province: string;
+    commune: string;
+    village: string;
+    street?: string;
   };
   hometown: {
-    province: string; // Tỉnh/Thành phố
-    commune: string; // Xã/Phường
-    village: string; // Thôn/Ấp
+    province: string;
+    commune: string;
+    village: string;
   };
   physical: {
-    height: number; // cm
-    weight: number; // kg
+    height: number;
+    weight: number;
     bmi: number;
-    healthGrade?: number; // 1, 2, 3, 4 (Phân loại sức khỏe)
+    healthGrade?: number;
   };
   details: {
-    education: string; // Trình độ học vấn
-    educationPeriod?: string; // Niên khóa (ví dụ: 2020-2022)
-    ethnicity: string; // Dân tộc
-    religion: string; // Tôn giáo
-    maritalStatus: string; // Tình trạng hôn nhân
-    job: string; // Công việc
-    politicalStatus: 'None' | 'Doan_Vien' | 'Dang_Vien'; // Đổi Quan_Chung thành None
-    partyEntryDate?: string; // Ngày vào đảng (nếu là đảng viên)
-    gifted?: string; // Năng khiếu (Mới thêm)
+    education: string;
+    educationPeriod?: string;
+    ethnicity: string;
+    religion: string;
+    maritalStatus: string;
+    job: string;
+    politicalStatus: 'None' | 'Doan_Vien' | 'Dang_Vien';
+    partyEntryDate?: string;
+    gifted?: string;
   };
   family: {
     father: FamilyMember;
     mother: FamilyMember;
     wife?: FamilyMember;
-    children?: string; // Thông tin về con
+    children?: string;
   };
   status: RecruitmentStatus;
-  previousStatus?: RecruitmentStatus; // Trạng thái trước khi chuyển (để khôi phục)
-  previousDefermentReason?: string; // Lý do trước khi chuyển
-  defermentReason?: string; // Lý do tạm hoãn, miễn HOẶC lý do không đạt sức khỏe
-  defermentProof?: string; // Văn bản chứng minh (cho lý do chính sách)
-  enlistmentUnit?: string; // Đơn vị nhập ngũ (khi đã chốt)
-  enlistmentDate?: string; // Ngày nhập ngũ
-  enlistmentType?: 'OFFICIAL' | 'RESERVE'; // 'OFFICIAL': Chính thức, 'RESERVE': Dự bị
+  previousStatus?: RecruitmentStatus;
+  previousDefermentReason?: string;
+  defermentReason?: string;
+  defermentProof?: string;
+  enlistmentUnit?: string;
+  enlistmentDate?: string;
+  enlistmentType?: 'OFFICIAL' | 'RESERVE';
   recruitmentYear: number;
-  attachments?: RecruitAttachment[]; // Giấy tờ kèm theo (PDF)
+  attachments?: RecruitAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -132,11 +132,11 @@ export interface FilterState {
 export interface ResearchDocument {
   id: string;
   title: string;
-  description?: string; // Mô tả/Trích yếu văn bản
-  url: string; // Trong thực tế là link file, ở demo có thể là mock url
+  description?: string;
+  url: string;
   uploadDate: string;
   fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER';
-  category?: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC'; // Phân loại văn bản
+  category?: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC';
 }
 
 export interface ChatMessage {

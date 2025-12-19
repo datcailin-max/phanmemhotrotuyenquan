@@ -13,18 +13,26 @@ export const removeVietnameseTones = (str: string) => {
     str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
     str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
     str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
-    str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+    str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
     str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
     str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
     str = str.replace(/Đ/g, "D");
     return str;
 }
 
+// Hàm tạo username chuẩn hóa từ đơn vị
+export const generateUnitUsername = (province: string, commune: string, type: '1' | '2' | 'PROVINCE') => {
+    if (type === 'PROVINCE') {
+        const p = removeVietnameseTones(province).toUpperCase().replace(/\s+/g, '');
+        return `TINH_${p}`;
+    }
+    const c = removeVietnameseTones(commune).toUpperCase().replace(/\s+/g, '');
+    return `${c}_${type}`;
+}
+
 // --- DỮ LIỆU THÔ ---
-// ... (Keep existing RAW_COMMUNE_DATA content - shortened for brevity in response but full content is assumed present)
 const RAW_COMMUNE_DATA: Record<string, string[]> = {
-    // ... (All existing provinces - assuming existing full data here)
-          "Tuyên Quang": [
+    "Tuyên Quang": [
         "Phường An Tường", "Phường Bình Thuận", "Phường Hà Giang 1", "Phường Hà Giang 2", "Phường Minh Xuân", "Phường Mỹ Lâm", "Phường Nông Tiến",
         "Xã Bạch Đích", "Xã Bạch Ngọc", "Xã Bạch Xa", "Xã Bản Máy", "Xã Bắc Mê", "Xã Bắc Quang", "Xã Bằng Hành", "Xã Bằng Lang", "Xã Bình An",
         "Xã Bình Ca", "Xã Bình Xa", "Xã Cán Tỷ", "Xã Cao Bồ", "Xã Chiêm Hóa", "Xã Côn Lôn", "Xã Du Già", "Xã Đồng Tâm", "Xã Đông Thọ", "Xã Đồng Văn",
@@ -104,7 +112,7 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Xã Mường Sại", "Xã Thuận Châu", "Xã Chiềng La", "Xã Nậm Lầu", "Xã Muổi Nọi", "Xã Mường Khiêng", "Xã Co Mạ", "Xã Bình Thuận", "Xã Mường É", "Xã Long Hẹ",
         "Xã Mường La", "Xã Chiềng Lao", "Xã Mường Bú", "Xã Chiềng Hoa", "Xã Bắc Yên", "Xã Tà Xùa", "Xã Tạ Khoa", "Xã Xím Vàng", "Xã Pắc Ngà", "Xã Chiềng Sại",
         "Xã Phù Yên", "Xã Gia Phù", "Xã Tường Hạ", "Xã Mường Cơi", "Xã Mường Bang", "Xã Tân Phong", "Xã Kim Bon", "Xã Yên Châu", "Xã Chiềng Hặc", "Xã Lóng Phiêng",
-        "Xã Yên Sơn", "Xã Chiềng Mai", "Xã Mai Sơn", "Xã Phiêng Pằn", "Xã Chiềng Mung", "Xã Phiêng Cằm", "Xã Mường Chanh", "Xã Tà Hộc", "Xã Chiềng Sung", "Xã Bó Sinh",
+        "Xã Yên Sơn", "Xã Chiềng Mai", "Xã Mai Sơn", "Xã Phiêng Pằn", "Xã Chiềng Mung", "Xã Phiêng Cằm", "Xã Mường Chanh", "Xã Tà Hộc", "Xã Chiềng Sung", "Xó Sinh",
         "Xã Chiềng Khương", "Xã Mường Hung", "Xã Chiềng Khoong", "Xã Mường Lầm", "Xã Nậm Ty", "Xã Sông Mã", "Xã Huổi Một", "Xã Chiềng Sơ", "Xã Sốp Cộp",
         "Xã Púng Bánh", "Xã Mường Lạn", "Xã Phiêng Khoài", "Xã Suối Tọ", "Xã Ngọc Chiến", "Xã Tân Yên", "Xã Mường Bám", "Xã Mường Lèo"
     ],
@@ -463,7 +471,7 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Đông Hải", "Long Vĩnh", "Hòa Minh"
     ],
     "Thành phố Cần Thơ": [
-        "Phường Ninh Kiều", "Phường Cái Khế", "Phường Tân An", "Phường An Bình", "Phường Thới An Đông", "Phường Bình Thủy", "Phường Long Tuyền",
+        "Phường Ninh Kiều", "Phường Cái Khế", "Phường Tân An", "Phường An Bình", "Phường Thới An Đông", "Phường Bình Thuỷ", "Phường Long Tuyền",
         "Phường Cái Răng", "Phường Hưng Phú", "Phường Ô Môn", "Phường Phước Thới", "Phường Thới Long", "Phường Trung Nhứt", "Phường Thuận Hưng",
         "Phường Thốt Nốt", "Phường Vị Thanh", "Phường Vị Tân", "Phường Long Bình", "Phường Long Mỹ", "Phường Long Phú 1", "Phường Đại Thành",
         "Phường Ngã Bảy", "Phường Phú Lợi", "Phường Sóc Trăng", "Phường Mỹ Xuyên", "Phường Vĩnh Phước", "Phường Vĩnh Châu", "Phường Khánh Hòa",
@@ -492,7 +500,6 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
 
 // ... (Rest of LOCATION_DATA setup)
 export const LOCATION_DATA: Record<string, Record<string, string[]>> = {};
-// @ts-ignore
 if (typeof RAW_COMMUNE_DATA !== 'undefined') {
     Object.keys(RAW_COMMUNE_DATA).forEach(province => {
         LOCATION_DATA[province] = {};
@@ -597,21 +604,12 @@ export const INITIAL_RECRUITS: any[] = [];
 export const MOCK_USERS: User[] = [
     {
         username: 'ADMIN',
-        fullName: 'Ban CHQS Huyện (Admin)',
+        fullName: 'Người phát triển (Master Admin)',
+        personalName: 'Quản trị viên Hệ thống',
         password: '1',
         role: 'ADMIN',
         unit: { province: '', commune: '' },
-        isApproved: true
-    },
-    {
-        username: 'THUNGHIEM',
-        fullName: 'Ban CHQS Phường Thử Nghiệm',
-        password: '1235',
-        role: 'EDITOR',
-        personalName: 'Tài khoản dùng thử',
-        position: 'Cán bộ',
-        phoneNumber: '0000000000',
-        unit: { province: 'Tỉnh THUNGHIEM', commune: 'Phường THUNGHIEM' }, // Updated for Test Account
-        isApproved: true
+        isApproved: true,
+        isLocked: false
     }
 ];
