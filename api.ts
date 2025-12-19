@@ -1,5 +1,5 @@
 
-import { Recruit, User, ResearchDocument, Feedback } from './types';
+import { Recruit, User, ResearchDocument, Feedback, UnitReport, ProvincialDispatch } from './types';
 
 const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
@@ -61,5 +61,30 @@ export const api = {
   },
   deleteFeedback: async (id: string) => {
     try { await fetch(`${API_URL}/feedbacks/${id}`, { method: 'DELETE' }); return true; } catch { return false; }
+  },
+
+  // --- REPORTS (XÃ GỬI TỈNH) ---
+  getReports: async (params: { province?: string, username?: string, year?: number }): Promise<UnitReport[]> => {
+    const query = new URLSearchParams(params as any).toString();
+    try { const res = await fetch(`${API_URL}/reports?${query}`); return await res.json(); } catch { return []; }
+  },
+  sendReport: async (d: any) => {
+    try { const res = await fetch(`${API_URL}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+  },
+  deleteReport: async (id: string) => {
+    try { const res = await fetch(`${API_URL}/reports/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
+  },
+
+  // --- DISPATCHES (TỈNH GỬI XÃ) ---
+  getDispatches: async (params: { province?: string, username?: string, year?: number }): Promise<ProvincialDispatch[]> => {
+    const query = new URLSearchParams(params as any).toString();
+    try { const res = await fetch(`${API_URL}/dispatches?${query}`); return await res.json(); } catch { return []; }
+  },
+  sendDispatch: async (d: any) => {
+    try { const res = await fetch(`${API_URL}/dispatches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+  },
+  deleteDispatch: async (id: string) => {
+    // Fixed: Added const res = await fetch(...) before res.ok check
+    try { const res = await fetch(`${API_URL}/dispatches/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   }
 };

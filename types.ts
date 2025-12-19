@@ -37,7 +37,6 @@ export interface User {
   isApproved?: boolean;
 }
 
-// Added category property to match database schema and resolve UI rendering errors
 export interface Feedback {
     id: string;
     username: string;
@@ -121,18 +120,6 @@ export interface Recruit {
   updatedAt?: string;
 }
 
-export interface FilterState {
-  search: string;
-  commune: string;
-  village: string;
-  education: string;
-  year: number;
-  ethnicity: string;
-  religion: string;
-  maritalStatus: string;
-  age: string;
-}
-
 export interface ResearchDocument {
   id: string;
   title: string;
@@ -143,9 +130,26 @@ export interface ResearchDocument {
   category?: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC';
 }
 
-export interface ChatMessage {
+// Mới: Báo cáo từ xã lên tỉnh
+export interface UnitReport {
     id: string;
-    role: 'user' | 'model';
-    text: string;
+    senderUsername: string;
+    senderUnitName: string;
+    targetProvince: string;
+    title: string;
+    url: string;
+    year: number;
+    timestamp: number;
+}
+
+// Mới: Văn bản từ tỉnh xuống xã
+export interface ProvincialDispatch {
+    id: string;
+    senderUsername: string;
+    senderProvince: string;
+    title: string;
+    url: string;
+    recipients: string[]; // Danh sách username xã nhận, hoặc ['ALL']
+    year: number;
     timestamp: number;
 }
