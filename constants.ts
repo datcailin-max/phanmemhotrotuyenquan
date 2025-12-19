@@ -3,6 +3,7 @@ import { Recruit, RecruitmentStatus, User } from './types';
 
 // Helper để loại bỏ dấu tiếng Việt (dùng cho tạo username/search)
 export const removeVietnameseTones = (str: string) => {
+    if (!str) return '';
     str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a"); 
     str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e"); 
     str = str.replace(/ì|í|ị|ỉ|ĩ/g,"i"); 
@@ -20,14 +21,15 @@ export const removeVietnameseTones = (str: string) => {
     return str;
 }
 
-// Hàm tạo username chuẩn hóa từ đơn vị
+// Hàm tạo username chuẩn hóa từ đơn vị - CẬP NHẬT: Thêm tiền tố Tỉnh để đảm bảo tính duy nhất
 export const generateUnitUsername = (province: string, commune: string, type: '1' | '2' | 'PROVINCE') => {
+    const pCode = removeVietnameseTones(province).toUpperCase().replace(/\s+/g, '');
     if (type === 'PROVINCE') {
-        const p = removeVietnameseTones(province).toUpperCase().replace(/\s+/g, '');
-        return `TINH_${p}`;
+        return `TINH_${pCode}`;
     }
-    const c = removeVietnameseTones(commune).toUpperCase().replace(/\s+/g, '');
-    return `${c}_${type}`;
+    const cCode = removeVietnameseTones(commune).toUpperCase().replace(/\s+/g, '');
+    // Định dạng: [TỈNH]_[XÃ]_[LOẠI]
+    return `${pCode}_${cCode}_${type}`;
 }
 
 // --- DỮ LIỆU THÔ ---
@@ -234,7 +236,7 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Xã Hoằng Tiến", "Xã Hoằng Thanh", "Xã Hoằng Lộc", "Xã Hoằng Châu", "Xã Hoằng Sơn", "Xã Hoằng Phú", "Xã Hoằng Giang", "Xã Lưu Vệ", "Xã Quảng Yên",
         "Xã Quảng Ngọc", "Xã Quảng Ninh", "Xã Quảng Bình", "Xã Tiên Trang", "Xã Quảng Chính", "Xã Nông Cống", "Xã Thắng Lợi", "Xã Trung Chính", "Xã Trường Văn",
         "Xã Thăng Bình", "Xã Tượng Lĩnh", "Xã Công Chính", "Xã Thiệu Hóa", "Xã Thiệu Quang", "Xã Thiệu Tiến", "Xã Thiệu Toán", "Xã Thiệu Trung", "Xã Yên Định",
-        "Xã Yên Trường", "Xã Yên Phú", "Xã Quý Lộc", "Xã Yên Ninh", "Xã Định Tân", "Xã Định Hòa", "Xã Thọ Xuân", "Xã Thọ Long", "Xã Xuân Hòa", "Xã Sao Vàng",
+        "Xã Yên Trường", "Xã Yên Phú", "Xã Quý Lộc", "Xã Yên Ninh", "Xã Định Tân", "Xã Định Hòa", "Xọ Xuân", "Xã Thọ Long", "Xã Xuân Hòa", "Xã Sao Vàng",
         "Xã Lam Sơn", "Xã Thọ Lập", "Xã Xuân Tín", "Xã Xuân Lập", "Xã Vĩnh Lộc", "Xã Tây Đô", "Xã Biện Thượng", "Xã Triệu Sơn", "Xã Thọ Bình", "Xã Thọ Ngọc",
         "Xã Thọ Phú", "Xã Hợp Tiến", "Xã An Nông", "Xã Tân Ninh", "Xã Đồng Tiến", "Xã Hồi Xuân", "Xã Nam Xuân", "Xã Thiên Phủ", "Xã Hiền Kiệt", "Xã Phú Lệ",
         "Xã Trung Thành", "Xã Tam Lư", "Xã Quan Sơn", "Xã Trung Hạ", "Xã Linh Sơn", "Xã Đồng Lương", "Xã Văn Phú", "Xã Giao An", "Xã Bá Thước", "Xã Thiết Ống",
@@ -364,15 +366,15 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Phường 1 - Bảo Lộc", "Phường 2 - Bảo Lộc", "Phường 3 - Bảo Lộc", "Phường B’Lao", "Phường Hàm Thắng", "Phường Bình Thuận", "Phường Mũi Né",
         "Phường Phú Thủy", "Phường Phan Thiết", "Phường Tiến Thành", "Phường La Gi", "Phường Phước Hội", "Phường Bắc Gia Nghĩa", "Phường Nam Gia Nghĩa",
         "Phường Đông Gia Nghĩa",
-        "Lạc Dương", "Đơn Dương", "Ka Đô", "Quảng Lập", "D’Ran", "Hiệp Thạnh", "Đức Trọng", "Tân Hội", "Tà Hine", "Tà Năng", "Đinh Văn Lâm Hà", "Phú Sơn Lâm Hà",
-        "Nam Hà Lâm Hà", "Nam Ban Lâm Hà", "Tân Hà Lâm Hà", "Phúc Thọ Lâm Hà", "Đam Rông 1", "Đam Rông 2", "Đam Rông 3", "Đam Rông 4", "Di Linh", "Hòa Ninh",
-        "Hòa Bắc", "Đinh Trang Thượng", "Bảo Thuận", "Sơn Điền", "Gia Hiệp", "Bảo Lâm 1", "Bảo Lâm 2", "Bảo Lâm 3", "Bảo Lâm 4", "Bảo Lâm 5", "Đạ Huoai",
-        "Đạ Huoai 2", "Đạ Tẻh", "Đạ Tẻh 2", "Đạ Tẻh 3", "Cát Tiên", "Cát Tiên 2", "Cát Tiên 3", "Vĩnh Hảo", "Liên Hương", "Tuy Phong", "Phan Rí Cửa",
-        "Bắc Bình", "Hồng Thái", "Hải Ninh", "Phan Sơn", "Sông Lũy", "Lương Sơn", "Hòa Thắng", "Đông Giang", "La Dạ", "Hàm Thuận Bắc", "Hàm Thuận", "Hồng Sơn",
-        "Hàm Liêm", "Tuyên Quang", "Hàm Thạnh", "Hàm Kiệm", "Tân Thành", "Hàm Thuận Nam", "Tân Lập", "Tân Minh", "Hàm Tân", "Sơn Mỹ", "Tân Hải", "Nghị Đức",
-        "Bắc Ruộng", "Đồng Kho", "Tánh Linh", "Suối Kiết", "Nam Thành", "Đức Linh", "Hoài Đức", "Trà Tân", "Đắk Wil", "Nam Dong", "Cư Jút", "Thuận An", "Đức Lập",
-        "Đắk Mil", "Đắk Sắk", "Nam Đà", "Krông Nô", "Nâm Nung", "Quảng Phú", "Đắk Song", "Đức An", "Thuận Hạnh", "Trường Xuân", "Tà Đùng", "Quảng Khê",
-        "Quảng Tân", "Tuy Đức", "Kiến Đức", "Nhân Cơ", "Quảng Tín", "Đặc khu Phú Quý", "Đạ Huoai 3", "Xã Quảng Hòa", "Xã Quảng Sơn", "Xã Quảng Trực",
+        "Xã Lạc Dương", "Xã Đơn Dương", "Xã Ka Đô", "Xã Quảng Lập", "Xã D’Ran", "Xã Hiệp Thạnh", "Xã Đức Trọng", "Xã Tân Hội", "Xã Tà Hine", "Xã Tà Năng", "Xã Đinh Văn Lâm Hà", "Xã Phú Sơn Lâm Hà",
+        "Xã Nam Hà Lâm Hà", "Xã Nam Ban Lâm Hà", "Xã Tân Hà Lâm Hà", "Xã Phúc Thọ Lâm Hà", "Xã Đam Rông 1", "Xã Đam Rông 2", "Xã Đam Rông 3", "Xã Đam Rông 4", "Xã Di Linh", "Xã Hòa Ninh",
+        "Xã Hòa Bắc", "Xã Đinh Trang Thượng", "Xã Bảo Thuận", "Xã Sơn Điền", "Xã Gia Hiệp", "Xã Bảo Lâm 1", "Xã Bảo Lâm 2", "Xã Bảo Lâm 3", "Xã Bảo Lâm 4", "Xã Bảo Lâm 5", "Xã Đạ Huoai",
+        "Xã Đạ Huoai 2", "Xã Đạ Tẻh", "Xã Đạ Tẻh 2", "Xã Đạ Tẻh 3", "Xã Cát Tiên", "Xã Cát Tiên 2", "Xã Cát Tiên 3", "Xã Vĩnh Hảo", "Xã Liên Hương", "Xã Tuy Phong", "Xã Phan Rí Cửa",
+        "Xã Bắc Bình", "Xã Hồng Thái", "Xã Hải Ninh", "Xã Phan Sơn", "Xã Sông Lũy", "Xã Lương Sơn", "Xã Hòa Thắng", "Xã Đông Giang", "Xã La Dạ", "Xã Hàm Thuận Bắc", "Xã Hàm Thuận", "Xã Hồng Sơn",
+        "Xã Hàm Liêm", "Xã Tuyên Quang", "Xã Hàm Thạnh", "Xã Hàm Kiệm", "Xã Tân Thành", "Xã Hàm Thuận Nam", "Xã Tân Lập", "Xã Tân Minh", "Xã Hàm Tân", "Xã Sơn Mỹ", "Xã Tân Hải", "Xã Nghị Đức",
+        "Xã Bắc Ruộng", "Xã Đồng Kho", "Xã Tánh Linh", "Xã Suối Kiết", "Xã Nam Thành", "Xã Đức Linh", "Xã Hoài Đức", "Xã Trà Tân", "Xã Đắk Wil", "Xã Nam Dong", "Xã Cư Jút", "Xã Thuận An", "Xã Đức Lập",
+        "Xã Đắk Mil", "Xã Đắk Sắk", "Xã Nam Đà", "Xã Krông Nô", "Xã Nâm Nung", "Xã Quảng Phú", "Xã Đắk Song", "Xã Đức An", "Xã Thuận Hạnh", "Xã Trường Xuân", "Xã Tà Đùng", "Xã Quảng Khê",
+        "Xã Quảng Tân", "Xã Tuy Đức", "Xã Kiến Đức", "Xã Nhân Cơ", "Xã Quảng Tín", "Đặc khu Phú Quý", "Xã Đạ Huoai 3", "Xã Quảng Hòa", "Xã Quảng Sơn", "Xã Quảng Trực",
         "Xã Ninh Gia"
     ],
     "Đồng Nai": [
@@ -418,7 +420,7 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Phường Long Nguyên", "Phường Bến Cát", "Phường Chánh Phú Hòa", "Phường Vĩnh Tân", "Phường Bình Cơ", "Phường Tân Uyên", "Phường Tân Hiệp",
         "Phường Tân Khánh", "Phường Vũng Tàu", "Phường Tam Thắng", "Phường Rạch Dừa", "Phường Phước Thắng", "Phường Long Hương", "Phường Bà Rịa",
         "Phường Tam Long", "Phường Tân Hải", "Phường Tân Phước", "Phường Phú Mỹ", "Phường Tân Thành", "Phường Thới Hòa",
-        "Xã Vĩnh Lộc", "Xã Tân Vĩnh Lộc", "Xã Bình Lợi", "Xã Tân Nhựt", "Xã Bình Chánh", "Xã Hưng Long", "Xã Bình Hưng", "Xã Bình Khánh", "Xã An Thới Đông",
+        "Xã Vĩnh Lộc", "Xã Tân Vĩnh Lộc", "Xã Bình Lợi", "Xã Tân Nhựt", "Xã Bình Ch Chánh", "Xã Hưng Long", "Xã Bình Hưng", "Xã Bình Khánh", "Xã An Thới Đông",
         "Xã Cần Giờ", "Xã Củ Chi", "Xã Tân An Hội", "Xã Thái Mỹ", "Xã An Nhơn Tây", "Xã Nhuận Đức", "Xã Phú Hòa Đông", "Xã Bình Mỹ", "Xã Đông Thạnh",
         "Xã Hóc Môn", "Xã Xuân Thới Sơn", "Xã Bà Điểm", "Xã Nhà Bè", "Xã Hiệp Phước", "Xã Thường Tân", "Xã Bắc Tân Uyên", "Xã Phú Giáo", "Xã Phước Hòa",
         "Xã Phước Thành", "Xã An Long", "Xã Trừ Văn Thố", "Xã Bàu Bàng", "Xã Long Hòa", "Xã Thanh An", "Xã Dầu Tiếng", "Xã Minh Thạnh", "Xã Châu Pha",

@@ -7,7 +7,7 @@ import {
   Award, Briefcase, User as UserIcon, Settings, UserCircle, AlertTriangle, Info, CheckCircle2
 } from 'lucide-react';
 import { Recruit, User, ResearchDocument, RecruitmentStatus, Feedback } from './types';
-import { MOCK_USERS, LOCATION_DATA, PROVINCES_VN, generateUnitUsername } from './constants';
+import { MOCK_USERS, LOCATION_DATA, PROVINCES_VN, generateUnitUsername, removeVietnameseTones } from './constants';
 import Dashboard from './views/Dashboard';
 import RecruitManagement from './views/RecruitManagement';
 import Login from './views/Login';
@@ -137,12 +137,14 @@ function App() {
           const activeMap = new Map();
           allActiveUsers.forEach(u => activeMap.set(u.username, u));
 
+          // 1. Tài khoản cấp Tỉnh
           PROVINCES_VN.forEach(p => {
               const uName = generateUnitUsername(p, '', 'PROVINCE');
               if (activeMap.has(uName)) accounts.push(activeMap.get(uName));
               else accounts.push({ username: uName, password: '1', fullName: `Bộ CHQS Tỉnh ${p}`, role: 'PROVINCE_ADMIN', unit: { province: p, commune: '' }, isLocked: true });
           });
 
+          // 2. Tài khoản cấp Xã
           Object.keys(LOCATION_DATA).forEach(p => {
               // @ts-ignore
               Object.keys(LOCATION_DATA[p]).forEach(c => {
@@ -155,16 +157,34 @@ function App() {
           });
 
           let filtered = accounts;
-          if (adminProvinceFilter) filtered = filtered.filter(a => a.unit.province === adminProvinceFilter);
-          if (adminSearch) {
-              const s = adminSearch.toLowerCase();
-              filtered = filtered.filter(a => 
-                a.username.toLowerCase().includes(s) || 
-                a.fullName.toLowerCase().includes(s) || 
-                (a.personalName && a.personalName.toLowerCase().includes(s))
-              );
+          
+          // Lọc theo tỉnh
+          if (adminProvinceFilter) {
+              filtered = filtered.filter(a => a.unit.province === adminProvinceFilter);
           }
-          return filtered;
+          
+          // Lọc theo từ khóa tìm kiếm (Sửa lỗi tìm kiếm)
+          if (adminSearch) {
+              const s = removeVietnameseTones(adminSearch.toLowerCase());
+              filtered = filtered.filter(a => {
+                  const uName = a.username.toLowerCase();
+                  const fName = removeVietnameseTones(a.fullName.toLowerCase());
+                  const pName = a.personalName ? removeVietnameseTones(a.personalName.toLowerCase()) : '';
+                  return uName.includes(s) || fName.includes(s) || pName.includes(s);
+              });
+          }
+
+          // CHỐNG TRÙNG LẶP: Đảm bảo mỗi username chỉ xuất hiện 1 lần duy nhất trong danh sách hiển thị
+          const uniqueAccounts: User[] = [];
+          const seenUsernames = new Set();
+          filtered.forEach(acc => {
+              if (!seenUsernames.has(acc.username)) {
+                  uniqueAccounts.push(acc);
+                  seenUsernames.add(acc.username);
+              }
+          });
+
+          return uniqueAccounts;
       }, [allActiveUsers, adminProvinceFilter, adminSearch]);
 
       const adminStats = useMemo(() => {
@@ -181,7 +201,8 @@ function App() {
           if (idx !== -1) {
               users[idx].isLocked = !u.isLocked;
           } else {
-              users.push({ ...u, isLocked: false }); 
+              // Nếu chưa có trong DB local, thêm mới với trạng thái ngược lại của u hiện tại
+              users.push({ ...u, isLocked: !u.isLocked }); 
           }
           localStorage.setItem('military_users', JSON.stringify(users));
           refreshUsers();
@@ -244,7 +265,13 @@ function App() {
                     <div className="flex flex-wrap gap-3 mb-6 items-center bg-gray-50 p-4 rounded-lg border border-gray-100">
                         <div className="relative flex-1 min-w-[300px]">
                             <Search className="absolute left-3 top-2.5 text-gray-400" size={16}/>
-                            <input type="text" className="w-full pl-10 pr-4 py-2 border rounded-md text-sm bg-white" placeholder="Tìm tên đơn vị, tên cán bộ hoặc username..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)} />
+                            <input 
+                                type="text" 
+                                className="w-full pl-10 pr-4 py-2 border rounded-md text-sm bg-white focus:ring-2 focus:ring-military-500 outline-none" 
+                                placeholder="Tìm tên đơn vị, tên cán bộ hoặc username..." 
+                                value={adminSearch} 
+                                onChange={e => setAdminSearch(e.target.value)} 
+                            />
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-gray-500 uppercase">Lọc theo:</span>
@@ -253,6 +280,13 @@ function App() {
                                 {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
                         </div>
+                        <button 
+                            onClick={() => { setAdminSearch(''); setAdminProvinceFilter(''); }}
+                            className="p-2 text-gray-500 hover:bg-gray-200 rounded-md transition-colors"
+                            title="Làm mới bộ lọc"
+                        >
+                            <RefreshCw size={18}/>
+                        </button>
                     </div>
 
                     <div className="overflow-x-auto border rounded-xl max-h-[650px] overflow-y-auto custom-scrollbar shadow-inner">
@@ -266,7 +300,7 @@ function App() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 bg-white">
-                                {allPossibleUnitAccounts.slice(0, 300).map(u => (
+                                {allPossibleUnitAccounts.slice(0, 500).map(u => (
                                     <tr key={u.username} className={`hover:bg-military-50 transition-colors ${u.isLocked ? 'bg-red-50/20' : ''}`}>
                                         <td className="p-4">
                                             <div className="font-bold text-military-800 text-sm leading-snug">{u.fullName}</div>
@@ -329,7 +363,7 @@ function App() {
                                 ))}
                             </tbody>
                         </table>
-                        {allPossibleUnitAccounts.length > 300 && <div className="p-6 text-center text-gray-400 italic text-xs bg-gray-50 border-t">Chỉ hiển thị 300 kết quả đầu tiên. Vui lòng sử dụng bộ lọc Tỉnh/Thành hoặc Ô tìm kiếm.</div>}
+                        {allPossibleUnitAccounts.length > 500 && <div className="p-6 text-center text-gray-400 italic text-xs bg-gray-50 border-t">Chỉ hiển thị 500 kết quả đầu tiên. Vui lòng sử dụng bộ lọc Tỉnh/Thành hoặc Ô tìm kiếm.</div>}
                     </div>
               </div>
           </div>
