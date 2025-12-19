@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
 import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, POLICY_DEFERMENT_REASONS, NOT_ALLOWED_REGISTRATION_REASONS, EXEMPT_REGISTRATION_REASONS } from '../constants';
@@ -159,7 +160,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     }
   }, [initialData, sessionYear, initialStatus]);
 
-  // ... (Rest of useEffects and helpers - keep them as they are)
   useEffect(() => {
       function handleClickOutside(event: MouseEvent) {
           if (communeWrapperRef.current && !communeWrapperRef.current.contains(event.target as Node)) {
@@ -228,7 +228,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
 
           if (isBadBMI && AUTO_DEFER_ALLOWED_STATUSES.includes(prev.status)) {
               newStatus = RecruitmentStatus.DEFERRED;
-              // Nếu lý do chưa được set hoặc là lý do BMI cũ, thì update về lý do chuẩn số 1
               if (!newReason || newReason.includes("BMI")) {
                    newReason = LEGAL_DEFERMENT_REASONS[0]; 
               }
@@ -248,32 +247,46 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     }
   }, [formData.physical.height, formData.physical.weight]);
 
+  // MỚI: TỰ ĐỘNG CHUYỂN TẠM HOÃN NẾU HỌC VẤN DƯỚI LỚP 8
+  useEffect(() => {
+      const isLowEdu = LOW_EDUCATION_GRADES.includes(formData.details.education);
+      if (isLowEdu) {
+          setFormData(prev => {
+              if (prev.status !== RecruitmentStatus.DEFERRED || prev.defermentReason !== LEGAL_DEFERMENT_REASONS[8]) {
+                  return {
+                      ...prev,
+                      status: RecruitmentStatus.DEFERRED,
+                      defermentReason: LEGAL_DEFERMENT_REASONS[8] // Lý do số 9: Học vấn thấp
+                  };
+              }
+              return prev;
+          });
+      }
+  }, [formData.details.education]);
+
   // LOGIC TỰ ĐỘNG XÉT HOÃN/NGUỒN DỰA TRÊN NIÊN KHÓA
   useEffect(() => {
       const isStudyingHigherEd = formData.details.education === 'Đang học CĐ' || formData.details.education === 'Đang học ĐH';
       if (isStudyingHigherEd && formData.details.educationPeriod) {
-          // Parse end year from format "YYYY-YYYY"
           const parts = formData.details.educationPeriod.split('-');
           if (parts.length === 2) {
               const endYear = parseInt(parts[1].trim());
               if (!isNaN(endYear)) {
                   setFormData(prev => {
-                      // Nếu năm tuyển quân <= năm kết thúc -> Hoãn
                       if (sessionYear <= endYear) {
                           if (prev.status !== RecruitmentStatus.DEFERRED) {
                               return {
                                   ...prev,
                                   status: RecruitmentStatus.DEFERRED,
-                                  defermentReason: LEGAL_DEFERMENT_REASONS[6] // Lý do số 7: Đang đi học
+                                  defermentReason: LEGAL_DEFERMENT_REASONS[6]
                               };
                           }
                       } 
-                      // Nếu năm tuyển quân > năm kết thúc -> Đủ điều kiện sơ tuyển (Về nguồn)
                       else {
                           if (prev.status === RecruitmentStatus.DEFERRED && prev.defermentReason === LEGAL_DEFERMENT_REASONS[6]) {
                               return {
                                   ...prev,
-                                  status: RecruitmentStatus.SOURCE, // Chuyển về nguồn để sẵn sàng sơ tuyển
+                                  status: RecruitmentStatus.SOURCE,
                                   defermentReason: ''
                               };
                           }
@@ -302,7 +315,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
           const grade = Number(value);
           if (grade >= 4 && newData.status !== RecruitmentStatus.ENLISTED && newData.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) {
               newData.status = RecruitmentStatus.DEFERRED;
-              newData.defermentReason = LEGAL_DEFERMENT_REASONS[0]; // Lý do số 1: Sức khỏe
+              newData.defermentReason = LEGAL_DEFERMENT_REASONS[0]; 
           }
       }
 
@@ -335,7 +348,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
               return;
           }
 
-          if (file.size > 2 * 1024 * 1024) { // 2MB Limit Warning
+          if (file.size > 2 * 1024 * 1024) {
               alert("Cảnh báo: File lớn hơn 2MB có thể gây chậm hệ thống.");
           }
 
@@ -368,7 +381,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     e.preventDefault();
     if (isReadOnly) return;
     
-    // Combine reason and details for special lists
     const isNotAllowed = formData.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
     const isExemptReg = formData.status === RecruitmentStatus.EXEMPT_REGISTRATION;
 
@@ -416,15 +428,21 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
         return;
     }
 
-    // Validate Age for List 4 (SOURCE)
+    // Cập nhật kiểm tra tuổi: Không cho phép thêm dưới 18 tuổi vào List 4
     const birthYear = parseInt(finalData.dob.split('-')[0] || '0');
     if (birthYear > 0) {
         const age = sessionYear - birthYear;
-        // Check if status is SOURCE (which corresponds to List 4 in the context of adding)
-        // and age is under 18.
         if (finalData.status === RecruitmentStatus.SOURCE && age < 18) {
-             alert(`Công dân sinh năm ${birthYear} (${age} tuổi) chưa đủ 18 tuổi để thêm vào danh sách 4 (Tổng nguồn). Vui lòng kiểm tra lại năm sinh.`);
+             alert(`Công dân sinh năm ${birthYear} (${age} tuổi) chưa đủ 18 tuổi để thêm vào danh sách 4 (Tổng nguồn). Theo quy định, Danh sách 4 chỉ nhận công dân từ đủ 18 tuổi.`);
              return;
+        }
+        // Nếu trên 27 tuổi, tự động đưa vào danh sách 15 (Xóa) khi lưu
+        if (age > 27 && finalData.status !== RecruitmentStatus.DELETED) {
+             if (window.confirm(`Công dân đã ${age} tuổi (trên 27 tuổi). Hệ thống sẽ tự động chuyển hồ sơ này vào Danh sách 15 (Đã xóa/Hết tuổi). Bạn đồng ý?`)) {
+                 finalData.status = RecruitmentStatus.DELETED;
+             } else {
+                 return;
+             }
         }
     }
 
@@ -457,7 +475,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
-               {/* ... (Information sections remain unchanged) */}
                <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-2 flex items-center gap-2 uppercase text-sm">
                  <UserIcon size={18} /> Thông tin chung
                </h3>
@@ -512,7 +529,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-2 flex items-center gap-2 uppercase text-sm mt-6">
                  <MapPin size={18} /> Nơi ở hiện tại
                </h3>
-               {/* ... (Address fields remain unchanged) */}
                <div className="grid grid-cols-2 gap-4">
                  <div className="col-span-1">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Tỉnh / Thành phố</label>
@@ -607,7 +623,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-2 flex items-center gap-2 uppercase text-sm mt-6">
                  <Home size={18} /> Quê quán
                </h3>
-               {/* ... (Hometown fields remain unchanged) */}
                 <div className="grid grid-cols-2 gap-4">
                  <div className="col-span-1">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Tỉnh / Thành phố</label>
@@ -922,12 +937,10 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                   
                    {(formData.status === RecruitmentStatus.DEFERRED || formData.status === RecruitmentStatus.EXEMPTED || isSpecialList) && (
                       <div className={`col-span-2 p-3 rounded-md border animate-in fade-in slide-in-from-top-2 ${formData.status === RecruitmentStatus.DEFERRED ? 'bg-amber-50 border-amber-200' : isSpecialList ? 'bg-gray-100 border-gray-300' : 'bg-purple-50 border-purple-200'}`}>
-                          {/* ... (Reason fields remain unchanged) */}
                           <label className={`block text-sm font-bold mb-1 ${formData.status === RecruitmentStatus.DEFERRED ? 'text-amber-800' : isSpecialList ? 'text-gray-800' : 'text-purple-800'}`}>
                               Lý do {formData.status === RecruitmentStatus.DEFERRED ? 'Tạm hoãn' : formData.status === RecruitmentStatus.EXEMPTED ? 'Miễn' : formData.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION ? 'Không được đăng ký' : 'Miễn đăng ký'}:
                           </label>
                           
-                          {/* LOGIC CHO DANH SÁCH ĐẶC BIỆT: KHÔNG ĐƯỢC ĐK & MIỄN ĐK */}
                           {isSpecialList ? (
                               <div className="space-y-2">
                                   <select 
@@ -957,7 +970,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                                   )}
                               </div>
                           ) : formData.status === RecruitmentStatus.DEFERRED ? (
-                              // LOGIC CHO TẠM HOÃN (DS 8): Dùng Dropdown Select với 8 lý do cố định
                               <div className="relative">
                                 <select 
                                     required
@@ -973,7 +985,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                                 </select>
                               </div>
                           ) : formData.status === RecruitmentStatus.EXEMPTED ? (
-                              // LOGIC CHO MIỄN (DS 9): Dùng Dropdown Select với 5 lý do cố định (MỚI)
                               <div className="relative">
                                 <select 
                                     required
@@ -989,7 +1000,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                                 </select>
                               </div>
                           ) : (
-                              // LOGIC FALLBACK CHO CÁC STATUS KHÁC
                               <div className="relative">
                                 <input 
                                     required
@@ -1027,7 +1037,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                  <Users size={18} /> Quan hệ gia đình
                </h3>
 
-               {/* ... (Family section remains unchanged) */}
                <div className="space-y-4 mt-4">
                   {/* Father */}
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">

@@ -202,7 +202,7 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Xã Triệu Việt Vương", "Xã Việt Tiến", "Xã Chí Minh", "Xã Châu Ninh", "Xã Yên Mỹ", "Xã Việt Yên", "Xã Hoàn Long", "Xã Nguyễn Văn Linh", "Xã Như Quỳnh",
         "Xã Lạc Đạo", "Xã Đại Đồng", "Xã Nghĩa Trụ", "Xã Phụng Công", "Xã Văn Giang", "Xã Mễ Sở", "Xã Thái Thụy", "Xã Đông Thụy Anh", "Xã Bắc Thụy Anh",
         "Xã Thụy Anh", "Xã Nam Thụy Anh", "Xã Bắc Thái Ninh", "Xã Thái Ninh", "Xã Đông Thái Ninh", "Xã Nam Thái Ninh", "Xã Tây Thái Ninh", "Xã Tây Thụy Anh",
-        "Xã Tiền Hải", "Xã Tây Tiền Hải", "Xã Ái Quốc", "Xã Đồng Châu", "Xã Đông Tiền Hải", "Xã Nam Cường", "Xã Hưng Phú", "Xã Nam Tiền Hải", "Xã Đông Hưng",
+        "Xã Tiên Hải", "Xã Tây Tiền Hải", "Xã Ái Quốc", "Xã Đồng Châu", "Xã Đông Tiền Hải", "Xã Nam Cường", "Xã Hưng Phú", "Xã Nam Tiền Hải", "Xã Đông Hưng",
         "Xã Bắc Tiên Hưng", "Xã Đông Tiên Hưng", "Xã Nam Đông Hưng", "Xã Bắc Đông Quan", "Xã Bắc Đông Hưng", "Xã Đông Quan", "Xã Nam Tiên Hưng", "Xã Tiên Hưng",
         "Xã Quỳnh Phụ", "Xã Minh Thọ", "Xã Nguyễn Du", "Xã Quỳnh An", "Xã Ngọc Lâm", "Xã Đồng Bằng", "Xã A Sào", "Xã Phụ Dực", "Xã Tân Tiến", "Xã Hưng Hà",
         "Xã Tiên La", "Xã Lê Quý Đôn", "Xã Hồng Minh", "Xã Thần Khê", "Xã Diên Hà", "Xã Ngự Thiên", "Xã Long Hưng", "Xã Kiến Xương", "Xã Lê Lợi", "Xã Quang Lịch",
@@ -231,7 +231,7 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Phường Hạc Thành", "Phường Quảng Phú", "Phường Đông Quang", "Phường Đông Sơn", "Phường Đông Tiến", "Phường Hàm Rồng", "Phường Nguyệt Viên",
         "Phường Sầm Sơn", "Phường Nam Sầm Sơn", "Phường Bỉm Sơn", "Phường Quang Trung", "Phường Ngọc Sơn", "Phường Tân Dân", "Phường Hải Lĩnh", "Phường Tĩnh Gia",
         "Phường Đào Duy Từ", "Phường Hải Bình", "Phường Trúc Lâm", "Phường Nghi Sơn",
-        "Xã Các Sơn", "Xã Trường Lâm", "Xã Hà Trung", "Xã Tống Sơn", "Xã Hà Long", "Xã Hoạt Giang", "Xã Lĩnh Toại", "Xã Triệu Lộc", "Xã Đông Thành",
+        "Xã Các Sơn", "Xã Trường Lâm", "Xã Hà Trung", "Xã Tống Sơn", "Xã Hà Long", "Xã Hoạt Giang", "Xã Lĩnh Toại", "Xã Tri triệu Lộc", "Xã Đông Thành",
         "Xã Hậu Lộc", "Xã Hoa Lộc", "Xã Vạn Lộc", "Xã Nga Sơn", "Xã Nga Thắng", "Xã Hồ Vương", "Xã Tân Tiến", "Xã Nga An", "Xã Ba Đình", "Xã Hoằng Hóa",
         "Xã Hoằng Tiến", "Xã Hoằng Thanh", "Xã Hoằng Lộc", "Xã Hoằng Châu", "Xã Hoằng Sơn", "Xã Hoằng Phú", "Xã Hoằng Giang", "Xã Lưu Vệ", "Xã Quảng Yên",
         "Xã Quảng Ngọc", "Xã Quảng Ninh", "Xã Quảng Bình", "Xã Tiên Trang", "Xã Quảng Chính", "Xã Nông Cống", "Xã Thắng Lợi", "Xã Trung Chính", "Xã Trường Văn",
@@ -294,10 +294,11 @@ const RAW_COMMUNE_DATA: Record<string, string[]> = {
         "Xã Chân Mây - Lăng Cô", "Xã Long Quảng", "Xã Nam Đông", "Xã Khe Tre", "Xã A Lưới 1", "Xã A Lưới 2", "Xã A Lưới 3", "Xã A Lưới 4", "Xã A Lưới 5"
     ],
     "Thành phố Đà Nẵng": [
-        "Phường Hải Châu", "Phường Hòa Cường", "Phường Thanh Khê", "Phường An Khê", "Phường An Hải", "Phường Sơn Trà", "Phường Ngũ Hành Sơn",
-        "Phường Hòa Khánh", "Phường Hải Vân", "Phường Liên Chiểu", "Phường Cẩm Lệ", "Phường Hòa Xuân", "Phường Tam Kỳ", "Phường Quảng Phú", "Phường Hương Trà",
-        "Phường Bàn Thạch", "Phường Điện Bàn", "Phường Điện Bàn Đông", "Phường An Thắng", "Phường Điện Bàn Bắc", "Phường Hội An", "Phường Hội An Đông",
-        "Phường Hội An Tây",
+        "Phường Hải Châu", "Phường Hòa Cường", "Phường Thanh Khê", "Phường An Khê", "Phường An Bình", "Phường Thới An Đông", "Phường Bình Thuỷ", "Phường Long Tuyền",
+        "Phường Cái Răng", "Phường Hưng Phú", "Phường Ô Môn", "Phường Phước Thới", "Phường Thới Long", "Phường Trung Nhứt", "Phường Thuận Hưng",
+        "Phường Thốt Nốt", "Phường Vị Thanh", "Phường Vị Tân", "Phường Long Bình", "Phường Long Mỹ", "Phường Long Phú 1", "Phường Đại Thành",
+        "Phường Ngã Bảy", "Phường Phú Lợi", "Phường Sóc Trăng", "Phường Mỹ Xuyên", "Phường Vĩnh Phước", "Phường Vĩnh Châu", "Phường Khánh Hòa",
+        "Phường Ngã Năm", "Phường Mỹ Quới", "Phường Tân Lộc",
         "Xã Hòa Vang", "Xã Hòa Tiến", "Xã Bà Nà", "Xã Núi Thành", "Xã Tam Mỹ", "Xã Tam Anh", "Xã Đức Phú", "Xã Tam Xuân", "Xã Tây Hồ", "Xã Chiên Đàn",
         "Xã Phú Ninh", "Xã Lãnh Ngọc", "Xã Tiên Phước", "Xã Thạnh Bình", "Xã Sơn Cẩm Hà", "Xã Trà Liên", "Xã Trà Giáp", "Xã Trà Tân", "Xã Trà Đốc", "Xã Trà My",
         "Xã Nam Trà My", "Xã Trà Tập", "Xã Trà Vân", "Xã Trà Linh", "Xã Trà Leng", "Xã Thăng Bình", "Xã Thăng An", "Xã Thăng Trường", "Xã Thăng Điền",
@@ -528,7 +529,8 @@ export const EDUCATIONS = [
     "Trung cấp", "Cao đẳng", "Đang học CĐ", "Đại học", "Đang học ĐH", "Trên ĐH"
 ];
 
-export const LOW_EDUCATION_GRADES = ["Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5", "Lớp 6"];
+// Cập nhật: Dưới lớp 8 bao gồm từ lớp 1 đến lớp 7
+export const LOW_EDUCATION_GRADES = ["Lớp 1", "Lớp 2", "Lớp 3", "Lớp 4", "Lớp 5", "Lớp 6", "Lớp 7"];
 
 export const ETHNICITIES = [
     "Kinh", "Tày", "Thái", "Mường", "Khmer", "Hoa", "Nùng", "H'Mông", "Dao", "Gia Rai", 
@@ -547,7 +549,7 @@ export const RELIGIONS = [
 export const MARITAL_STATUSES = ["Độc thân", "Đã kết hôn", "Ly hôn"];
 export const FAMILY_JOBS = ["Làm nông", "Công nhân", "CNVC/Viên chức", "Buôn bán/Kinh doanh", "Tự do", "Hưu trí", "Đã mất", "Khác"];
 
-// 8 Lý do Tạm hoãn theo quy định mới
+// 8 Lý do Tạm hoãn theo quy định cũ + 1 lý do học vấn thấp mới
 export const LEGAL_DEFERMENT_REASONS = [
     "1. Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe",
     "2. Là lao động duy nhất phải trực tiếp nuôi dưỡng thân nhân không còn khả năng lao động hoặc chưa đến tuổi lao động; trong gia đình bị thiệt hại nặng về người và tài sản do tai nạn, thiên tai, dịch bệnh nguy hiểm gây ra được Ủy ban nhân dân cấp xã xác nhận",
@@ -556,7 +558,8 @@ export const LEGAL_DEFERMENT_REASONS = [
     "5. Người thuộc diện di dân, giãn dân trong 03 năm đầu đến các xã đặc biệt khó khăn theo dự án phát triển kinh tế - xã hội của Nhà nước do Ủy ban nhân dân cấp tỉnh trở lên quyết định",
     "6. Cán bộ, công chức, viên chức, thanh niên xung phong được điều động đến công tác, làm việc ở vùng có điều kiện kinh tế - xã hội đặc biệt khó khăn theo quy định của pháp luật",
     "7. Đang học tại cơ sở giáo dục phổ thông; đang được đào tạo trình độ đại học hệ chính quy thuộc cơ sở giáo dục đại học, trình độ cao đẳng hệ chính quy thuộc cơ sở giáo dục nghề nghiệp trong thời gian một khóa đào tạo của một trình độ đào tạo",
-    "8. Đang là dân quân thường trực (theo Điều 49 Luật DQTV 2019)"
+    "8. Đang là dân quân thường trực (theo Điều 49 Luật DQTV 2019)",
+    "9. Trình độ học vấn thấp (dưới lớp 8)"
 ];
 
 // Danh sách các lý do được coi là "Chính sách" (2,3,4,5,6)

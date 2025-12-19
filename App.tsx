@@ -6,7 +6,7 @@ import {
   CheckCircle2, Search, FileText, Download, File, AlertTriangle, Paperclip, Trash2, 
   PlusCircle, FilePlus, MessageSquare, Send, History, ChevronRight
 } from 'lucide-react';
-import { Recruit, User, ResearchDocument, Feedback } from './types';
+import { Recruit, User, ResearchDocument, Feedback, RecruitmentStatus } from './types';
 import { LOCATION_DATA, PROVINCES_VN, generateUnitUsername, removeVietnameseTones } from './constants';
 import Dashboard from './views/Dashboard';
 import RecruitManagement from './views/RecruitManagement';
@@ -40,7 +40,29 @@ function App() {
     if (user && sessionYear) {
       setIsLoading(true);
       Promise.all([api.getRecruits(), api.getDocuments(), api.getFeedbacks()]).then(([rData, dData, fData]) => {
-        if (rData) setRecruits(rData);
+        if (rData) {
+            // MỚI: TỰ ĐỘNG CHUYỂN HẾT TUỔI (> 27) SANG DS 15
+            // FIX: Thêm kiểu dữ liệu (r: Recruit) để tránh lỗi TS
+            const processedRecruits = (rData as Recruit[]).map((r: Recruit) => {
+                const birthYear = parseInt(r.dob?.split('-')[0] || '0');
+                if (birthYear > 0) {
+                    const age = sessionYear - birthYear;
+                    if (age > 27 && r.status !== RecruitmentStatus.DELETED) {
+                        const updated = { 
+                            ...r, 
+                            status: RecruitmentStatus.DELETED, 
+                            previousStatus: r.status,
+                            defermentReason: `Tự động chuyển: Hết tuổi nghĩa vụ (${age} tuổi)`
+                        };
+                        // Đồng bộ ngầm lên DB
+                        api.updateRecruit(updated);
+                        return updated;
+                    }
+                }
+                return r;
+            });
+            setRecruits(processedRecruits);
+        }
         if (dData) setDocuments(dData);
         if (fData) setFeedbacks(fData);
         setIsLoading(false);
@@ -407,7 +429,11 @@ function App() {
                         <form onSubmit={async (e) => {
                             e.preventDefault();
                             if (newPassword !== confirmPassword) { alert("Mật khẩu không khớp!"); return; }
-                            if (await api.updateUser(user.username, { password: newPassword })) { setChangePassMsg("Đổi mật khẩu thành công!"); setTimeout(() => { setShowPasswordModal(false); setChangePassMsg(''); setNewPassword(''); setConfirmPassword(''); }, 2000); }
+                            if (await api.updateUser(user.username, { password: newPassword })) { 
+                                setUser({ ...user, password: newPassword });
+                                setChangePassMsg("Đổi mật khẩu thành công!"); 
+                                setTimeout(() => { setShowPasswordModal(false); setChangePassMsg(''); setNewPassword(''); setConfirmPassword(''); }, 2000); 
+                            }
                         }} className="space-y-4">
                             <div><label className="block text-[10px] font-black text-gray-500 mb-1 uppercase">Mật khẩu mới</label><input type="password" required className="w-full border p-2.5 rounded-lg text-sm" value={newPassword} onChange={e => setNewPassword(e.target.value)} /></div>
                             <div><label className="block text-[10px] font-black text-gray-500 mb-1 uppercase">Nhập lại</label><input type="password" required className="w-full border p-2.5 rounded-lg text-sm" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} /></div>

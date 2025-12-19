@@ -45,32 +45,41 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const result = await api.login(username, password);
     
     if (typeof result !== 'string') {
-        // Đăng nhập thành công từ database
+        // Đăng nhập thành công từ database (mật khẩu đã khớp)
         onLogin(result);
         setIsLoading(false);
         return;
     }
 
-    // 2. Nếu đăng nhập API thất bại, kiểm tra xem có phải ADMIN sử dụng mật khẩu mặc định "1" không
+    // 2. Nếu đăng nhập API thất bại, kiểm tra xem có phải ADMIN mới dùng lần đầu không
     if (username === 'ADMIN' && password === '1') {
-        const adminData: User = { 
-            username: 'ADMIN', 
-            fullName: 'Master Admin', 
-            role: 'ADMIN', 
-            unit: { province: '', commune: '' }, 
-            isLocked: false, 
-            password: '1' 
-        };
-        
-        // Đồng bộ tài khoản ADMIN vào database nếu chưa có để sau này có thể đổi mật khẩu
-        await api.syncAccount(adminData);
-        
-        onLogin(adminData);
-        setIsLoading(false);
-        return;
+        // Kiểm tra xem ADMIN đã thực sự tồn tại trong DB chưa
+        const allUsers = await api.getUsers();
+        const adminInDb = allUsers.find((u: any) => u.username === 'ADMIN');
+
+        if (!adminInDb) {
+            // Nếu CHƯA CÓ tài khoản ADMIN nào trong DB, mới cho phép khởi tạo bằng '1'
+            const adminData: User = { 
+                username: 'ADMIN', 
+                fullName: 'Master Admin', 
+                role: 'ADMIN', 
+                unit: { province: '', commune: '' }, 
+                isLocked: false, 
+                password: '1' 
+            };
+            await api.syncAccount(adminData);
+            onLogin(adminData);
+            setIsLoading(false);
+            return;
+        } else {
+            // Nếu ĐÃ CÓ trong DB rồi mà api.login trả về lỗi, nghĩa là mật khẩu '1' đã sai
+            setError("Mật khẩu ADMIN không chính xác. Bạn đã đổi mật khẩu trước đó.");
+            setIsLoading(false);
+            return;
+        }
     }
 
-    // 3. Nếu không khớp cả hai trường hợp trên thì báo lỗi
+    // 3. Hiển thị lỗi từ API cho các trường hợp khác
     setError(result);
     setIsLoading(false);
   };
