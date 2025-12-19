@@ -1,5 +1,5 @@
 
-import { Recruit, User, ResearchDocument } from './types';
+import { Recruit, User, ResearchDocument, Feedback } from './types';
 
 const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
@@ -47,5 +47,19 @@ export const api = {
   },
   deleteDocument: async (id: string) => {
     try { const res = await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
+  },
+
+  // --- FEEDBACK / QA ---
+  getFeedbacks: async (): Promise<Feedback[]> => {
+    try { const res = await fetch(`${API_URL}/feedbacks`); return await res.json(); } catch { return []; }
+  },
+  createFeedback: async (d: any) => {
+    try { const res = await fetch(`${API_URL}/feedbacks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+  },
+  updateFeedback: async (id: string, d: any) => {
+    try { const res = await fetch(`${API_URL}/feedbacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+  },
+  deleteFeedback: async (id: string) => {
+    try { await fetch(`${API_URL}/feedbacks/${id}`, { method: 'DELETE' }); return true; } catch { return false; }
   }
 };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShieldAlert, LogIn, Key, UserCheck, MapPin, Landmark, ChevronRight, Lock, Edit3, Eye } from 'lucide-react';
+import { ShieldAlert, LogIn, Key, UserCheck, MapPin, Landmark, ChevronRight, Lock, Edit3, Eye, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { PROVINCES_VN, LOCATION_DATA, removeVietnameseTones, generateUnitUsername } from '../constants';
 import { User } from '../types';
 import { api } from '../api';
@@ -10,10 +10,11 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [mode, setMode] = useState<'LOGIN' | 'UNIT_SELECT'>('LOGIN');
+  const [mode, setMode] = useState<'LOGIN' | 'UNIT_SELECT' | 'FORGOT'>('LOGIN');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const [selLevel, setSelLevel] = useState<'COMMUNE' | 'PROVINCE'>('COMMUNE');
@@ -40,9 +41,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
     
-    // Đặc cách cho tài khoản ADMIN mặc định nếu chưa có DB
     if (username === 'ADMIN' && password === '1') {
-        onLogin({ username: 'ADMIN', fullName: 'Master Admin', role: 'ADMIN', unit: { province: '', commune: '' }, isLocked: false });
+        onLogin({ username: 'ADMIN', fullName: 'Master Admin', role: 'ADMIN', unit: { province: '', commune: '' }, isLocked: false, password: '1' });
         setIsLoading(false);
         return;
     }
@@ -63,7 +63,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       }
       const uName = generateUnitUsername(selProvince, selCommune, selLevel === 'PROVINCE' ? 'PROVINCE' : selAccountType);
       
-      // Đồng bộ tài khoản lên server nếu chưa có
       await api.syncAccount({
           username: uName,
           password: '1',
@@ -78,20 +77,42 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       setError('');
   };
 
+  const handleRequestPassword = async (e: React.FormEvent) => {
+      e.preventDefault();
+      const target = e.target as any;
+      const u = target.userReq.value;
+      const p = target.phoneReq.value;
+      
+      setIsLoading(true);
+      const res = await api.createFeedback({
+          username: u,
+          unitName: 'Yêu cầu cấp lại mật khẩu',
+          category: 'MẬT KHẨU',
+          content: `Yêu cầu cấp lại mật khẩu cho tài khoản ${u}. SĐT liên hệ: ${p}`,
+          isRead: false
+      });
+      setIsLoading(false);
+      
+      if (res) {
+          setMsg("Yêu cầu đã được gửi tới Master Admin. Vui lòng chờ phản hồi qua SĐT hoặc liên hệ Zalo 0334 429 954.");
+          setTimeout(() => { setMode('LOGIN'); setMsg(''); }, 5000);
+      }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-military-900 overflow-hidden">
       <div className="absolute inset-0 z-0">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Qu%C3%A2n_hi%E1%BB%87u_Qu%C3%A2n_%C4%91%E1%BB%99i_nh%C3%A2n_d%C3%A2n_Vi%E1%BB%87t_Nam.png/1200px-Qu%C3%A2n_hi%E1%BB%87u_Qu%C3%A2n_%C4%91%E1%BB%99i_nh%C3%A2n_d%C3%A2n_Vi%E1%BB%87t_Nam.png" className="w-full h-full object-cover opacity-40 blur-sm scale-110" alt="bg"/>
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Qu%C3%A2n_hi%E1%BB%87u_Qu%C3%A2n_%C4%91%E1%BB%99i_nh%C3%A2n_d%C3%A2n_Vi%E1%BB%87t_Nam.png/1200px-Qu%C3%A2n_hi%E1%BB%87u_Qu%C3%A2n_%C4%91%E1%BB%99i_nh%C3%A2n_d%C3%A2n_Vi%E1%BB%87t_Nam.png" className="w-full h-full object-cover opacity-30 blur-sm scale-110" alt="bg"/>
           <div className="absolute inset-0 bg-gradient-to-b from-military-900/80 to-military-800/90"></div>
       </div>
 
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden relative z-10 animate-in zoom-in duration-300">
-        <div className="bg-military-800 p-8 text-center text-white">
-             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-yellow-500 shadow-lg">
-                <ShieldAlert className="text-red-600 w-12 h-12" />
+        <div className="bg-military-800 p-6 text-center text-white">
+             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-yellow-500 shadow-lg">
+                <ShieldAlert className="text-red-600 w-10 h-10" />
              </div>
-             <h1 className="text-2xl font-bold uppercase tracking-wider">Hệ Thống Tuyển Quân</h1>
-             <p className="text-military-200 text-xs mt-2 uppercase tracking-widest">Bản quyền: Đại úy Thới Hạ Sang</p>
+             <h1 className="text-xl font-bold uppercase tracking-wider">Hệ Thống Tuyển Quân</h1>
+             <p className="text-military-200 text-[10px] mt-1 uppercase tracking-widest italic">Tác giả: Đại úy Thới Hạ Sang</p>
         </div>
 
         <div className="flex border-b border-gray-200">
@@ -103,6 +124,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {error && (
                 <div className="bg-red-50 text-red-600 p-3 rounded text-xs border border-red-200 mb-4 flex items-center gap-2">
                     <Lock size={16} className="shrink-0"/> <span>{error}</span>
+                </div>
+            )}
+            {msg && (
+                <div className="bg-green-50 text-green-700 p-4 rounded text-xs border border-green-200 mb-4 flex items-center gap-2 font-bold animate-pulse">
+                    <CheckCircle2 size={24} className="shrink-0"/> <span>{msg}</span>
                 </div>
             )}
 
@@ -122,9 +148,30 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             <input type="password" required className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-military-500 outline-none" value={password} onChange={e => setPassword(e.target.value)} />
                         </div>
                     </div>
+                    <div className="text-right">
+                        <button type="button" onClick={() => setMode('FORGOT')} className="text-[10px] font-bold text-military-600 hover:underline">Quên mật khẩu?</button>
+                    </div>
                     <button type="submit" disabled={isLoading} className="w-full bg-military-600 text-white py-3 rounded-md font-bold uppercase text-sm shadow-lg hover:bg-military-700 transition-all disabled:bg-gray-400">
                         {isLoading ? 'Đang xác thực...' : 'Vào hệ thống'}
                     </button>
+                </form>
+            ) : mode === 'FORGOT' ? (
+                <form onSubmit={handleRequestPassword} className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                    <div className="bg-amber-50 p-3 rounded border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
+                        Nhập Username của đơn vị bạn. Master Admin sẽ liên hệ lại để cấp lại mật khẩu mới.
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Username cần cấp lại</label>
+                        <input name="userReq" type="text" required className="w-full p-2 border rounded-md font-mono text-sm" placeholder="VD: BINHPHUOC_XADONGXOAI_1" />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Số điện thoại liên hệ</label>
+                        <input name="phoneReq" type="tel" required className="w-full p-2 border rounded-md text-sm" placeholder="Nhập SĐT cán bộ" />
+                    </div>
+                    <div className="flex gap-2">
+                        <button type="button" onClick={() => setMode('LOGIN')} className="flex-1 py-2 text-xs font-bold text-gray-500 border rounded-md">Hủy bỏ</button>
+                        <button type="submit" disabled={isLoading} className="flex-[2] bg-military-700 text-white py-2 rounded-md font-bold text-xs uppercase shadow-md">Gửi yêu cầu</button>
+                    </div>
                 </form>
             ) : (
                 <div className="space-y-4">

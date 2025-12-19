@@ -37,10 +37,12 @@ export interface User {
   isApproved?: boolean;
 }
 
+// Added category property to match database schema and resolve UI rendering errors
 export interface Feedback {
     id: string;
     username: string;
     unitName: string;
+    category: 'HỎI ĐÁP' | 'GÓP Ý' | 'MẬT KHẨU' | 'KHÁC';
     content: string;
     timestamp: number;
     isRead: boolean;
