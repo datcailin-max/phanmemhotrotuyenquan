@@ -28,6 +28,8 @@ const recruitSchema = new mongoose.Schema({
   details: {
     education: String,
     educationPeriod: String,
+    major: String,
+    school: String,
     ethnicity: String,
     religion: String,
     maritalStatus: String,

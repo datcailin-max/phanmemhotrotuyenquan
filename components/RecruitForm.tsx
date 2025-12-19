@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
+// Fix: Corrected import name from NOT_ALLOWED_REGISTRATION to NOT_ALLOWED_REGISTRATION_REASONS
 import { EDUCATIONS, ETHNICITIES, RELIGIONS, LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, MARITAL_STATUSES, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, LOW_EDUCATION_GRADES, POLICY_DEFERMENT_REASONS, NOT_ALLOWED_REGISTRATION_REASONS, EXEMPT_REGISTRATION_REASONS } from '../constants';
 import { X, Save, User as UserIcon, Users, MapPin, Home, Activity, Info, Tent, Calendar, FileText, AlertTriangle, Paperclip, Trash2, Eye, Award } from 'lucide-react';
 
@@ -41,6 +42,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     details: {
       education: 'Lớp 12',
       educationPeriod: '',
+      major: '',
+      school: '',
       ethnicity: 'Kinh',
       religion: 'Không',
       maritalStatus: 'Độc thân',
@@ -90,6 +93,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
       const isExemptReg = initialData.status === RecruitmentStatus.EXEMPT_REGISTRATION;
 
       if (isNotAllowed) {
+          // Fix: Used the correct constant name NOT_ALLOWED_REGISTRATION_REASONS
           const match = NOT_ALLOWED_REGISTRATION_REASONS.find(r => parsedReason.startsWith(r));
           if (match) {
               setSelectedSpecialReason(match);
@@ -138,6 +142,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
             politicalStatus: initialData.details.politicalStatus || 'None',
             partyEntryDate: initialData.details.partyEntryDate || '',
             educationPeriod: initialData.details.educationPeriod || '',
+            major: initialData.details.major || '',
+            school: initialData.details.school || '',
             gifted: initialData.details.gifted || ''
         },
         physical: {
@@ -803,6 +809,29 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                   </div>
 
                   <div>
+                    <label className="block text-sm font-bold text-gray-700">Trường học</label>
+                    <input 
+                        type="text" 
+                        placeholder="Nhập tên trường học..."
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-gray-900 disabled:bg-gray-100"
+                        value={formData.details.school || ''}
+                        onChange={(e) => handleChange('details.school', e.target.value)}
+                        readOnly={isReadOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700">Ngành học</label>
+                    <input 
+                        type="text" 
+                        placeholder="Nhập tên ngành học..."
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-gray-900 disabled:bg-gray-100"
+                        value={formData.details.major || ''}
+                        onChange={(e) => handleChange('details.major', e.target.value)}
+                        readOnly={isReadOnly}
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-bold text-gray-700">Dân tộc</label>
                     <select 
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 text-gray-900 disabled:bg-gray-100"
@@ -950,6 +979,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                                       disabled={isReadOnly}
                                   >
                                       <option value="">-- Chọn lý do theo quy định --</option>
+                                      {/* Fix: Used the correct constant name NOT_ALLOWED_REGISTRATION_REASONS */}
                                       {(formData.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION ? NOT_ALLOWED_REGISTRATION_REASONS : EXEMPT_REGISTRATION_REASONS).map((reason, idx) => (
                                           <option key={idx} value={reason}>{reason}</option>
                                       ))}

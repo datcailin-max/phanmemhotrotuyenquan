@@ -91,6 +91,8 @@ export interface Recruit {
   details: {
     education: string;
     educationPeriod?: string;
+    major?: string;
+    school?: string;
     ethnicity: string;
     religion: string;
     maritalStatus: string;
