@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ShieldAlert, LogIn, Key, UserCheck, MapPin, Landmark, ChevronRight, Lock, Edit3, Eye, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { PROVINCES_VN, LOCATION_DATA, removeVietnameseTones, generateUnitUsername } from '../constants';
-import { User } from '../types';
+import { User, UserRole } from '../types';
 import { api } from '../api';
 
 interface LoginProps {
@@ -41,18 +41,37 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
     
-    if (username === 'ADMIN' && password === '1') {
-        onLogin({ username: 'ADMIN', fullName: 'Master Admin', role: 'ADMIN', unit: { province: '', commune: '' }, isLocked: false, password: '1' });
+    // 1. Thử đăng nhập qua API trước (Để hỗ trợ mật khẩu đã đổi trong DB)
+    const result = await api.login(username, password);
+    
+    if (typeof result !== 'string') {
+        // Đăng nhập thành công từ database
+        onLogin(result);
         setIsLoading(false);
         return;
     }
 
-    const result = await api.login(username, password);
-    if (typeof result === 'string') {
-        setError(result);
-    } else {
-        onLogin(result);
+    // 2. Nếu đăng nhập API thất bại, kiểm tra xem có phải ADMIN sử dụng mật khẩu mặc định "1" không
+    if (username === 'ADMIN' && password === '1') {
+        const adminData: User = { 
+            username: 'ADMIN', 
+            fullName: 'Master Admin', 
+            role: 'ADMIN', 
+            unit: { province: '', commune: '' }, 
+            isLocked: false, 
+            password: '1' 
+        };
+        
+        // Đồng bộ tài khoản ADMIN vào database nếu chưa có để sau này có thể đổi mật khẩu
+        await api.syncAccount(adminData);
+        
+        onLogin(adminData);
+        setIsLoading(false);
+        return;
     }
+
+    // 3. Nếu không khớp cả hai trường hợp trên thì báo lỗi
+    setError(result);
     setIsLoading(false);
   };
 
@@ -63,11 +82,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       }
       const uName = generateUnitUsername(selProvince, selCommune, selLevel === 'PROVINCE' ? 'PROVINCE' : selAccountType);
       
+      const role = (selLevel === 'PROVINCE' ? 'PROVINCE_ADMIN' : (selAccountType === '2' ? 'VIEWER' : 'EDITOR')) as UserRole;
+
       await api.syncAccount({
           username: uName,
           password: '1',
           fullName: selLevel === 'PROVINCE' ? `Bộ CHQS Tỉnh ${selProvince}` : `Ban CHQS ${selCommune}`,
-          role: selLevel === 'PROVINCE' ? 'PROVINCE_ADMIN' : (selAccountType === '2' ? 'VIEWER' : 'EDITOR'),
+          role: role,
           unit: { province: selProvince, commune: selCommune },
           isLocked: true
       });
