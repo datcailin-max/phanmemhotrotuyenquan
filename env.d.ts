@@ -1,3 +1,4 @@
+
 // Augment NodeJS.ProcessEnv to include API_KEY
 // This handles the case where @types/node or similar library defines 'process' global
 declare namespace NodeJS {
@@ -27,4 +28,10 @@ declare module '@google/genai' {
       }>;
     };
   }
+}
+
+// Khai báo module xlsx-js-style để sửa lỗi build TS2307
+declare module 'xlsx-js-style' {
+  const XLSX: any;
+  export default XLSX;
 }
