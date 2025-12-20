@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileText, Send, Download, Trash2, PlusCircle, Calendar, 
@@ -22,7 +21,6 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
   const [showReportModal, setShowReportModal] = useState(false);
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   
-  // Filter for Province Admin
   const [filterCommune, setFilterCommune] = useState('');
 
   const isProvinceAdmin = user.role === 'PROVINCE_ADMIN';
@@ -46,8 +44,8 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
       api.getDispatches(dParams)
     ]);
 
-    setReports(rData);
-    setDispatches(dData);
+    setReports(rData || []);
+    setDispatches(dData || []);
     setIsLoading(false);
   };
 
@@ -71,8 +69,10 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
     const file = target.reportFile.files[0];
     if (!file) return;
 
-    if (file.size > 16 * 1024 * 1024) {
-        alert("CẢNH BÁO: File lớn hơn 16MB có thể không lưu được. Vui lòng thử nén file hoặc chia nhỏ.");
+    // Kiểm soát dung lượng 12MB ngay tại trình duyệt để tránh lỗi Server
+    if (file.size > 12 * 1024 * 1024) {
+        alert("LỖI: File quá lớn (" + (file.size / 1024 / 1024).toFixed(1) + "MB). Vui lòng chọn file dưới 12MB để đảm bảo hệ thống lưu trữ được.");
+        return;
     }
 
     setIsProcessingFile(true);
@@ -90,12 +90,14 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
         const res = await api.sendReport(newReport);
         setIsProcessingFile(false);
         if (res) {
-            setReports([res, ...reports]);
             setShowReportModal(false);
-            alert("Đã gửi báo cáo thành công lên Bộ CHQS Tỉnh!");
-        } else {
-            alert("Lỗi: Không thể gửi file lớn. Vui lòng kiểm tra kích thước file.");
+            alert("Đã gửi báo cáo thành công!");
+            await fetchData(); // Cập nhật lại danh sách ngay lập tức
         }
+    };
+    reader.onerror = () => {
+        setIsProcessingFile(false);
+        alert("Lỗi khi đọc file từ thiết bị.");
     };
     reader.readAsDataURL(file);
   };
@@ -106,8 +108,9 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
     const file = target.dispatchFile.files[0];
     if (!file) return;
 
-    if (file.size > 16 * 1024 * 1024) {
-        alert("CẢNH BÁO: File chỉ đạo lớn hơn 16MB có thể không ban hành được. Vui lòng nén file.");
+    if (file.size > 12 * 1024 * 1024) {
+        alert("LỖI: File quá lớn (" + (file.size / 1024 / 1024).toFixed(1) + "MB). Vui lòng chọn file dưới 12MB.");
+        return;
     }
 
     const selectedRecipients = Array.from(target.dispatchRecipients.selectedOptions).map((opt: any) => opt.value);
@@ -131,25 +134,27 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
         const res = await api.sendDispatch(newDispatch);
         setIsProcessingFile(false);
         if (res) {
-            setDispatches([res, ...dispatches]);
             setShowDispatchModal(false);
-            alert("Đã ban hành văn bản thành công tới các xã/phường!");
-        } else {
-            alert("Lỗi: Không thể ban hành file lớn.");
+            alert("Đã ban hành văn bản thành công!");
+            await fetchData(); // Cập nhật lại danh sách ngay lập tức
         }
+    };
+    reader.onerror = () => {
+        setIsProcessingFile(false);
+        alert("Lỗi khi đọc file.");
     };
     reader.readAsDataURL(file);
   };
 
   const deleteReport = async (id: string) => {
       if (window.confirm("Xóa báo cáo này?") && await api.deleteReport(id)) {
-          setReports(reports.filter(r => (r as any)._id !== id));
+          fetchData();
       }
   };
 
   const deleteDispatch = async (id: string) => {
     if (window.confirm("Xóa văn bản này?") && await api.deleteDispatch(id)) {
-        setDispatches(dispatches.filter(d => (d as any)._id !== id));
+        fetchData();
     }
   };
 
@@ -168,6 +173,14 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
         </div>
         
         <div className="flex gap-2">
+          <button 
+            onClick={fetchData}
+            disabled={isLoading}
+            className={`p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all border border-gray-200 ${isLoading ? 'opacity-50' : ''}`}
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+          </button>
           {isCommuneUser && (
             <button 
               onClick={() => setShowReportModal(true)}
@@ -239,7 +252,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
                   ) : filteredReports.length === 0 ? (
                     <tr><td colSpan={5} className="p-10 text-center text-gray-400 italic">Chưa có báo cáo nào</td></tr>
                   ) : filteredReports.map((r, i) => (
-                    <tr key={(r as any)._id} className="hover:bg-military-50/50">
+                    <tr key={(r as any)._id || i} className="hover:bg-military-50/50">
                       <td className="p-4 text-gray-400 font-medium">{i + 1}</td>
                       <td className="p-4">
                         <div className="flex items-center gap-2 font-bold text-military-900">
@@ -296,7 +309,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
                   ) : dispatches.length === 0 ? (
                     <tr><td colSpan={5} className="p-10 text-center text-gray-400 italic">Chưa có văn bản chỉ đạo nào</td></tr>
                   ) : dispatches.map((d, i) => (
-                    <tr key={(d as any)._id} className="hover:bg-blue-50/50">
+                    <tr key={(d as any)._id || i} className="hover:bg-blue-50/50">
                       <td className="p-4 text-gray-400 font-medium">{i + 1}</td>
                       <td className="p-4">
                          <div className="flex items-center gap-2 font-bold text-blue-900">
@@ -360,12 +373,12 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
               <div>
                 <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase">Chọn File PDF</label>
                 <input name="reportFile" required type="file" accept=".pdf" className="w-full text-xs p-2 border border-dashed rounded-lg bg-gray-50" />
-                <p className="text-[9px] text-red-500 mt-1 italic">* Ưu tiên file &lt; 16MB để tránh lỗi lưu trữ</p>
+                <p className="text-[9px] text-red-500 mt-1 italic font-bold">* Giới hạn tối đa 12MB. Chỉ nhận file PDF.</p>
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" disabled={isProcessingFile} onClick={() => setShowReportModal(false)} className="px-5 py-2 text-xs font-bold text-gray-500">Hủy</button>
-                <button type="submit" disabled={isProcessingFile} className={`px-7 py-2 bg-military-700 text-white rounded-lg font-black uppercase text-xs flex items-center gap-2 ${isProcessingFile ? 'opacity-50' : ''}`}>
-                    {isProcessingFile ? <><RefreshCw size={14} className="animate-spin" /> Đang gửi...</> : 'Xác nhận gửi'}
+                <button type="submit" disabled={isProcessingFile} className={`px-7 py-2 bg-military-700 text-white rounded-lg font-black uppercase text-xs flex items-center gap-2 shadow-lg transition-all ${isProcessingFile ? 'opacity-50' : 'hover:bg-military-800'}`}>
+                    {isProcessingFile ? <><RefreshCw size={14} className="animate-spin" /> Đang tải...</> : 'Xác nhận gửi'}
                 </button>
               </div>
             </form>
@@ -396,12 +409,12 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
               <div>
                 <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase">Chọn File PDF</label>
                 <input name="dispatchFile" required type="file" accept=".pdf" className="w-full text-xs p-2 border border-dashed rounded-lg bg-blue-50/20" />
-                <p className="text-[9px] text-red-500 mt-1 italic">* File &gt; 16MB có thể gây lỗi hệ thống</p>
+                <p className="text-[9px] text-red-500 mt-1 italic font-bold">* Giới hạn 12MB. Hệ thống không hỗ trợ file quá lớn.</p>
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" disabled={isProcessingFile} onClick={() => setShowDispatchModal(false)} className="px-5 py-2 text-xs font-bold text-gray-500">Hủy</button>
-                <button type="submit" disabled={isProcessingFile} className={`px-7 py-2 bg-blue-700 text-white rounded-lg font-black uppercase text-xs flex items-center gap-2 ${isProcessingFile ? 'opacity-50' : ''}`}>
-                   {isProcessingFile ? <><RefreshCw size={14} className="animate-spin" /> Đang ban hành...</> : 'Ban hành ngay'}
+                <button type="submit" disabled={isProcessingFile} className={`px-7 py-2 bg-blue-700 text-white rounded-lg font-black uppercase text-xs flex items-center gap-2 shadow-lg transition-all ${isProcessingFile ? 'opacity-50' : 'hover:bg-blue-800'}`}>
+                   {isProcessingFile ? <><RefreshCw size={14} className="animate-spin" /> Đang gửi...</> : 'Ban hành ngay'}
                 </button>
               </div>
             </form>

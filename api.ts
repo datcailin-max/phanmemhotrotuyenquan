@@ -1,4 +1,3 @@
-
 import { Recruit, User, ResearchDocument, Feedback, UnitReport, ProvincialDispatch } from './types';
 
 const hostname = window.location.hostname;
@@ -31,14 +30,24 @@ export const api = {
   createRecruit: async (d: any) => {
     try { 
       const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
-      return res.ok ? await res.json() : null;
-    } catch { return null; }
+      if (!res.ok) {
+          if (res.status === 413) throw new Error('Dữ liệu hồ sơ quá lớn (vượt giới hạn 16MB bao gồm ảnh/file).');
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Lỗi server');
+      }
+      return await res.json();
+    } catch (e: any) { alert("Lỗi khi lưu hồ sơ: " + e.message); return null; }
   },
   updateRecruit: async (d: any) => {
     try { 
       const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
-      return res.ok ? await res.json() : null;
-    } catch { return null; }
+      if (!res.ok) {
+          if (res.status === 413) throw new Error('Hồ sơ hoặc tệp đính kèm quá lớn.');
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Lỗi server');
+      }
+      return await res.json();
+    } catch (e: any) { alert("Lỗi khi cập nhật hồ sơ: " + e.message); return null; }
   },
   deleteRecruit: async (id: string) => {
     try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
@@ -56,12 +65,13 @@ export const api = {
         body: JSON.stringify(d) 
       }); 
       if (!res.ok) {
-        console.error('Server error:', res.status);
-        return null;
+        if (res.status === 413) throw new Error('Tệp PDF vượt giới hạn kích thước cho phép.');
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Lỗi Server');
       }
       return await res.json();
-    } catch (e) { 
-      console.error('Network error:', e);
+    } catch (e: any) { 
+      alert("KHÔNG THỂ TẢI FILE: " + e.message);
       return null; 
     }
   },
@@ -97,8 +107,13 @@ export const api = {
   sendReport: async (d: any) => {
     try { 
       const res = await fetch(`${API_URL}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
-      return res.ok ? await res.json() : null;
-    } catch { return null; }
+      if (!res.ok) {
+          if (res.status === 413) throw new Error('File báo cáo quá lớn.');
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Lỗi Server');
+      }
+      return await res.json();
+    } catch (e: any) { alert("LỖI GỬI BÁO CÁO: " + e.message); return null; }
   },
   deleteReport: async (id: string) => {
     try { const res = await fetch(`${API_URL}/reports/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
@@ -112,8 +127,13 @@ export const api = {
   sendDispatch: async (d: any) => {
     try { 
       const res = await fetch(`${API_URL}/dispatches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
-      return res.ok ? await res.json() : null;
-    } catch { return null; }
+      if (!res.ok) {
+          if (res.status === 413) throw new Error('File văn bản chỉ đạo quá lớn.');
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Lỗi Server');
+      }
+      return await res.json();
+    } catch (e: any) { alert("LỖI BAN HÀNH VĂN BẢN: " + e.message); return null; }
   },
   deleteDispatch: async (id: string) => {
     try { const res = await fetch(`${API_URL}/dispatches/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
