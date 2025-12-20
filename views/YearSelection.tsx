@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Calendar, CheckCircle2, ShieldAlert } from 'lucide-react';
 
@@ -75,8 +76,8 @@ const YearSelection: React.FC<YearSelectionProps> = ({ onSelectYear, currentUser
         </form>
       </div>
       
-      <div className="absolute bottom-4 text-military-400 text-xs text-center z-10">
-        HỆ THỐNG QUẢN LÝ TUYỂN QUÂN ĐỊA PHƯƠNG
+      <div className="absolute bottom-4 text-military-400 text-[10px] font-bold uppercase text-center z-10 tracking-widest px-4 leading-relaxed">
+        Phần mềm hỗ trợ công tác tuyển chọn, gọi công dân nhập ngũ
       </div>
     </div>
   );

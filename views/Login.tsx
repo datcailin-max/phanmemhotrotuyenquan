@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShieldAlert, LogIn, Key, UserCheck, MapPin, Landmark, ChevronRight, Lock, Edit3, Eye, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, LogIn, Key, UserCheck, MapPin, Landmark, ChevronRight, Lock, Edit3, Eye, HelpCircle, CheckCircle2, Phone, Zap } from 'lucide-react';
 import { PROVINCES_VN, LOCATION_DATA, removeVietnameseTones, generateUnitUsername } from '../constants';
 import { User, UserRole } from '../types';
 import { api } from '../api';
@@ -40,28 +40,25 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    
-    // 1. Thử đăng nhập qua API trước (Để hỗ trợ mật khẩu đã đổi trong DB)
+
+    // Gọi phương thức login từ API (nơi đã tích hợp logic phân biệt DEMO/REAL)
     const result = await api.login(username, password);
     
     if (typeof result !== 'string') {
-        // Đăng nhập thành công từ database (mật khẩu đã khớp)
         onLogin(result);
         setIsLoading(false);
         return;
     }
 
-    // 2. Nếu đăng nhập API thất bại, kiểm tra xem có phải ADMIN mới dùng lần đầu không
+    // Logic Admin dự phòng nếu DB chưa có
     if (username === 'ADMIN' && password === '1') {
-        // Kiểm tra xem ADMIN đã thực sự tồn tại trong DB chưa
         const allUsers = await api.getUsers();
         const adminInDb = allUsers.find((u: any) => u.username === 'ADMIN');
 
         if (!adminInDb) {
-            // Nếu CHƯA CÓ tài khoản ADMIN nào trong DB, mới cho phép khởi tạo bằng '1'
             const adminData: User = { 
                 username: 'ADMIN', 
-                fullName: 'Master Admin', 
+                fullName: 'Đại úy Thới Hạ Sang', 
                 role: 'ADMIN', 
                 unit: { province: '', commune: '' }, 
                 isLocked: false, 
@@ -72,14 +69,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             setIsLoading(false);
             return;
         } else {
-            // Nếu ĐÃ CÓ trong DB rồi mà api.login trả về lỗi, nghĩa là mật khẩu '1' đã sai
             setError("Mật khẩu ADMIN không chính xác. Bạn đã đổi mật khẩu trước đó.");
             setIsLoading(false);
             return;
         }
     }
 
-    // 3. Hiển thị lỗi từ API cho các trường hợp khác
     setError(result);
     setIsLoading(false);
   };
@@ -90,7 +85,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           return;
       }
       const uName = generateUnitUsername(selProvince, selCommune, selLevel === 'PROVINCE' ? 'PROVINCE' : selAccountType);
-      
       const role = (selLevel === 'PROVINCE' ? 'PROVINCE_ADMIN' : (selAccountType === '2' ? 'VIEWER' : 'EDITOR')) as UserRole;
 
       await api.syncAccount({
@@ -124,7 +118,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       setIsLoading(false);
       
       if (res) {
-          setMsg("Yêu cầu đã được gửi tới Master Admin. Vui lòng chờ phản hồi qua SĐT hoặc liên hệ Zalo 0334 429 954.");
+          setMsg("Yêu cầu đã được gửi tới Quản trị viên. Vui lòng chờ phản hồi hoặc liên hệ trực tiếp số: 0334 429 954.");
           setTimeout(() => { setMode('LOGIN'); setMsg(''); }, 5000);
       }
   };
@@ -141,8 +135,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-yellow-500 shadow-lg">
                 <ShieldAlert className="text-red-600 w-10 h-10" />
              </div>
-             <h1 className="text-xl font-bold uppercase tracking-wider">Hệ Thống Tuyển Quân</h1>
-             <p className="text-military-200 text-[10px] mt-1 uppercase tracking-widest italic">Tác giả: Đại úy Thới Hạ Sang</p>
+             <h1 className="text-lg font-bold uppercase tracking-wide leading-tight px-4">Phần mềm hỗ trợ công tác tuyển chọn, gọi công dân nhập ngũ</h1>
+             <p className="text-military-200 text-[10px] mt-2 uppercase tracking-widest italic opacity-80">Hệ thống quản lý nguồn và gọi nhập ngũ số</p>
+             
+             <div className="mt-4 pt-3 border-t border-military-700/50 flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1.5 text-amber-400">
+                  <Phone size={12} />
+                  <span className="text-[10px] font-black uppercase tracking-tighter">Hỗ trợ: Đại úy Thới Hạ Sang - 0334 429 954</span>
+                </div>
+             </div>
         </div>
 
         <div className="flex border-b border-gray-200">
@@ -168,14 +169,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên đăng nhập</label>
                         <div className="relative">
                             <UserCheck className="absolute left-3 top-2.5 text-gray-400" size={18}/>
-                            <input type="text" required className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-military-500 outline-none font-mono" value={username} onChange={e => setUsername(e.target.value)} />
+                            <input type="text" required className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-military-50 outline-none font-mono" value={username} onChange={e => setUsername(e.target.value)} placeholder="Tên đơn vị hoặc DEMO" />
                         </div>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Mật khẩu</label>
                         <div className="relative">
                             <Key className="absolute left-3 top-2.5 text-gray-400" size={18}/>
-                            <input type="password" required className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-military-500 outline-none" value={password} onChange={e => setPassword(e.target.value)} />
+                            <input type="password" required className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-military-50 outline-none" value={password} onChange={e => setPassword(e.target.value)} />
                         </div>
                     </div>
                     <div className="text-right">
@@ -184,11 +185,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <button type="submit" disabled={isLoading} className="w-full bg-military-600 text-white py-3 rounded-md font-bold uppercase text-sm shadow-lg hover:bg-military-700 transition-all disabled:bg-gray-400">
                         {isLoading ? 'Đang xác thực...' : 'Vào hệ thống'}
                     </button>
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-start gap-3">
+                        <Zap size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-blue-700 font-medium leading-relaxed italic">
+                            <b>Mẹo:</b> Nhập tên <b>DEMO</b>, mật khẩu <b>1</b> để thử nghiệm lưu trữ dữ liệu ngay trên máy tính này.
+                        </p>
+                    </div>
                 </form>
             ) : mode === 'FORGOT' ? (
                 <form onSubmit={handleRequestPassword} className="space-y-4 animate-in fade-in slide-in-from-right-4">
                     <div className="bg-amber-50 p-3 rounded border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                        Nhập Username của đơn vị bạn. Master Admin sẽ liên hệ lại để cấp lại mật khẩu mới.
+                        Nhập Username của đơn vị bạn. Quản trị viên hệ thống sẽ liên hệ lại để cấp lại mật khẩu mới.
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Username cần cấp lại</label>
@@ -236,6 +243,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <button onClick={handleUnitConfirm} className="w-full bg-military-600 text-white py-3 rounded-md font-bold uppercase text-sm">Sử dụng tên này</button>
                 </div>
             )}
+        </div>
+        
+        <div className="bg-gray-50 p-4 border-t border-gray-100 text-center">
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Tác giả: Đại úy Thới Hạ Sang</p>
         </div>
       </div>
     </div>
