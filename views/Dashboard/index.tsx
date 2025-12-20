@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { Recruit, UserRole } from '../../types';
-import { Activity } from 'lucide-react';
+import { Activity, RefreshCw } from 'lucide-react';
 import FilterHeader from './components/FilterHeader';
 import ProgressSection from './components/ProgressSection';
 import AnalyticsCharts from './components/AnalyticsCharts';
+import YearTransferModal from './components/YearTransferModal';
 import { useDashboardStats } from './hooks/useDashboardStats';
 
 interface DashboardProps {
@@ -18,8 +19,9 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = (props) => {
   const [filterProvince, setFilterProvince] = useState('');
   const [filterCommune, setFilterCommune] = useState('');
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
-  const { stats } = useDashboardStats({
+  const { stats, allYearRecruits } = useDashboardStats({
       ...props, filterProvince, filterCommune
   });
 
@@ -30,6 +32,8 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
       if (filterProvince) return `BỘ CHQS TỈNH ${filterProvince.toUpperCase()}`;
       return "TOÀN QUỐC (TỔNG HỢP)";
   }, [props.userRole, props.userUnit, filterProvince, filterCommune]);
+
+  const canTransfer = props.userRole === 'EDITOR' || props.userRole === 'ADMIN';
 
   return (
     <div className="p-4 md:p-6 space-y-6 animate-in fade-in duration-700 bg-gray-50/50 min-h-screen">
@@ -49,12 +53,32 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 </h2>
                 <p className="text-[11px] font-black text-military-600 uppercase tracking-widest mt-1">{scopeName}</p>
              </div>
-             <div className="bg-military-50 px-3 py-1.5 rounded-lg border border-military-100 text-[10px] font-black text-military-700 uppercase">Dữ liệu đồng bộ trực tuyến</div>
+             <div className="flex items-center gap-3">
+                 {canTransfer && !filterProvince && !filterCommune && (
+                    <button 
+                        onClick={() => setShowTransferModal(true)}
+                        className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-black uppercase shadow-lg hover:bg-amber-700 transition-all active:scale-95"
+                    >
+                        <RefreshCw size={16} /> Kết chuyển năm sau
+                    </button>
+                 )}
+                 <div className="bg-military-50 px-3 py-1.5 rounded-lg border border-military-100 text-[10px] font-black text-military-700 uppercase">Dữ liệu đồng bộ trực tuyến</div>
+             </div>
          </div>
          <ProgressSection stats={stats.counts} onNavigate={props.onNavigate} />
       </div>
 
       <AnalyticsCharts stats={stats} />
+
+      {showTransferModal && (
+          <YearTransferModal 
+            currentRecruits={allYearRecruits}
+            sessionYear={props.sessionYear}
+            unitName={scopeName}
+            onClose={() => setShowTransferModal(false)}
+            onSuccess={() => window.location.reload()} // Reload để cập nhật data mới
+          />
+      )}
     </div>
   );
 };
