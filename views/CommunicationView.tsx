@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileText, Send, Download, Trash2, PlusCircle, Calendar, 
@@ -25,6 +26,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
 
   const isProvinceAdmin = user.role === 'PROVINCE_ADMIN';
   const isCommuneUser = user.role === 'EDITOR' || user.role === 'VIEWER';
+  const isAdmin = user.role === 'ADMIN';
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -35,32 +37,45 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
       rParams.province = user.unit.province;
       dParams.province = user.unit.province;
     } else if (isCommuneUser) {
+      // Khi là Xã: Cần lọc báo cáo theo username của mình gửi đi
       rParams.username = user.username;
+      
+      // Khi là Xã: Cần lấy văn bản chỉ đạo từ Tỉnh mình và gửi cho đơn vị mình (hoặc gửi toàn tỉnh)
+      dParams.province = user.unit.province;
+      dParams.commune = user.unit.commune; 
       dParams.username = user.username;
     }
 
-    const [rData, dData] = await Promise.all([
-      api.getReports(rParams),
-      api.getDispatches(dParams)
-    ]);
+    try {
+      const [rData, dData] = await Promise.all([
+        api.getReports(rParams),
+        api.getDispatches(dParams)
+      ]);
 
-    setReports(rData || []);
-    setDispatches(dData || []);
-    setIsLoading(false);
+      setReports(rData || []);
+      setDispatches(dData || []);
+    } catch (err) {
+      console.error("Lỗi khi tải dữ liệu trao đổi:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, [user, sessionYear]);
+  useEffect(() => { 
+    fetchData(); 
+  }, [user, sessionYear]);
 
   const communesInProvince = useMemo(() => {
-    if (!isProvinceAdmin) return [];
+    if (!isProvinceAdmin && !isAdmin) return [];
+    const pName = user.unit.province || "";
     // @ts-ignore
-    const provinceData = LOCATION_DATA[user.unit.province];
+    const provinceData = LOCATION_DATA[pName];
     return provinceData ? Object.keys(provinceData) : [];
-  }, [user, isProvinceAdmin]);
+  }, [user, isProvinceAdmin, isAdmin]);
 
   const filteredReports = useMemo(() => {
       if (!filterCommune) return reports;
-      return reports.filter(r => r.senderUnitName.includes(filterCommune));
+      return reports.filter(r => (r.senderUnitName || "").includes(filterCommune));
   }, [reports, filterCommune]);
 
   const handleSendReport = async (e: React.FormEvent) => {
@@ -69,7 +84,6 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
     const file = target.reportFile.files[0];
     if (!file) return;
 
-    // Kiểm soát dung lượng 12MB ngay tại trình duyệt để tránh lỗi Server
     if (file.size > 12 * 1024 * 1024) {
         alert("LỖI: File quá lớn (" + (file.size / 1024 / 1024).toFixed(1) + "MB). Vui lòng chọn file dưới 12MB để đảm bảo hệ thống lưu trữ được.");
         return;
@@ -92,7 +106,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
         if (res) {
             setShowReportModal(false);
             alert("Đã gửi báo cáo thành công!");
-            await fetchData(); // Cập nhật lại danh sách ngay lập tức
+            await fetchData();
         }
     };
     reader.onerror = () => {
@@ -136,7 +150,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
         if (res) {
             setShowDispatchModal(false);
             alert("Đã ban hành văn bản thành công!");
-            await fetchData(); // Cập nhật lại danh sách ngay lập tức
+            await fetchData();
         }
     };
     reader.onerror = () => {
@@ -220,7 +234,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px]">
         {activeTab === 'REPORTS' ? (
           <div className="flex flex-col h-full">
-            {isProvinceAdmin && (
+            {(isProvinceAdmin || isAdmin) && (
               <div className="p-4 bg-gray-50 border-b flex items-center gap-3">
                  <Filter size={16} className="text-gray-400"/>
                  <span className="text-xs font-bold text-gray-500 uppercase">Lọc theo đơn vị cấp xã:</span>
@@ -274,7 +288,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
                           >
                             <Download size={16}/>
                           </a>
-                          {(isCommuneUser || user.role === 'ADMIN') && (
+                          {(isCommuneUser || isAdmin) && (
                             <button 
                               onClick={() => deleteReport((r as any)._id)}
                               className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"
@@ -338,7 +352,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
                           >
                             <Download size={16}/>
                           </a>
-                          {(isProvinceAdmin || user.role === 'ADMIN') && (
+                          {(isProvinceAdmin || isAdmin) && (
                             <button 
                               onClick={() => deleteDispatch((d as any)._id)}
                               className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"

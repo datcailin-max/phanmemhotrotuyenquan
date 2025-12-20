@@ -1,3 +1,4 @@
+
 import { Recruit, User, ResearchDocument, Feedback, UnitReport, ProvincialDispatch } from './types';
 
 const hostname = window.location.hostname;
@@ -120,7 +121,7 @@ export const api = {
   },
 
   // --- DISPATCHES ---
-  getDispatches: async (params: { province?: string, username?: string, year?: number }): Promise<ProvincialDispatch[]> => {
+  getDispatches: async (params: { province?: string, username?: string, commune?: string, year?: number }): Promise<ProvincialDispatch[]> => {
     const query = new URLSearchParams(params as any).toString();
     try { const res = await fetch(`${API_URL}/dispatches?${query}`); return await res.json(); } catch { return []; }
   },

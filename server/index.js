@@ -101,16 +101,28 @@ app.delete('/api/feedbacks/:id', async (req, res) => {
 
 // --- REPORT API ---
 app.get('/api/reports', async (req, res) => {
-  const { province, username, year } = req.query;
+  const { province, targetProvince, username, year } = req.query;
   let query = {};
-  if (province) query.targetProvince = province;
+  
+  // Hỗ trợ tìm kiếm theo tỉnh (không phân biệt hoa thường và trim)
+  const pName = targetProvince || province;
+  if (pName) {
+    query.targetProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
+  }
+  
   if (username) query.senderUsername = username;
   if (year) query.year = Number(year);
-  try { res.json(await Report.find(query).sort({ timestamp: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
+  
+  try { 
+    const results = await Report.find(query).sort({ timestamp: -1 });
+    res.json(results); 
+  } catch (e) { 
+    res.status(500).json({ message: e.message }); 
+  }
 });
 app.post('/api/reports', async (req, res) => {
   try { 
-    console.log(`[REPORT] From ${req.body.senderUnitName} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
+    console.log(`[REPORT] From ${req.body.senderUnitName} to ${req.body.targetProvince} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
     res.status(201).json(await new Report(req.body).save()); 
   } catch (e) { 
     console.error('[REPORT] Save Error:', e.message);
@@ -123,12 +135,33 @@ app.delete('/api/reports/:id', async (req, res) => {
 
 // --- DISPATCH API ---
 app.get('/api/dispatches', async (req, res) => {
-  const { province, username, year } = req.query;
+  const { province, senderProvince, username, commune, year } = req.query;
   let query = {};
-  if (province) query.senderProvince = province;
-  if (username) query.recipients = { $in: [username, 'ALL'] };
+  
+  const pName = senderProvince || province;
+  if (pName) {
+    query.senderProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
+  }
+  
+  // Lọc văn bản theo người nhận: Hỗ trợ cả username, tên xã cụ thể hoặc gửi toàn tỉnh (ALL)
+  if (username || commune) {
+    const targets = ['ALL'];
+    if (username) targets.push(username);
+    if (commune) targets.push(commune);
+    
+    query.recipients = { 
+      $in: targets.map(t => new RegExp("^" + t.trim() + "$", "i")) 
+    };
+  }
+  
   if (year) query.year = Number(year);
-  try { res.json(await Dispatch.find(query).sort({ timestamp: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
+  
+  try { 
+    const results = await Dispatch.find(query).sort({ timestamp: -1 });
+    res.json(results); 
+  } catch (e) { 
+    res.status(500).json({ message: e.message }); 
+  }
 });
 app.post('/api/dispatches', async (req, res) => {
   try { 
