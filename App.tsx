@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, Users, Menu, ShieldAlert, LogOut, Key, X, HelpCircle, CalendarDays, 
@@ -38,35 +37,42 @@ function App() {
   const [changePassMsg, setChangePassMsg] = useState('');
 
   // 1. Fetch Data
-  useEffect(() => {
-    if (user && sessionYear) {
-      setIsLoading(true);
-      Promise.all([api.getRecruits(), api.getDocuments(), api.getFeedbacks()]).then(([rData, dData, fData]) => {
-        if (rData) {
-            const processedRecruits = (rData as Recruit[]).map((r: Recruit) => {
-                const birthYear = parseInt(r.dob?.split('-')[0] || '0');
-                if (birthYear > 0) {
-                    const age = sessionYear - birthYear;
-                    if (age > 27 && r.status !== RecruitmentStatus.DELETED) {
-                        const updated = { 
-                            ...r, 
-                            status: RecruitmentStatus.DELETED, 
-                            previousStatus: r.status,
-                            defermentReason: `Tự động chuyển: Hết tuổi nghĩa vụ (${age} tuổi)`
-                        };
-                        api.updateRecruit(updated);
-                        return updated;
-                    }
-                }
-                return r;
-            });
-            setRecruits(processedRecruits);
-        }
-        if (dData) setDocuments(dData);
-        if (fData) setFeedbacks(fData);
-        setIsLoading(false);
-      });
+  const fetchAllData = async () => {
+    if (!user || !sessionYear) return;
+    setIsLoading(true);
+    try {
+      const [rData, dData, fData] = await Promise.all([api.getRecruits(), api.getDocuments(), api.getFeedbacks()]);
+      if (rData) {
+          const processedRecruits = (rData as Recruit[]).map((r: Recruit) => {
+              const birthYear = parseInt(r.dob?.split('-')[0] || '0');
+              if (birthYear > 0) {
+                  const age = sessionYear - birthYear;
+                  if (age > 27 && r.status !== RecruitmentStatus.DELETED) {
+                      const updated = { 
+                          ...r, 
+                          status: RecruitmentStatus.DELETED, 
+                          previousStatus: r.status,
+                          defermentReason: `Tự động chuyển: Hết tuổi nghĩa vụ (${age} tuổi)`
+                      };
+                      api.updateRecruit(updated);
+                      return updated;
+                  }
+              }
+              return r;
+          });
+          setRecruits(processedRecruits);
+      }
+      if (dData) setDocuments(dData);
+      if (fData) setFeedbacks(fData);
+    } catch (e) {
+      console.error("Error fetching data:", e);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchAllData();
   }, [user, sessionYear]);
 
   useEffect(() => {
@@ -355,9 +361,9 @@ function App() {
         const file = target.docFile.files[0]; 
         if (!file) return;
 
-        // KIỂM TRA GIỚI HẠN MONGODB (16MB BSON - Base64 tăng 35% kích thước)
-        if (file.size > 12 * 1024 * 1024) {
-            alert("LỖI: File quá lớn (" + (file.size / 1024 / 1024).toFixed(1) + "MB). \nMongoDB chỉ hỗ trợ lưu trữ tối đa 16MB cho mỗi bản ghi (bao gồm cả dữ liệu văn bản). \nVui lòng nén file PDF xuống dưới 12MB hoặc chia nhỏ file.");
+        // KIỂM TRA GIỚI HẠN AN TOÀN (10MB) - Base64 sẽ tăng kích thước thêm ~33%
+        if (file.size > 10 * 1024 * 1024) {
+            alert("LỖI: File quá lớn (" + (file.size / 1024 / 1024).toFixed(1) + "MB). Vui lòng chọn file dưới 10MB.");
             return;
         }
 
@@ -365,23 +371,28 @@ function App() {
         const reader = new FileReader();
         reader.onload = async (ev) => {
             const fileData = ev.target?.result as string;
-            
             const newDoc = { 
               title: target.docTitle.value, 
               category: target.docCat.value, 
               fileType: 'PDF', 
               url: fileData, 
               uploadDate: new Date().toLocaleDateString('vi-VN'), 
-              description: target.docDesc.value 
+              description: target.docDesc?.value || '' 
             };
 
-            const res = await api.createDocument(newDoc); 
-            setIsUploadingDoc(false);
-            
-            if (res) { 
-                setDocuments([res, ...documents]); 
-                setShowDocModal(false); 
-                alert("Đã lưu văn bản thành công!");
+            try {
+              const res = await api.createDocument(newDoc); 
+              if (res) { 
+                  setDocuments(prev => [res, ...prev]); 
+                  setShowDocModal(false); 
+                  alert("Đã lưu văn bản thành công!");
+                  // KHÔNG CẦN F5, tất cả các tài khoản khác khi reload sẽ thấy file này.
+              }
+            } catch (err) {
+              console.error(err);
+            } finally {
+              // CHẮC CHẮN LUÔN RESET TRẠNG THÁI LOADING
+              setIsUploadingDoc(false);
             }
         };
         reader.onerror = () => {
@@ -399,8 +410,11 @@ function App() {
     return (
         <div className="p-4 md:p-6 space-y-6 animate-in fade-in duration-500">
             <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-              <div><h2 className="text-xl font-bold text-military-800 flex items-center gap-2"><FileText className="text-military-600"/> Thư viện Văn bản pháp quy</h2><p className="text-xs text-gray-500 mt-1 font-medium">Dành cho địa phương nghiên cứu và triển khai</p></div>
-              {user?.role === 'ADMIN' && <button onClick={() => setShowDocModal(true)} className="flex items-center gap-2 bg-military-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg hover:bg-military-800 transition-all"><PlusCircle size={18}/> Thêm văn bản</button>}
+              <div><h2 className="text-xl font-bold text-military-800 flex items-center gap-2"><FileText className="text-military-600"/> Thư viện Văn bản pháp quy</h2><p className="text-xs text-gray-500 mt-1 font-medium">Các địa phương sẽ nhìn thấy ngay sau khi tải lên</p></div>
+              <div className="flex gap-2">
+                <button onClick={fetchAllData} className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200"><RefreshCw size={20} className={isLoading ? 'animate-spin' : ''}/></button>
+                {user?.role === 'ADMIN' && <button onClick={() => setShowDocModal(true)} className="flex items-center gap-2 bg-military-700 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg hover:bg-military-800 transition-all"><PlusCircle size={18}/> Thêm văn bản mới</button>}
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {documents.map((doc: any) => (
@@ -440,7 +454,7 @@ function App() {
                       <div>
                         <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Chọn File PDF</label>
                         <input name="docFile" required type="file" accept=".pdf" className="w-full text-xs font-bold" />
-                        <p className="text-[9px] text-red-500 mt-1 italic font-bold">* Giới hạn 12MB. File PDF (yêu cầu Database).</p>
+                        <p className="text-[9px] text-red-500 mt-1 italic font-bold">* Giới hạn 10MB. File PDF sẽ được đồng bộ toàn hệ thống.</p>
                       </div>
                     </div>
                     <div className="pt-4 flex justify-end gap-3">
@@ -451,9 +465,9 @@ function App() {
                         className={`px-6 py-2 bg-military-700 text-white rounded-lg font-black uppercase text-xs shadow-md flex items-center gap-2 ${isUploadingDoc ? 'opacity-50 cursor-not-allowed' : 'hover:bg-military-800'}`}
                       >
                         {isUploadingDoc ? (
-                            <><RefreshCw size={14} className="animate-spin" /> Đang xử lý...</>
+                            <><RefreshCw size={14} className="animate-spin" /> ĐANG XỬ LÝ...</>
                         ) : (
-                            'Lưu văn bản'
+                            'XÁC NHẬN TẢI LÊN'
                         )}
                       </button>
                     </div>

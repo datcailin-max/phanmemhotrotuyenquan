@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
 import { LOCATION_DATA, PROVINCES_VN, removeVietnameseTones, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, EDUCATIONS } from '../constants';
@@ -6,7 +5,7 @@ import RecruitForm from '../components/RecruitForm';
 import { 
   Search, Plus, CheckCircle2, XCircle, FileEdit, Stethoscope, ClipboardList, Filter,
   PauseCircle, Users, FileSignature, UserX, Flag, Layers, ShieldCheck, 
-  ChevronRight, BookX, ArrowRightCircle,
+  ChevronRight, BookX, ArrowRightCircle, Paperclip,
   Ban, Shield, ChevronLeft, Download, ShieldOff, RefreshCw, Undo2, Ban as BanIcon,
   HeartPulse, GraduationCap, Scale, Tent, ToggleLeft, ToggleRight, AlertTriangle,
   Calendar, UserPlus, Trash2, Copy, Import, Landmark, MapPin
@@ -713,11 +712,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       onUpdate({ ...recruit, defermentReason: reason });
   };
 
-  // Helper for Gifted column change
-  const handleGiftedChange = (recruit: Recruit, val: string) => {
-      onUpdate({ ...recruit, details: { ...recruit.details, gifted: val } });
-  };
-
   // List of Tab IDs where adding new citizens is allowed (1, 2, 3, 4)
   const ALLOWED_ADD_TABS = ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL'];
 
@@ -1171,11 +1165,19 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       ) : (
                           paginatedRecruits.map((recruit, index) => {
                               const statusColor = getStatusColor(recruit.status);
+                              const hasFiles = recruit.attachments && recruit.attachments.length > 0;
                               return (
                                   <tr key={recruit.id} className="hover:bg-gray-50 transition-colors group">
                                       <td className="p-3 text-center text-gray-500">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
                                       <td className="p-3">
-                                          <div className="font-bold text-gray-900 text-base">{recruit.fullName}</div>
+                                          <div className="flex items-center gap-2">
+                                              <div className="font-bold text-gray-900 text-base">{recruit.fullName}</div>
+                                              {hasFiles && (
+                                                <span title="Có tệp đính kèm">
+                                                    <Paperclip size={14} className="text-blue-500" />
+                                                </span>
+                                              )}
+                                          </div>
                                           <div className="flex items-center gap-2 mt-1">
                                               <span className="text-xs text-gray-500 font-mono bg-gray-100 px-1 rounded">{recruit.citizenId || '---'}</span>
                                           </div>

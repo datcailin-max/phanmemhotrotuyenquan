@@ -31,7 +31,7 @@ export const api = {
     try { 
       const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
       if (!res.ok) {
-          if (res.status === 413) throw new Error('Dữ liệu hồ sơ quá lớn (vượt giới hạn 16MB bao gồm ảnh/file).');
+          if (res.status === 413) throw new Error('Hồ sơ quá lớn (vượt giới hạn lưu trữ).');
           const errorData = await res.json();
           throw new Error(errorData.message || 'Lỗi server');
       }
@@ -42,12 +42,12 @@ export const api = {
     try { 
       const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
       if (!res.ok) {
-          if (res.status === 413) throw new Error('Hồ sơ hoặc tệp đính kèm quá lớn.');
+          if (res.status === 413) throw new Error('Dữ liệu hoặc tệp đính kèm quá lớn.');
           const errorData = await res.json();
           throw new Error(errorData.message || 'Lỗi server');
       }
       return await res.json();
-    } catch (e: any) { alert("Lỗi khi cập nhật hồ sơ: " + e.message); return null; }
+    } catch (e: any) { alert("Lỗi khi cập nhật: " + e.message); return null; }
   },
   deleteRecruit: async (id: string) => {
     try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
@@ -65,13 +65,13 @@ export const api = {
         body: JSON.stringify(d) 
       }); 
       if (!res.ok) {
-        if (res.status === 413) throw new Error('Tệp PDF vượt giới hạn kích thước cho phép.');
+        if (res.status === 413) throw new Error('Tệp PDF vượt giới hạn 10MB cho phép của hệ thống.');
         const errorData = await res.json();
-        throw new Error(errorData.message || 'Lỗi Server');
+        throw new Error(errorData.message || 'Lỗi lưu trữ');
       }
       return await res.json();
     } catch (e: any) { 
-      alert("KHÔNG THỂ TẢI FILE: " + e.message);
+      alert("KHÔNG THỂ TẢI LÊN: " + e.message);
       return null; 
     }
   },
@@ -110,7 +110,7 @@ export const api = {
       if (!res.ok) {
           if (res.status === 413) throw new Error('File báo cáo quá lớn.');
           const errorData = await res.json();
-          throw new Error(errorData.message || 'Lỗi Server');
+          throw new Error(errorData.message || 'Lỗi server');
       }
       return await res.json();
     } catch (e: any) { alert("LỖI GỬI BÁO CÁO: " + e.message); return null; }
@@ -128,12 +128,12 @@ export const api = {
     try { 
       const res = await fetch(`${API_URL}/dispatches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
       if (!res.ok) {
-          if (res.status === 413) throw new Error('File văn bản chỉ đạo quá lớn.');
+          if (res.status === 413) throw new Error('File văn bản quá lớn.');
           const errorData = await res.json();
-          throw new Error(errorData.message || 'Lỗi Server');
+          throw new Error(errorData.message || 'Lỗi server');
       }
       return await res.json();
-    } catch (e: any) { alert("LỖI BAN HÀNH VĂN BẢN: " + e.message); return null; }
+    } catch (e: any) { alert("LỖI BAN HÀNH: " + e.message); return null; }
   },
   deleteDispatch: async (id: string) => {
     try { const res = await fetch(`${API_URL}/dispatches/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
