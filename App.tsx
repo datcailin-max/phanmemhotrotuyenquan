@@ -30,6 +30,7 @@ function App() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showDocModal, setShowDocModal] = useState(false);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   
   const [profileData, setProfileData] = useState({ personalName: '', rank: '', position: '', email: '', phoneNumber: '' });
   const [newPassword, setNewPassword] = useState('');
@@ -91,7 +92,7 @@ function App() {
 
   const handleLogout = () => { setUser(null); setSessionYear(null); setActiveTab('dashboard'); };
 
-  // --- CHI TIẾT CÁC PANEL (KHÔI PHỤC ĐẦY ĐỦ) ---
+  // --- CHI TIẾT CÁC PANEL ---
 
   const QAPanel = () => {
       const [question, setQuestion] = useState('');
@@ -353,18 +354,42 @@ function App() {
         const target = e.target as any; 
         const file = target.docFile.files[0]; 
         if (!file) return;
+
+        // KIỂM TRA GIỚI HẠN MONGODB (16MB) - Base64 tăng 35% kích thước
+        // Giới hạn an toàn là file gốc khoảng 11-12MB
+        if (file.size > 12 * 1024 * 1024) {
+            alert("LỖI: File quá lớn (" + (file.size / 1024 / 1024).toFixed(1) + "MB). \nMongoDB chỉ hỗ trợ lưu trữ tối đa 16MB cho mỗi bản ghi (bao gồm cả dữ liệu văn bản). \nVui lòng nén file PDF xuống dưới 12MB hoặc chia nhỏ file.");
+            return;
+        }
+
+        setIsUploadingDoc(true);
         const reader = new FileReader();
         reader.onload = async (ev) => {
+            const fileData = ev.target?.result as string;
+            
             const newDoc = { 
               title: target.docTitle.value, 
               category: target.docCat.value, 
               fileType: 'PDF', 
-              url: ev.target?.result as string, 
+              url: fileData, 
               uploadDate: new Date().toLocaleDateString('vi-VN'), 
               description: target.docDesc.value 
             };
+
             const res = await api.createDocument(newDoc); 
-            if (res) { setDocuments([res, ...documents]); setShowDocModal(false); }
+            setIsUploadingDoc(false);
+            
+            if (res) { 
+                setDocuments([res, ...documents]); 
+                setShowDocModal(false); 
+                alert("Đã lưu văn bản thành công!");
+            } else {
+                alert("LỖI HỆ THỐNG: Không thể lưu file lên Database. \nCó thể do đường truyền hoặc cấu hình server bị chặn payload lớn. Thử lại với file nhỏ hơn.");
+            }
+        };
+        reader.onerror = () => {
+            setIsUploadingDoc(false);
+            alert("Lỗi đọc file từ thiết bị.");
         };
         reader.readAsDataURL(file);
     };
@@ -415,9 +440,26 @@ function App() {
                           <option value="QUYET_DINH">Quyết định</option>
                         </select>
                       </div>
-                      <div><label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Chọn File PDF</label><input name="docFile" required type="file" accept=".pdf" className="w-full text-xs font-bold" /></div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase tracking-wider">Chọn File PDF</label>
+                        <input name="docFile" required type="file" accept=".pdf" className="w-full text-xs font-bold" />
+                        <p className="text-[9px] text-red-500 mt-1 italic font-bold">* Giới hạn tối đa 12MB/file (Yêu cầu MongoDB)</p>
+                      </div>
                     </div>
-                    <div className="pt-4 flex justify-end gap-3"><button type="button" onClick={() => setShowDocModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 uppercase">Hủy bỏ</button><button type="submit" className="px-6 py-2 bg-military-700 text-white rounded-lg font-black uppercase text-xs shadow-md">Lưu văn bản</button></div>
+                    <div className="pt-4 flex justify-end gap-3">
+                      <button type="button" disabled={isUploadingDoc} onClick={() => setShowDocModal(false)} className="px-4 py-2 text-xs font-bold text-gray-500 uppercase">Hủy bỏ</button>
+                      <button 
+                        type="submit" 
+                        disabled={isUploadingDoc}
+                        className={`px-6 py-2 bg-military-700 text-white rounded-lg font-black uppercase text-xs shadow-md flex items-center gap-2 ${isUploadingDoc ? 'opacity-50 cursor-not-allowed' : 'hover:bg-military-800'}`}
+                      >
+                        {isUploadingDoc ? (
+                            <><RefreshCw size={14} className="animate-spin" /> Đang gửi...</>
+                        ) : (
+                            'Lưu văn bản'
+                        )}
+                      </button>
+                    </div>
                   </form>
                 </div>
               </div>
@@ -477,7 +519,7 @@ function App() {
         </div>
       </main>
 
-      {/* --- CÁC MODAL HỆ THỐNG (KHÔI PHỤC ĐẦY ĐỦ) --- */}
+      {/* --- CÁC MODAL HỆ THỐNG --- */}
 
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">

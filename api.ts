@@ -14,8 +14,8 @@ export const api = {
     try {
       const res = await fetch(`${API_URL}/users/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
       const data = await res.json();
-      return res.ok ? data : data.message || 'Lỗi';
-    } catch { return 'Lỗi kết nối'; }
+      return res.ok ? data : data.message || 'Lỗi đăng nhập';
+    } catch { return 'Lỗi kết nối máy chủ'; }
   },
   updateUser: async (u: string, d: any) => {
     try { const res = await fetch(`${API_URL}/users/${u}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return res.ok; } catch { return false; }
@@ -29,10 +29,16 @@ export const api = {
     try { const res = await fetch(`${API_URL}/recruits`); return await res.json(); } catch { return null; }
   },
   createRecruit: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    try { 
+      const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   updateRecruit: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    try { 
+      const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   deleteRecruit: async (id: string) => {
     try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
@@ -43,7 +49,21 @@ export const api = {
     try { const res = await fetch(`${API_URL}/documents`); return await res.json(); } catch { return []; }
   },
   createDocument: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/documents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    try { 
+      const res = await fetch(`${API_URL}/documents`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(d) 
+      }); 
+      if (!res.ok) {
+        console.error('Server error:', res.status);
+        return null;
+      }
+      return await res.json();
+    } catch (e) { 
+      console.error('Network error:', e);
+      return null; 
+    }
   },
   deleteDocument: async (id: string) => {
     try { const res = await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
@@ -54,37 +74,48 @@ export const api = {
     try { const res = await fetch(`${API_URL}/feedbacks`); return await res.json(); } catch { return []; }
   },
   createFeedback: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/feedbacks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    try { 
+      const res = await fetch(`${API_URL}/feedbacks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   updateFeedback: async (id: string, d: any) => {
-    try { const res = await fetch(`${API_URL}/feedbacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    try { 
+      const res = await fetch(`${API_URL}/feedbacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   deleteFeedback: async (id: string) => {
     try { await fetch(`${API_URL}/feedbacks/${id}`, { method: 'DELETE' }); return true; } catch { return false; }
   },
 
-  // --- REPORTS (XÃ GỬI TỈNH) ---
+  // --- REPORTS ---
   getReports: async (params: { province?: string, username?: string, year?: number }): Promise<UnitReport[]> => {
     const query = new URLSearchParams(params as any).toString();
     try { const res = await fetch(`${API_URL}/reports?${query}`); return await res.json(); } catch { return []; }
   },
   sendReport: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    try { 
+      const res = await fetch(`${API_URL}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   deleteReport: async (id: string) => {
     try { const res = await fetch(`${API_URL}/reports/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   },
 
-  // --- DISPATCHES (TỈNH GỬI XÃ) ---
+  // --- DISPATCHES ---
   getDispatches: async (params: { province?: string, username?: string, year?: number }): Promise<ProvincialDispatch[]> => {
     const query = new URLSearchParams(params as any).toString();
     try { const res = await fetch(`${API_URL}/dispatches?${query}`); return await res.json(); } catch { return []; }
   },
   sendDispatch: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/dispatches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    try { 
+      const res = await fetch(`${API_URL}/dispatches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   deleteDispatch: async (id: string) => {
-    // Fixed: Added const res = await fetch(...) before res.ok check
     try { const res = await fetch(`${API_URL}/dispatches/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   }
 };

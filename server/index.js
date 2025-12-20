@@ -17,8 +17,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+// CẤU HÌNH GIỚI HẠN PAYLOAD - QUAN TRỌNG ĐỂ NHẬN FILE LỚN
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.use(cors());
 app.use(express.static(path.join(__dirname, '../dist')));
 
@@ -70,7 +71,15 @@ app.get('/api/documents', async (req, res) => {
   try { res.json(await Document.find().sort({ createdAt: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 app.post('/api/documents', async (req, res) => {
-  try { res.status(201).json(await new Document(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
+  try { 
+    console.log(`[DOC] Uploading: ${req.body.title} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
+    const doc = new Document(req.body);
+    const result = await doc.save();
+    res.status(201).json(result); 
+  } catch (e) { 
+    console.error('[DOC] Save Error:', e.message);
+    res.status(400).json({ message: e.message }); 
+  }
 });
 app.delete('/api/documents/:id', async (req, res) => {
   try { await Document.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
@@ -90,7 +99,7 @@ app.delete('/api/feedbacks/:id', async (req, res) => {
   try { await Feedback.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// --- REPORT API (BÁO CÁO TỪ XÃ LÊN TỈNH) ---
+// --- REPORT API ---
 app.get('/api/reports', async (req, res) => {
   const { province, username, year } = req.query;
   let query = {};
@@ -100,13 +109,19 @@ app.get('/api/reports', async (req, res) => {
   try { res.json(await Report.find(query).sort({ timestamp: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 app.post('/api/reports', async (req, res) => {
-  try { res.status(201).json(await new Report(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
+  try { 
+    console.log(`[REPORT] From ${req.body.senderUnitName} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
+    res.status(201).json(await new Report(req.body).save()); 
+  } catch (e) { 
+    console.error('[REPORT] Save Error:', e.message);
+    res.status(400).json({ message: e.message }); 
+  }
 });
 app.delete('/api/reports/:id', async (req, res) => {
     try { await Report.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// --- DISPATCH API (VĂN BẢN TỪ TỈNH XUỐNG XÃ) ---
+// --- DISPATCH API ---
 app.get('/api/dispatches', async (req, res) => {
   const { province, username, year } = req.query;
   let query = {};
@@ -116,11 +131,17 @@ app.get('/api/dispatches', async (req, res) => {
   try { res.json(await Dispatch.find(query).sort({ timestamp: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 app.post('/api/dispatches', async (req, res) => {
-  try { res.status(201).json(await new Dispatch(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
+  try { 
+    console.log(`[DISPATCH] Title: ${req.body.title} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
+    res.status(201).json(await new Dispatch(req.body).save()); 
+  } catch (e) { 
+    console.error('[DISPATCH] Save Error:', e.message);
+    res.status(400).json({ message: e.message }); 
+  }
 });
 app.delete('/api/dispatches/:id', async (req, res) => {
     try { await Dispatch.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../dist/index.html')));
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with 200MB limit` ));

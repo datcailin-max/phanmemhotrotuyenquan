@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileText, Send, Download, Trash2, PlusCircle, Calendar, 
-  MapPin, UserCheck, ShieldAlert, X, Eye, CheckCircle2, History, Filter
+  MapPin, UserCheck, ShieldAlert, X, Eye, CheckCircle2, History, Filter, RefreshCw
 } from 'lucide-react';
 import { User, UnitReport, ProvincialDispatch } from '../types';
 import { api } from '../api';
@@ -18,6 +18,7 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
   const [dispatches, setDispatches] = useState<ProvincialDispatch[]>([]);
   const [activeTab, setActiveTab] = useState<'REPORTS' | 'DISPATCHES'>('REPORTS');
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   
@@ -70,6 +71,11 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
     const file = target.reportFile.files[0];
     if (!file) return;
 
+    if (file.size > 16 * 1024 * 1024) {
+        alert("CẢNH BÁO: File lớn hơn 16MB có thể không lưu được. Vui lòng thử nén file hoặc chia nhỏ.");
+    }
+
+    setIsProcessingFile(true);
     const reader = new FileReader();
     reader.onload = async (ev) => {
         const newReport = {
@@ -82,10 +88,13 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
             timestamp: Date.now()
         };
         const res = await api.sendReport(newReport);
+        setIsProcessingFile(false);
         if (res) {
             setReports([res, ...reports]);
             setShowReportModal(false);
             alert("Đã gửi báo cáo thành công lên Bộ CHQS Tỉnh!");
+        } else {
+            alert("Lỗi: Không thể gửi file lớn. Vui lòng kiểm tra kích thước file.");
         }
     };
     reader.readAsDataURL(file);
@@ -97,12 +106,17 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
     const file = target.dispatchFile.files[0];
     if (!file) return;
 
+    if (file.size > 16 * 1024 * 1024) {
+        alert("CẢNH BÁO: File chỉ đạo lớn hơn 16MB có thể không ban hành được. Vui lòng nén file.");
+    }
+
     const selectedRecipients = Array.from(target.dispatchRecipients.selectedOptions).map((opt: any) => opt.value);
     if (selectedRecipients.length === 0) {
         alert("Vui lòng chọn ít nhất một đơn vị nhận.");
         return;
     }
 
+    setIsProcessingFile(true);
     const reader = new FileReader();
     reader.onload = async (ev) => {
         const newDispatch = {
@@ -115,10 +129,13 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
             timestamp: Date.now()
         };
         const res = await api.sendDispatch(newDispatch);
+        setIsProcessingFile(false);
         if (res) {
             setDispatches([res, ...dispatches]);
             setShowDispatchModal(false);
             alert("Đã ban hành văn bản thành công tới các xã/phường!");
+        } else {
+            alert("Lỗi: Không thể ban hành file lớn.");
         }
     };
     reader.readAsDataURL(file);
@@ -343,10 +360,13 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
               <div>
                 <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase">Chọn File PDF</label>
                 <input name="reportFile" required type="file" accept=".pdf" className="w-full text-xs p-2 border border-dashed rounded-lg bg-gray-50" />
+                <p className="text-[9px] text-red-500 mt-1 italic">* Ưu tiên file &lt; 16MB để tránh lỗi lưu trữ</p>
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowReportModal(false)} className="px-5 py-2 text-xs font-bold text-gray-500">Hủy</button>
-                <button type="submit" className="px-7 py-2 bg-military-700 text-white rounded-lg font-black uppercase text-xs">Xác nhận gửi</button>
+                <button type="button" disabled={isProcessingFile} onClick={() => setShowReportModal(false)} className="px-5 py-2 text-xs font-bold text-gray-500">Hủy</button>
+                <button type="submit" disabled={isProcessingFile} className={`px-7 py-2 bg-military-700 text-white rounded-lg font-black uppercase text-xs flex items-center gap-2 ${isProcessingFile ? 'opacity-50' : ''}`}>
+                    {isProcessingFile ? <><RefreshCw size={14} className="animate-spin" /> Đang gửi...</> : 'Xác nhận gửi'}
+                </button>
               </div>
             </form>
           </div>
@@ -376,10 +396,13 @@ const CommunicationView: React.FC<CommunicationViewProps> = ({ user, sessionYear
               <div>
                 <label className="block text-[10px] font-black text-gray-500 mb-1 uppercase">Chọn File PDF</label>
                 <input name="dispatchFile" required type="file" accept=".pdf" className="w-full text-xs p-2 border border-dashed rounded-lg bg-blue-50/20" />
+                <p className="text-[9px] text-red-500 mt-1 italic">* File &gt; 16MB có thể gây lỗi hệ thống</p>
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowDispatchModal(false)} className="px-5 py-2 text-xs font-bold text-gray-500">Hủy</button>
-                <button type="submit" className="px-7 py-2 bg-blue-700 text-white rounded-lg font-black uppercase text-xs">Ban hành ngay</button>
+                <button type="button" disabled={isProcessingFile} onClick={() => setShowDispatchModal(false)} className="px-5 py-2 text-xs font-bold text-gray-500">Hủy</button>
+                <button type="submit" disabled={isProcessingFile} className={`px-7 py-2 bg-blue-700 text-white rounded-lg font-black uppercase text-xs flex items-center gap-2 ${isProcessingFile ? 'opacity-50' : ''}`}>
+                   {isProcessingFile ? <><RefreshCw size={14} className="animate-spin" /> Đang ban hành...</> : 'Ban hành ngay'}
+                </button>
               </div>
             </form>
           </div>
