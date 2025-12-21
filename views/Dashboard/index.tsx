@@ -48,21 +48,21 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
       <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 overflow-hidden relative">
          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-2">
              <div>
-                <h2 className="text-xl font-black text-military-900 flex items-center gap-2 uppercase tracking-tight">
+                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2 uppercase tracking-tight">
                     <Activity className="text-military-600 animate-pulse" /> TIẾN ĐỘ THỰC HIỆN {props.sessionYear}
                 </h2>
-                <p className="text-[11px] font-black text-military-600 uppercase tracking-widest mt-1">{scopeName}</p>
+                <p className="text-[11px] font-bold text-military-600 uppercase tracking-widest mt-1">{scopeName}</p>
              </div>
              <div className="flex items-center gap-3">
                  {canTransfer && !filterProvince && !filterCommune && (
                     <button 
                         onClick={() => setShowTransferModal(true)}
-                        className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-black uppercase shadow-lg hover:bg-amber-700 transition-all active:scale-95"
+                        className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg hover:bg-amber-700 transition-all active:scale-95"
                     >
                         <RefreshCw size={16} /> Kết chuyển năm sau
                     </button>
                  )}
-                 <div className="bg-military-50 px-3 py-1.5 rounded-lg border border-military-100 text-[10px] font-black text-military-700 uppercase">Dữ liệu đồng bộ trực tuyến</div>
+                 <div className="bg-military-50 px-3 py-1.5 rounded-lg border border-military-100 text-[10px] font-bold text-military-700 uppercase">Dữ liệu đồng bộ trực tuyến</div>
              </div>
          </div>
          <ProgressSection stats={stats.counts} onNavigate={props.onNavigate} />

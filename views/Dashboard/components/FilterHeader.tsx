@@ -25,13 +25,13 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sticky top-0 z-20 backdrop-blur-md bg-white/90">
             <div className="flex flex-col md:flex-row gap-6 items-center">
-               <div className="flex items-center gap-2 text-military-800 font-black text-xs uppercase tracking-widest">
+               <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-widest">
                    <Filter size={18} className="text-military-600" /> Phạm vi giám sát:
                </div>
                <div className="flex flex-1 gap-3 w-full">
                  {userRole === 'ADMIN' && (
                     <select 
-                        className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-50" 
+                        className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 focus:ring-2 focus:ring-military-500 outline-none" 
                         value={filterProvince} 
                         onChange={(e) => onProvinceChange(e.target.value)}
                     >
@@ -40,7 +40,7 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
                     </select>
                  )}
                  <select 
-                   className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-700 bg-gray-50" 
+                   className="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-50 focus:ring-2 focus:ring-military-500 outline-none" 
                    value={filterCommune} 
                    onChange={(e) => onCommuneChange(e.target.value)} 
                    disabled={userRole === 'ADMIN' && !filterProvince}
@@ -49,7 +49,7 @@ const FilterHeader: React.FC<FilterHeaderProps> = ({
                     {communes.map(c => <option key={c} value={c}>{c}</option>)}
                  </select>
                </div>
-               <button onClick={onReset} className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl font-black text-[10px] uppercase hover:bg-gray-200">Đặt lại</button>
+               <button onClick={onReset} className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl font-bold text-[10px] uppercase hover:bg-gray-200 transition-colors">Đặt lại</button>
             </div>
         </div>
     );

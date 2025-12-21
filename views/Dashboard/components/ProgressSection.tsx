@@ -9,11 +9,11 @@ const Card = ({ title, count, icon: Icon, color, onClick, detailText, isLast }: 
     <div onClick={onClick} className={`relative p-4 rounded-xl border transition-all cursor-pointer group bg-white hover:shadow-lg ${isLast ? 'border-teal-500 bg-teal-50/30' : 'border-gray-200 hover:border-military-300'}`}>
         <div className="flex justify-between items-start mb-2">
             <div className={`p-2 rounded-lg ${color} text-white`}><Icon size={20} /></div>
-            <p className={`text-2xl font-black ${isLast ? 'text-teal-700' : 'text-gray-800'}`}>{count.toLocaleString()}</p>
+            <p className={`text-2xl font-extrabold ${isLast ? 'text-teal-700' : 'text-slate-800'}`}>{count.toLocaleString()}</p>
         </div>
-        <h3 className="text-[11px] font-black text-gray-700 mt-2 uppercase leading-tight">{title}</h3>
+        <h3 className="text-[11px] font-bold text-slate-700 mt-2 uppercase leading-tight tracking-tight">{title}</h3>
         {detailText && <p className="text-[10px] text-gray-500 font-bold bg-gray-50 px-1.5 py-0.5 rounded inline-block mt-1">{detailText}</p>}
-        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"><ArrowRightCircle size={14} className="text-military-400" /></div>
+        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"><ArrowRightCircle size={14} className="text-military-400" /></div>
     </div>
 );
 
