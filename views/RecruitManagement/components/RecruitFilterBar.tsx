@@ -16,7 +16,7 @@ interface RecruitFilterBarProps {
   setAdvFilterHealth: (v: string) => void;
   advFilterPolitical: string;
   setAdvFilterPolitical: (v: string) => void;
-  advancedFilterRef: React.RefObject<HTMLDivElement | null>;
+  advancedFilterRef: React.RefObject<HTMLDivElement>;
 }
 
 const RecruitFilterBar: React.FC<RecruitFilterBarProps> = ({
