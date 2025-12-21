@@ -24,7 +24,7 @@ function App() {
   
   // Custom hook quản lý dữ liệu
   const { 
-    recruits, setRecruits, documents, feedbacks, isLoading 
+    recruits, setRecruits, documents, feedbacks, isLoading, fetchAllData 
   } = useInitialData(user, sessionYear);
   
   // Modals States
@@ -147,7 +147,13 @@ function App() {
               />
             )}
             {activeTab === 'communication' && <CommunicationView user={user} sessionYear={sessionYear} />}
-            {activeTab === 'documents' && <DocumentsView documents={documents} />}
+            {activeTab === 'documents' && (
+              <DocumentsView 
+                documents={documents} 
+                user={user} 
+                onRefresh={fetchAllData} 
+              />
+            )}
             {activeTab === 'qa' && <QAView feedbacks={feedbacks} user={user} />}
         </div>
       </main>
