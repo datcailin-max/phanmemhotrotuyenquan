@@ -20,7 +20,8 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           charts: ['recharts'],
-          utils: ['lucide-react']
+          utils: ['lucide-react'],
+          excel: ['xlsx-js-style']
         }
       }
     }
