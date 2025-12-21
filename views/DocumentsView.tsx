@@ -34,6 +34,8 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
       if (success) {
         alert("Đã xóa tài liệu.");
         onRefresh();
+      } else {
+        alert("Lỗi: Không thể xóa tài liệu. Vui lòng thử lại.");
       }
     }
   };
@@ -66,33 +68,32 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
 
     setIsSubmitting(true);
 
-    const processData = (fileBase64?: string) => {
+    const processData = async (fileBase64?: string) => {
         const payload = {
             title: target.docTitle.value,
             category: target.docCategory.value,
             description: target.docDesc.value,
             url: fileBase64 || editingDoc?.url,
-            uploadDate: new Date().toLocaleDateString('vi-VN'),
+            uploadDate: editingDoc ? editingDoc.uploadDate : new Date().toLocaleDateString('vi-VN'),
             fileType: 'PDF'
         };
 
-        if (editingDoc) {
-            // Logic cập nhật (nếu cần endpoint updateDocument riêng, 
-            // hiện tại api.ts chỉ có create/delete nên ta xử lý create mới)
-            // Để đơn giản ta xóa cũ tạo mới hoặc bạn có thể bổ sung updateDocument vào api.ts
-            api.createDocument(payload).then(() => {
-                setIsSubmitting(false);
-                setShowModal(false);
-                onRefresh();
-                alert("Đã lưu thay đổi tài liệu.");
-            });
-        } else {
-            api.createDocument(payload).then(() => {
-                setIsSubmitting(false);
-                setShowModal(false);
-                onRefresh();
-                alert("Đã thêm tài liệu mới.");
-            });
+        try {
+            if (editingDoc) {
+                const docId = (editingDoc as any)._id || editingDoc.id;
+                await api.updateDocument(docId, payload);
+                alert("Đã cập nhật tài liệu thành công.");
+            } else {
+                await api.createDocument(payload);
+                alert("Đã tải lên tài liệu mới thành công.");
+            }
+            setIsSubmitting(false);
+            setShowModal(false);
+            onRefresh();
+        } catch (err) {
+            console.error(err);
+            alert("Đã xảy ra lỗi trong quá trình xử lý.");
+            setIsSubmitting(false);
         }
     };
 
@@ -166,60 +167,63 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
              <FileText size={48} className="mx-auto text-gray-200 mb-4" />
              <p className="text-gray-400 font-bold">Không tìm thấy tài liệu nào phù hợp.</p>
           </div>
-        ) : filteredDocs.map(doc => (
-          <div key={doc.id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col h-full">
-            <div className="flex justify-between items-start mb-4">
-              <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                doc.category === 'LUAT' ? 'bg-red-50 text-red-700 border border-red-100' :
-                doc.category === 'THONG_TU' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                'bg-gray-50 text-gray-600 border border-gray-100'
-              }`}>
-                {doc.category}
-              </div>
-              <div className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
-                <FileCheck size={12}/> {doc.uploadDate}
-              </div>
-            </div>
-
-            <h4 className="text-sm font-black text-military-900 leading-tight mb-2 line-clamp-2 uppercase group-hover:text-military-600 transition-colors">
-              {doc.title}
-            </h4>
-            
-            <p className="text-xs text-gray-500 font-medium mb-6 line-clamp-3 italic flex-1">
-              {doc.description || 'Chưa có nội dung tóm tắt cho văn bản này.'}
-            </p>
-
-            <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
-              <a 
-                href={doc.url} 
-                target="_blank" 
-                rel="noreferrer"
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-xs font-black uppercase tracking-wider"
-              >
-                <Download size={16} /> Tải về / Xem
-              </a>
-              
-              {isAdmin && (
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => handleOpenEdit(doc)}
-                    className="p-2 text-gray-400 hover:text-military-600 hover:bg-military-50 rounded-lg transition-all"
-                    title="Sửa"
-                  >
-                    <Edit3 size={16} />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(doc.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                    title="Xóa"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+        ) : filteredDocs.map(doc => {
+          const docId = (doc as any)._id || doc.id;
+          return (
+            <div key={docId} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col h-full">
+              <div className="flex justify-between items-start mb-4">
+                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                  doc.category === 'LUAT' ? 'bg-red-50 text-red-700 border border-red-100' :
+                  doc.category === 'THONG_TU' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                  'bg-gray-50 text-gray-600 border border-gray-100'
+                }`}>
+                  {doc.category}
                 </div>
-              )}
+                <div className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
+                  <FileCheck size={12}/> {doc.uploadDate}
+                </div>
+              </div>
+
+              <h4 className="text-sm font-black text-military-900 leading-tight mb-2 line-clamp-2 uppercase group-hover:text-military-600 transition-colors">
+                {doc.title}
+              </h4>
+              
+              <p className="text-xs text-gray-500 font-medium mb-6 line-clamp-3 italic flex-1">
+                {doc.description || 'Chưa có nội dung tóm tắt cho văn bản này.'}
+              </p>
+
+              <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
+                <a 
+                  href={doc.url} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-xs font-black uppercase tracking-wider"
+                >
+                  <Download size={16} /> Tải về / Xem
+                </a>
+                
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleOpenEdit(doc)}
+                      className="p-2 text-gray-400 hover:text-military-600 hover:bg-military-50 rounded-lg transition-all"
+                      title="Sửa"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(docId)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Xóa"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Admin Management Modal */}
@@ -274,7 +278,9 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                         accept=".pdf" 
                         className="w-full text-[10px] p-2 border border-dashed border-military-200 rounded-xl bg-military-50/30" 
                     />
-                    <p className="text-[9px] text-military-600 mt-1 font-bold">* Chấp nhận PDF tối đa 70MB.</p>
+                    <p className="text-[9px] text-military-600 mt-1 font-bold">
+                      {editingDoc ? '* Để trống nếu muốn giữ file cũ.' : '* Chấp nhận PDF tối đa 70MB.'}
+                    </p>
                 </div>
               </div>
 
@@ -292,7 +298,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
               <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-start gap-3">
                  <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={16} />
                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                   Văn bản sau khi tải lên sẽ hiển thị công khai cho toàn bộ đơn vị cấp Xã và Tỉnh trong hệ thống. Vui lòng kiểm tra tính chính xác của file trước khi gửi.
+                   Văn bản sau khi {editingDoc ? 'cập nhật' : 'tải lên'} sẽ hiển thị công khai cho toàn bộ đơn vị cấp Xã và Tỉnh trong hệ thống. Vui lòng kiểm tra tính chính xác của file trước khi gửi.
                  </p>
               </div>
 
@@ -310,7 +316,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                   disabled={isSubmitting}
                   className={`px-10 py-3 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center gap-2 transition-all ${isSubmitting ? 'opacity-50' : 'hover:bg-military-800'}`}
                 >
-                  {isSubmitting ? <><RefreshCw size={14} className="animate-spin" /> Đang xử lý...</> : 'Xác nhận tải lên'}
+                  {isSubmitting ? <><RefreshCw size={14} className="animate-spin" /> Đang xử lý...</> : 'Xác nhận lưu'}
                 </button>
               </div>
             </form>

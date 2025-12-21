@@ -148,6 +148,22 @@ export const api = {
       return await res.json();
     } catch (e: any) { return null; }
   },
+  updateDocument: async (id: string, d: any) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_documents');
+        const index = list.findIndex((doc: any) => doc.id === id || doc._id === id);
+        if (index > -1) {
+            list[index] = { ...list[index], ...d };
+            setLocal('demo_documents', list);
+            return list[index];
+        }
+        return null;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/documents/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return await res.json();
+    } catch (e: any) { return null; }
+  },
   deleteDocument: async (id: string) => {
     if (isDemoMode()) {
         const list = getLocal('demo_documents');

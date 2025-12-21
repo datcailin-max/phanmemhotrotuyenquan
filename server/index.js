@@ -81,6 +81,9 @@ app.post('/api/documents', async (req, res) => {
     res.status(400).json({ message: e.message }); 
   }
 });
+app.put('/api/documents/:id', async (req, res) => {
+  try { res.json(await Document.findByIdAndUpdate(req.params.id, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); }
+});
 app.delete('/api/documents/:id', async (req, res) => {
   try { await Document.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
 });
