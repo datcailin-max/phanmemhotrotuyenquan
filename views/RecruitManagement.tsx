@@ -3,10 +3,11 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../types';
 import { LOCATION_DATA, PROVINCES_VN, LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, EDUCATIONS } from '../constants';
 import RecruitForm from '../components/RecruitForm';
+import { ExcelExportService } from '../services/ExcelExportService';
 import { 
   Search, Plus, CheckCircle2, XCircle, FileEdit, Stethoscope, ClipboardList, Filter,
   PauseCircle, Users, FileSignature, UserX, Flag, Layers, ShieldCheck, 
-  ChevronRight, BookX, Paperclip,
+  ChevronRight, BookX, Paperclip, Download,
   ChevronLeft, Trash2, RefreshCw, Undo2, HeartPulse, GraduationCap, ArrowUpCircle, UserPlus, Tent, Landmark, Calendar, X, Save
 } from 'lucide-react';
 
@@ -122,6 +123,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const handleEdit = (recruit: Recruit) => { setEditingRecruit(recruit); setShowForm(true); };
   const handleCreate = () => { setEditingRecruit(undefined); setShowForm(true); };
   const handleSave = (data: Recruit) => { onUpdate(data); setShowForm(false); };
+
+  const handleExportExcel = () => {
+    if (filteredRecruits.length === 0) {
+      alert("Không có dữ liệu để xuất!");
+      return;
+    }
+    const unitName = user.unit.commune || user.unit.province || 'COQUAN';
+    const fileName = `DanhSach_NVQS_${unitName}_${activeTabId}_${sessionYear}.xlsx`;
+    ExcelExportService.exportToTemplate(filteredRecruits, `DANH SÁCH CÔNG DÂN - ${activeTab.label}`, fileName);
+  };
 
   const handleConfirmRemove = () => {
       if (recruitToRemove) {
@@ -278,6 +289,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                 <p className="text-xs text-gray-500 mt-1">Hồ sơ tuyển quân năm {sessionYear}</p>
               </div>
               <div className="flex items-center gap-2">
+                  <button onClick={handleExportExcel} className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white rounded-md font-bold hover:bg-green-800 shadow-sm text-sm"><Download size={16} /> Xuất Excel (Mẫu in)</button>
                   {!isReadOnly && ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL'].includes(activeTabId) && (
                       <button onClick={handleCreate} className="flex items-center gap-2 px-4 py-2 bg-military-800 text-white rounded-md font-bold hover:bg-military-900 shadow-sm text-sm"><Plus size={16} /> Thêm công dân</button>
                   )}
