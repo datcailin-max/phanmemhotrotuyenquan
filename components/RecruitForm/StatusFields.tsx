@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AlertTriangle, Tent, FileText, Calendar, CheckCircle2 } from 'lucide-react';
 import { RecruitmentStatus } from '../../types';
@@ -24,11 +23,11 @@ const StatusFields = ({ formData, isReadOnly, handleChange }: any) => {
     showProofInput = true;
   } else if (s === RecruitmentStatus.NOT_ALLOWED_REGISTRATION) {
     reasons = NOT_ALLOWED_REGISTRATION_REASONS;
-    label = "Lý do không được đăng ký NVQS";
+    label = "Lý do không được đăng ký NVQS (Theo Luật)";
     showProofInput = true;
   } else if (s === RecruitmentStatus.EXEMPT_REGISTRATION) {
     reasons = EXEMPT_REGISTRATION_REASONS;
-    label = "Lý do miễn đăng ký NVQS";
+    label = "Lý do miễn đăng ký NVQS (Theo Luật)";
     showProofInput = true;
   }
 
@@ -52,18 +51,19 @@ const StatusFields = ({ formData, isReadOnly, handleChange }: any) => {
 
       <div className={`p-5 rounded-2xl border shadow-sm space-y-4 ${s === RecruitmentStatus.FINALIZED || s === RecruitmentStatus.ENLISTED ? 'bg-green-50/50 border-green-200' : 'bg-amber-50/50 border-amber-200'}`}>
         
-        {/* Lý do cho các diện Tạm hoãn/Miễn */}
+        {/* Lý do cho các diện Tạm hoãn/Miễn/Không được ĐK */}
         {reasons.length > 0 && (
           <div className="space-y-3">
             <div>
               <label className="block text-[10px] font-black text-amber-800 uppercase mb-1">{label}</label>
               <select 
+                required
                 className="w-full p-2.5 border border-amber-200 rounded-lg text-sm font-bold bg-white focus:ring-2 focus:ring-amber-500"
                 value={formData.defermentReason || ''}
                 onChange={(e) => handleChange('defermentReason', e.target.value)}
                 disabled={isReadOnly}
               >
-                <option value="">-- Chọn lý do phù hợp theo Luật --</option>
+                <option value="">-- Chọn lý do phù hợp theo quy định --</option>
                 {reasons.map((r, i) => <option key={i} value={r}>{r}</option>)}
                 <option value="Khác">Lý do đặc thù khác...</option>
               </select>

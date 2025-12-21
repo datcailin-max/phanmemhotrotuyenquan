@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Users, Heart } from 'lucide-react';
+import { Users, Heart, Calendar } from 'lucide-react';
 import { FAMILY_JOBS } from '../../constants';
 
 const FamilyFields = ({ formData, isReadOnly, handleChange }: any) => {
@@ -20,29 +19,42 @@ const FamilyFields = ({ formData, isReadOnly, handleChange }: any) => {
         {members.map((m) => (
           <div key={m.key} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
             <label className="block text-[10px] font-black text-gray-500 uppercase mb-2 tracking-widest">{m.label}</label>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
+            <div className="grid grid-cols-12 gap-3">
+              <div className="col-span-12 md:col-span-5">
+                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Họ và tên</label>
                 <input 
-                  placeholder="Họ và tên..."
+                  placeholder="Nhập họ tên..."
                   className="w-full p-2 border border-gray-300 rounded text-sm font-bold uppercase focus:ring-1 focus:ring-military-500"
                   value={formData.family?.[m.key]?.fullName || ''}
                   onChange={(e) => handleChange(`family.${m.key}.fullName`, e.target.value)}
                   readOnly={isReadOnly}
                 />
               </div>
-              <div>
-                <select 
-                  className="w-full p-2 border border-gray-300 rounded text-sm font-medium bg-white"
-                  value={formData.family?.[m.key]?.job || 'Làm nông'}
-                  onChange={(e) => handleChange(`family.${m.key}.job`, e.target.value)}
-                  disabled={isReadOnly}
-                >
-                  {FAMILY_JOBS.map(j => <option key={j} value={j}>{j}</option>)}
-                </select>
-              </div>
-              <div>
+              <div className="col-span-6 md:col-span-2">
+                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Năm sinh</label>
                 <input 
-                  placeholder="SĐT liên lạc..."
+                  type="text"
+                  placeholder="19xx"
+                  className="w-full p-2 border border-gray-300 rounded text-sm font-bold text-center"
+                  value={formData.family?.[m.key]?.birthYear || ''}
+                  onChange={(e) => handleChange(`family.${m.key}.birthYear`, e.target.value)}
+                  readOnly={isReadOnly}
+                />
+              </div>
+              <div className="col-span-6 md:col-span-5">
+                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Nghề nghiệp</label>
+                <input 
+                  placeholder="Tự nhập nghề nghiệp..."
+                  className="w-full p-2 border border-gray-300 rounded text-sm font-medium bg-white"
+                  value={formData.family?.[m.key]?.job || ''}
+                  onChange={(e) => handleChange(`family.${m.key}.job`, e.target.value)}
+                  readOnly={isReadOnly}
+                />
+              </div>
+              <div className="col-span-12">
+                <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Số điện thoại liên hệ</label>
+                <input 
+                  placeholder="Nhập SĐT..."
                   className="w-full p-2 border border-gray-300 rounded text-sm font-mono focus:ring-1 focus:ring-military-500"
                   value={formData.family?.[m.key]?.phoneNumber || ''}
                   onChange={(e) => handleChange(`family.${m.key}.phoneNumber`, e.target.value)}

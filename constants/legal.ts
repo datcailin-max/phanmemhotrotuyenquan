@@ -1,4 +1,3 @@
-
 export const LEGAL_DEFERMENT_REASONS = [
     "1. Chưa đủ sức khỏe phục vụ tại ngũ theo kết luận của Hội đồng khám sức khỏe",
     "2. Là lao động duy nhất phải trực tiếp nuôi dưỡng thân nhân không còn khả năng lao động hoặc chưa đến tuổi lao động; trong gia đình bị thiệt hại nặng về người và tài sản do tai nạn, thiên tai, dịch bệnh nguy hiểm gây ra được Ủy ban nhân dân cấp xã xác nhận",
@@ -20,17 +19,14 @@ export const LEGAL_EXEMPTION_REASONS = [
 ];
 
 export const NOT_ALLOWED_REGISTRATION_REASONS = [
-    "Đang bị truy cứu trách nhiệm hình sự",
-    "Đang chấp hành hình phạt tù",
-    "Đang bị áp dụng biện pháp cải tạo không giam giữ, quản chế",
-    "Đã chấp hành xong hình phạt tù nhưng chưa được xóa án tích",
-    "Đang bị áp dụng biện pháp giáo dục tại xã, phường, thị trấn",
-    "Được đưa vào trường giáo dưỡng, cơ sở giáo dục bắt buộc, cơ sở cai nghiện bắt buộc",
-    "Bị tước quyền phục vụ trong lực lượng vũ trang nhân dân"
+    "Đang bị truy cứu trách nhiệm hình sự; đang chấp hành hình phạt tù, cải tạo không giam giữ, quản chế hoặc đã chấp hành xong hình phạt tù nhưng chưa được xóa án tích;",
+    "Đang bị áp dụng biện pháp giáo dục tại xã, phường, thị trấn (sau đây gọi chung là cấp xã) hoặc đưa vào trường giáo dưỡng, cơ sở giáo dục bắt buộc, cơ sở cai nghiện bắt buộc;",
+    "Bị tước quyền phục vụ trong lực lượng vũ trang nhân dân."
 ];
 
 export const EXEMPT_REGISTRATION_REASONS = [
-    "Tâm thần", "Động kinh", "Bệnh Parkinson", "Mù một mắt", "Điếc", 
-    "Di chứng do lao xương khớp", "Di chứng do phong", "Các bệnh lý ác tính", 
-    "Người nhiễm HIV", "Người khuyết tật mức độ đặc biệt nặng và nặng"
+    "Người khuyết tật;",
+    "Người mắc bệnh hiểm nghèo;",
+    "Bệnh tâm thần;",
+    "Bệnh mãn tính theo quy định của pháp luật."
 ];

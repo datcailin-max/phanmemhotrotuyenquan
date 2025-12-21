@@ -1,7 +1,6 @@
-
 import React from 'react';
-import { Activity, GraduationCap, Award } from 'lucide-react';
-import { EDUCATIONS } from '../../constants';
+import { Activity, GraduationCap, Award, Globe, Landmark } from 'lucide-react';
+import { EDUCATIONS, ETHNICITIES, RELIGIONS } from '../../constants';
 
 const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd }: any) => {
   return (
@@ -11,8 +10,36 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
       </h3>
       
       <div className="grid grid-cols-2 gap-4">
-        {/* Học vấn */}
+        {/* Dân tộc & Tôn giáo */}
         <div>
+          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">
+            <Globe size={12} className="text-blue-500"/> Dân tộc
+          </label>
+          <select 
+            className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-military-500"
+            value={formData.details.ethnicity} 
+            onChange={(e) => handleChange('details.ethnicity', e.target.value)} 
+            disabled={isReadOnly}
+          >
+            {ETHNICITIES.map(e => <option key={e} value={e}>{e}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">
+            <Landmark size={12} className="text-amber-500"/> Tôn giáo
+          </label>
+          <select 
+            className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-military-500"
+            value={formData.details.religion} 
+            onChange={(e) => handleChange('details.religion', e.target.value)} 
+            disabled={isReadOnly}
+          >
+            {RELIGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+
+        {/* Học vấn */}
+        <div className="col-span-2">
           <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Trình độ học vấn</label>
           <select 
             className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-military-500"
@@ -22,11 +49,12 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
           >
             {EDUCATIONS.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
+          <p className="text-[9px] text-military-600 mt-1 italic">* Hệ thống tự động xét duyệt tạm hoãn dựa trên trình độ chọn.</p>
         </div>
         
         {isStudyingHigherEd && (
-          <div className="animate-in fade-in slide-in-from-top-1">
-            <label className="block text-[10px] font-black text-blue-600 uppercase mb-1">Niên khóa (VD: 2023-2027)</label>
+          <div className="col-span-2 animate-in fade-in slide-in-from-top-1">
+            <label className="block text-[10px] font-black text-blue-600 uppercase mb-1">Niên khóa đào tạo (VD: 2023-2027)</label>
             <input 
               type="text" required
               className="w-full rounded-lg border-blue-200 bg-blue-50 border p-2 text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500"
@@ -38,10 +66,10 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
         )}
 
         {/* Công việc & Trường học */}
-        <div className={isStudyingHigherEd ? "col-span-2" : ""}>
+        <div className="col-span-2">
           <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Công việc hiện tại</label>
           <input 
-            type="text" placeholder="VD: Công nhân, Làm nông..."
+            type="text" placeholder="VD: Công nhân, Làm nông, Tự do..."
             className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold"
             value={formData.details.job} 
             onChange={(e) => handleChange('details.job', e.target.value)} 
@@ -50,11 +78,11 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
         </div>
 
         <div>
-          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên trường</label>
+          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên trường (nếu có)</label>
           <input type="text" className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold" value={formData.details.school || ''} onChange={(e) => handleChange('details.school', e.target.value)} readOnly={isReadOnly}/>
         </div>
         <div>
-          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Ngành học</label>
+          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Chuyên ngành</label>
           <input type="text" className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold" value={formData.details.major || ''} onChange={(e) => handleChange('details.major', e.target.value)} readOnly={isReadOnly}/>
         </div>
 
@@ -84,7 +112,7 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
         <div className="col-span-2">
            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1"><Award size={12}/> Năng khiếu / Sở trường</label>
            <input 
-            type="text" placeholder="VD: Võ thuật, Ca hát, Đá bóng, Sửa chữa điện..."
+            type="text" placeholder="VD: Võ thuật, Ca hát, Sửa chữa điện..."
             className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold text-purple-700"
             value={formData.details.gifted || ''} 
             onChange={(e) => handleChange('details.gifted', e.target.value)} 

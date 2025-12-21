@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
-// Add missing ShieldAlert to the lucide-react import list
 import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert } from 'lucide-react';
+import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES } from '../constants';
 
 // Sub-components
 import LocationFields from './RecruitForm/LocationFields';
@@ -22,7 +21,7 @@ interface RecruitFormProps {
 
 const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, user, onSubmit, onClose, sessionYear }) => {
   const isReadOnly = user.role === 'PROVINCE_ADMIN' || user.role === 'VIEWER';
-  const emptyFamilyMember: FamilyMember = { fullName: '', job: 'Làm nông', phoneNumber: '', birthYear: '' };
+  const emptyFamilyMember: FamilyMember = { fullName: '', job: '', phoneNumber: '', birthYear: '' };
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
   const [formData, setFormData] = useState<Recruit>({
@@ -46,10 +45,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
           mother: initialData.family?.mother || { ...emptyFamilyMember },
           wife: initialData.family?.wife || { ...emptyFamilyMember },
           children: initialData.family?.children || ''
-        },
-        details: {
-          ...formData.details,
-          ...initialData.details
         }
       });
     }
@@ -63,6 +58,34 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
       setFormData(prev => ({ ...prev, physical: { ...prev.physical, bmi } }));
     }
   }, [formData.physical.height, formData.physical.weight]);
+
+  // LOGIC TỰ ĐỘNG XÉT TẠM HOÃN THEO HỌC VẤN
+  useEffect(() => {
+    const edu = formData.details.education;
+    let nextStatus = formData.status;
+    let nextReason = formData.defermentReason;
+
+    // 1. Tạm hoãn diện Đang học ĐH, CĐ (Lý do số 7)
+    if (edu === 'Đang học ĐH' || edu === 'Đang học CĐ') {
+      nextStatus = RecruitmentStatus.DEFERRED;
+      nextReason = LEGAL_DEFERMENT_REASONS[6]; // "7. Đang học tại cơ sở giáo dục..."
+    } 
+    // 2. Tạm hoãn diện học vấn thấp dưới lớp 8 (Lý do số 9)
+    else if (LOW_EDUCATION_GRADES.includes(edu)) {
+      nextStatus = RecruitmentStatus.DEFERRED;
+      nextReason = LEGAL_DEFERMENT_REASONS[8]; // "9. Trình độ học vấn thấp (dưới lớp 8)"
+    }
+    // 3. Nếu chuyển về Lớp 12 hoặc các lớp >= 8 và đang ở trạng thái Tạm hoãn do học vấn thì trả về Nguồn
+    else if (formData.status === RecruitmentStatus.DEFERRED && 
+            (formData.defermentReason === LEGAL_DEFERMENT_REASONS[6] || formData.defermentReason === LEGAL_DEFERMENT_REASONS[8])) {
+      nextStatus = RecruitmentStatus.SOURCE;
+      nextReason = '';
+    }
+
+    if (nextStatus !== formData.status || nextReason !== formData.defermentReason) {
+      setFormData(prev => ({ ...prev, status: nextStatus, defermentReason: nextReason }));
+    }
+  }, [formData.details.education]);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => {
@@ -81,9 +104,17 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Ảnh quá lớn (vượt quá 2MB). Vui lòng chọn ảnh nhẹ hơn.");
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = (ev) => handleChange('avatarUrl', ev.target?.result as string);
-      reader.readAsDataURL(e.target.files[0]);
+      reader.onload = (ev) => {
+        const base64 = ev.target?.result as string;
+        handleChange('avatarUrl', base64);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -99,15 +130,16 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     e.preventDefault();
     if (isReadOnly) return;
     
-    // RÀNG BUỘC ĐỘ TUỔI: Danh sách 4 chỉ cho phép >= 18 tuổi (tức trên 17)
     const birthYear = parseInt(formData.dob.split('-')[0] || '0');
     const age = sessionYear - birthYear;
-    const isSourceTab = formData.status !== RecruitmentStatus.NOT_ALLOWED_REGISTRATION && 
-                        formData.status !== RecruitmentStatus.EXEMPT_REGISTRATION && 
-                        formData.status !== RecruitmentStatus.FIRST_TIME_REGISTRATION;
+    const isSourceTab = ![
+      RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
+      RecruitmentStatus.EXEMPT_REGISTRATION, 
+      RecruitmentStatus.FIRST_TIME_REGISTRATION
+    ].includes(formData.status);
 
     if (birthYear > 0 && isSourceTab && age < 18) {
-        alert(`Công dân sinh năm ${birthYear} (${age} tuổi) chưa đủ 18 tuổi tại năm tuyển quân ${sessionYear}.\nDanh sách 4 chỉ tiếp nhận công dân từ 18 đến 27 tuổi.\n\nVui lòng chuyển công dân sang "Danh sách 3: Đăng ký lần đầu" nếu công dân đủ 17 tuổi.`);
+        alert(`Công dân sinh năm ${birthYear} (${age} tuổi) chưa đủ 18 tuổi.\nVui lòng chuyển sang "DS 3: Đăng ký lần đầu" nếu đủ 17 tuổi.`);
         return;
     }
 
@@ -148,7 +180,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
             <div className="space-y-8">
                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                  <div className="flex flex-col md:flex-row gap-6 mb-8">
-                    {/* Avatar Area */}
+                    {/* Avatar Area - SỬA LỖI HÌNH THẺ */}
                     <div className="relative shrink-0 mx-auto md:mx-0">
                        <div className="w-32 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative group">
                           {formData.avatarUrl ? (
@@ -156,14 +188,14 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                           ) : (
                             <div className="text-center p-2">
                                <Camera size={32} className="mx-auto text-gray-300" />
-                               <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Ảnh 3x4</p>
+                               <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Ảnh chân dung</p>
                             </div>
                           )}
                           {!isReadOnly && (
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                               <label className="cursor-pointer text-white text-[10px] font-black uppercase">Thay ảnh</label>
+                            <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white text-[10px] font-black uppercase">
+                               Thay ảnh
                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                            </div>
+                            </label>
                           )}
                        </div>
                     </div>
@@ -229,12 +261,12 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
 
         {/* Footer */}
         <div className="bg-white p-5 border-t flex items-center justify-between shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] relative z-10">
-          <div className="hidden md:block">
+          <div className="hidden md:block text-left">
              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight">Đơn vị tiếp nhận hồ sơ:</p>
              <p className="text-xs font-black text-military-800 uppercase">{user.fullName}</p>
           </div>
           <div className="flex items-center gap-4 w-full md:w-auto">
-            <button type="button" onClick={onClose} className="flex-1 md:flex-none px-6 py-2.5 text-xs font-black text-gray-500 uppercase hover:text-gray-700 transition-colors">Đóng lại</button>
+            <button type="button" onClick={onClose} className="flex-1 md:flex-none px-6 py-2.5 text-xs font-black text-gray-500 uppercase hover:text-gray-700 transition-colors">Hủy bỏ</button>
             {!isReadOnly && (
               <button 
                 type="submit" 
