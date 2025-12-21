@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { 
   FileText, Plus, Trash2, Edit3, Download, Search, 
-  Filter, FileCheck, ShieldAlert, RefreshCw, X, UploadCloud
+  Filter, FileCheck, ShieldAlert, RefreshCw, X, UploadCloud, Eye
 } from 'lucide-react';
 import { ResearchDocument, User } from '../types';
 import { api } from '../api';
@@ -27,6 +26,64 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
     const matchesCategory = filterCategory ? doc.category === filterCategory : true;
     return matchesSearch && matchesCategory;
   });
+
+  // Hàm hỗ trợ chuyển đổi Base64 thành Blob để tránh lỗi about:blank#blocked trên các file lớn
+  const getBlobFromBase64 = (base64Data: string) => {
+    try {
+      // Trường hợp dữ liệu không có header data:...;base64,
+      if (!base64Data.includes(';base64,')) {
+        const raw = window.atob(base64Data);
+        const uInt8Array = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; ++i) uInt8Array[i] = raw.charCodeAt(i);
+        return new Blob([uInt8Array], { type: 'application/pdf' });
+      }
+
+      const parts = base64Data.split(';base64,');
+      const contentType = parts[0].split(':')[1];
+      const raw = window.atob(parts[1]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+      return new Blob([uInt8Array], { type: contentType });
+    } catch (e) {
+      console.error("Lỗi giải mã file:", e);
+      return null;
+    }
+  };
+
+  const handleView = (doc: ResearchDocument) => {
+    const blob = getBlobFromBase64(doc.url);
+    if (!blob) {
+      alert("Không thể hiển thị tài liệu này. Dữ liệu có thể đã bị hỏng hoặc dung lượng quá lớn.");
+      return;
+    }
+    const blobUrl = URL.createObjectURL(blob);
+    // Mở trong tab mới
+    const newWindow = window.open(blobUrl, '_blank');
+    if (!newWindow) {
+      alert("Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép hiển thị popup để xem tài liệu.");
+    }
+    // Giải phóng bộ nhớ sau khi mở (đợi một lúc để đảm bảo browser đã load xong)
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  };
+
+  const handleDownload = (doc: ResearchDocument) => {
+    const blob = getBlobFromBase64(doc.url);
+    if (!blob) {
+      alert("Không thể tải tài liệu này.");
+      return;
+    }
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `${doc.title.replace(/[/\\?%*:|"<>]/g, '-')}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  };
 
   const handleDelete = async (id: string) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa vĩnh viễn tài liệu này?")) {
@@ -55,7 +112,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
     const target = e.target as any;
     const fileInput = target.docFile.files[0];
     
-    // Nếu là thêm mới thì bắt buộc file, nếu sửa có thể giữ file cũ
     if (!editingDoc && !fileInput) {
         alert("Vui lòng chọn file PDF để tải lên.");
         return;
@@ -193,30 +249,38 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
               </p>
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
-                <a 
-                  href={doc.url} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-xs font-black uppercase tracking-wider"
-                >
-                  <Download size={16} /> Tải về / Xem
-                </a>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => handleView(doc)}
+                    className="flex items-center gap-2 text-military-600 hover:text-military-800 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
+                    title="Xem trực tuyến"
+                  >
+                    <Eye size={16} /> Xem
+                  </button>
+                  <button 
+                    onClick={() => handleDownload(doc)}
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
+                    title="Tải về máy"
+                  >
+                    <Download size={16} /> Tải về
+                  </button>
+                </div>
                 
                 {isAdmin && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <button 
                       onClick={() => handleOpenEdit(doc)}
-                      className="p-2 text-gray-400 hover:text-military-600 hover:bg-military-50 rounded-lg transition-all"
+                      className="p-1.5 text-gray-400 hover:text-military-600 hover:bg-military-50 rounded-lg transition-all"
                       title="Sửa"
                     >
-                      <Edit3 size={16} />
+                      <Edit3 size={14} />
                     </button>
                     <button 
                       onClick={() => handleDelete(docId)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       title="Xóa"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 )}

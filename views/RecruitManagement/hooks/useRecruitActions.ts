@@ -1,5 +1,5 @@
-
-import { useState } from 'react';
+// Fix: Import React to resolve namespace errors for React.Dispatch and React.SetStateAction
+import React, { useState } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../../../types';
 import { api } from '../../../api';
 import { ExcelExportService } from '../../../services/ExcelExportService';
