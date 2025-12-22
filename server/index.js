@@ -17,9 +17,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CẤU HÌNH GIỚI HẠN PAYLOAD - QUAN TRỌNG ĐỂ NHẬN FILE LỚN
-app.use(express.json({ limit: '200mb' }));
-app.use(express.urlencoded({ limit: '200mb', extended: true }));
+// CẤU HÌNH GIỚI HẠN PAYLOAD - Giảm xuống 50MB để ổn định hơn trên môi trường web
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
 app.use(express.static(path.join(__dirname, '../dist')));
 
@@ -68,16 +68,20 @@ app.delete('/api/recruits/:id', async (req, res) => {
 
 // --- DOCUMENT API ---
 app.get('/api/documents', async (req, res) => {
-  try { res.json(await Document.find().sort({ createdAt: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
+  try { 
+    // Chỉ lấy metadata cơ bản trước nếu danh sách quá lớn? 
+    // Hiện tại vẫn lấy full để dùng chung code, nhưng thêm sắp xếp
+    res.json(await Document.find().sort({ createdAt: -1 })); 
+  } catch (e) { 
+    res.status(500).json({ message: e.message }); 
+  }
 });
 app.post('/api/documents', async (req, res) => {
   try { 
-    console.log(`[DOC] Uploading: ${req.body.title} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
     const doc = new Document(req.body);
     const result = await doc.save();
     res.status(201).json(result); 
   } catch (e) { 
-    console.error('[DOC] Save Error:', e.message);
     res.status(400).json({ message: e.message }); 
   }
 });
@@ -107,7 +111,6 @@ app.get('/api/reports', async (req, res) => {
   const { province, targetProvince, username, year } = req.query;
   let query = {};
   
-  // Hỗ trợ tìm kiếm theo tỉnh (không phân biệt hoa thường và trim)
   const pName = targetProvince || province;
   if (pName) {
     query.targetProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
@@ -125,10 +128,8 @@ app.get('/api/reports', async (req, res) => {
 });
 app.post('/api/reports', async (req, res) => {
   try { 
-    console.log(`[REPORT] From ${req.body.senderUnitName} to ${req.body.targetProvince} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
     res.status(201).json(await new Report(req.body).save()); 
   } catch (e) { 
-    console.error('[REPORT] Save Error:', e.message);
     res.status(400).json({ message: e.message }); 
   }
 });
@@ -146,7 +147,6 @@ app.get('/api/dispatches', async (req, res) => {
     query.senderProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
   }
   
-  // Lọc văn bản theo người nhận: Hỗ trợ cả username, tên xã cụ thể hoặc gửi toàn tỉnh (ALL)
   if (username || commune) {
     const targets = ['ALL'];
     if (username) targets.push(username);
@@ -168,10 +168,8 @@ app.get('/api/dispatches', async (req, res) => {
 });
 app.post('/api/dispatches', async (req, res) => {
   try { 
-    console.log(`[DISPATCH] Title: ${req.body.title} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
     res.status(201).json(await new Dispatch(req.body).save()); 
   } catch (e) { 
-    console.error('[DISPATCH] Save Error:', e.message);
     res.status(400).json({ message: e.message }); 
   }
 });
@@ -180,4 +178,4 @@ app.delete('/api/dispatches/:id', async (req, res) => {
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../dist/index.html')));
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with 200MB limit` ));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with 50MB limit` ));
