@@ -123,19 +123,27 @@ export const api = {
     if (isDemoMode()) return getLocal('demo_documents');
     try { const res = await fetch(`${API_URL}/documents`); return await res.json(); } catch { return []; }
   },
-  getDocumentContent: async (id: string): Promise<string | null> => {
+  
+  // PHƯƠNG THỨC MỚI: Tải file nhị phân trực tiếp để khắc phục triệt để lỗi file lớn
+  downloadDocumentBinary: async (id: string): Promise<Blob | null> => {
     if (isDemoMode()) {
         const list = getLocal('demo_documents');
         const doc = list.find((d: any) => d.id === id || d._id === id);
-        return doc ? doc.url : null;
+        if (!doc || !doc.url) return null;
+        // Giả lập cho Demo mode
+        const b64 = doc.url.includes('base64,') ? doc.url.split('base64,')[1] : doc.url;
+        const bin = window.atob(b64);
+        const uint8 = new Uint8Array(bin.length);
+        for(let i=0; i<bin.length; i++) uint8[i] = bin.charCodeAt(i);
+        return new Blob([uint8], { type: 'application/pdf' });
     }
     try {
-        const res = await fetch(`${API_URL}/documents/${id}/content`);
+        const res = await fetch(`${API_URL}/documents/${id}/file`);
         if (!res.ok) return null;
-        const data = await res.json();
-        return data.url;
+        return await res.blob(); // Nhận dữ liệu dưới dạng Blob nhị phân (Rất tiết kiệm RAM)
     } catch { return null; }
   },
+
   createDocument: async (d: any) => {
     if (isDemoMode()) {
         const list = getLocal('demo_documents');

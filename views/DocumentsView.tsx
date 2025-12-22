@@ -20,7 +20,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
   const [editingDoc, setEditingDoc] = useState<ResearchDocument | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State quản lý việc tải file đơn lẻ
   const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
   const isAdmin = user.role === 'ADMIN';
@@ -35,43 +34,15 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
     });
   }, [documents, searchTerm, filterCategory]);
 
-  const getBlobFromBase64 = (base64Data: string) => {
-    try {
-      if (!base64Data) return null;
-      let contentType = 'application/pdf';
-      let b64 = base64Data;
-      if (base64Data.includes(';base64,')) {
-        const parts = base64Data.split(';base64,');
-        contentType = parts[0].split(':')[1] || 'application/pdf';
-        b64 = parts[1];
-      }
-      const raw = window.atob(b64);
-      const rawLength = raw.length;
-      const uInt8Array = new Uint8Array(rawLength);
-      for (let i = 0; i < rawLength; ++i) {
-        uInt8Array[i] = raw.charCodeAt(i);
-      }
-      return new Blob([uInt8Array], { type: contentType });
-    } catch (e) {
-      console.error("Lỗi giải mã file Base64:", e);
-      return null;
-    }
-  };
-
   const handleAction = async (doc: ResearchDocument, type: 'VIEW' | 'DOWNLOAD') => {
     const docId = (doc as any)._id || doc.id;
     setLoadingFileId(docId);
     
     try {
-        const fileContent = await api.getDocumentContent(docId);
-        if (!fileContent) {
-            alert("Không thể tải nội dung file từ máy chủ.");
-            return;
-        }
-
-        const blob = getBlobFromBase64(fileContent);
+        // CÁCH MỚI: Tải dữ liệu nhị phân (Blob) thay vì chuỗi JSON nặng
+        const blob = await api.downloadDocumentBinary(docId);
         if (!blob) {
-            alert("Lỗi xử lý file. Dữ liệu có thể bị hỏng.");
+            alert("Không thể tải nội dung file từ máy chủ.");
             return;
         }
 
@@ -79,8 +50,11 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         
         if (type === 'VIEW') {
             const newWindow = window.open(blobUrl, '_blank');
-            if (!newWindow) alert("Vui lòng cho phép hiện Popup để xem file.");
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            if (!newWindow) {
+                alert("Vui lòng cho phép hiện Popup để xem file.");
+            }
+            // Giải phóng RAM sau khi người dùng xem
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
         } else {
             const link = document.createElement('a');
             link.href = blobUrl;
@@ -91,7 +65,8 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
             URL.revokeObjectURL(blobUrl);
         }
     } catch (err) {
-        alert("Đã xảy ra lỗi khi truy xuất tệp tin.");
+        console.error(err);
+        alert("Đã xảy ra lỗi khi xử lý tệp tin nặng.");
     } finally {
         setLoadingFileId(null);
     }
@@ -140,7 +115,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
             setShowModal(false);
             onRefresh();
         } catch (err) {
-            alert("Lỗi máy chủ khi lưu tài liệu.");
+            alert("Lỗi máy chủ khi lưu tài liệu nặng.");
         } finally {
             setIsSubmitting(false);
         }
@@ -165,7 +140,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
           </div>
           <div>
             <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Thư viện tài liệu nghiên cứu</h2>
-            <p className="text-sm text-gray-500 font-medium">Đã tối ưu hóa cho hàng trăm văn bản pháp luật nặng</p>
+            <p className="text-sm text-gray-500 font-medium">Hệ thống luồng dữ liệu (Streaming) cho file lớn 50MB</p>
           </div>
         </div>
         {isAdmin && (
@@ -223,14 +198,14 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
           return (
             <div key={docId} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col h-full relative overflow-hidden">
               {isThisLoading && (
-                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center space-y-2">
-                      <Loader2 size={32} className="text-military-600 animate-spin" />
-                      <span className="text-[10px] font-black text-military-800 uppercase animate-pulse">Đang truy xuất file...</span>
+                  <div className="absolute inset-0 bg-white/90 backdrop-blur-md z-10 flex flex-col items-center justify-center space-y-3">
+                      <Loader2 size={40} className="text-military-600 animate-spin" />
+                      <span className="text-[11px] font-black text-military-800 uppercase tracking-widest animate-pulse">Đang nạp file nặng...</span>
                   </div>
               )}
               
               <div className="flex justify-between items-start mb-4">
-                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${statusColors}`}>
+                <div className={"px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border " + statusColors}>
                   {doc.category}
                 </div>
                 <div className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
@@ -310,12 +285,12 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
               <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-start gap-3">
                  <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={16} />
                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                   Lưu ý: Hệ thống đã hỗ trợ file lớn, nhưng để tốc độ nghiên cứu nhanh nhất, bạn nên sử dụng file dưới 20MB.
+                   Lưu ý: Hệ thống đã hỗ trợ file lớn 50MB. Quá trình lưu tệp tin nặng có thể mất 1-2 phút tùy tốc độ mạng.
                  </p>
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" disabled={isSubmitting} onClick={() => setShowModal(false)} className="px-6 py-3 text-xs font-black text-gray-500 uppercase">Hủy</button>
-                <button type="submit" disabled={isSubmitting} className={"px-10 py-3 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center gap-2 transition-all " + (isSubmitting ? "opacity-50" : "hover:bg-military-800")}>
+                <button type="submit" disabled={isSubmitting} className={"px-10 py-3 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center gap-2 transition-all " + (isSubmitting ? "opacity-50 cursor-not-allowed" : "hover:bg-military-800 active:scale-95")}>
                   {isSubmitting ? (<Loader2 size={14} className="animate-spin" />) : ("Xác nhận lưu")}
                 </button>
               </div>
