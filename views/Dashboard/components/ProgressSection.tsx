@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Users, ClipboardList, Stethoscope, FileSignature, Flag, Calendar, 
-  PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, UserX, ArrowRightCircle, AlertOctagon, GraduationCap, Gavel
+  PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, UserX, ArrowRightCircle, GraduationCap, Gavel
 } from 'lucide-react';
 
 const Card = ({ title, count, icon: Icon, color, onClick, detailText, isLast, isAlert }: any) => (
@@ -35,7 +35,7 @@ export default function ProgressSection({ stats, onNavigate }: any) {
              <Card title="13. NGUỒN CÒN LẠI" count={stats.countRemaining} icon={Layers} color="bg-teal-600" onClick={() => onNavigate('REMAINING')} />
              <Card title="14. NGUỒN NĂM SAU" count={stats.countNextYearSource} icon={Calendar} color="bg-cyan-600" onClick={() => onNavigate('NEXT_YEAR_SOURCE')} isLast />
              
-             {/* Ô 1: Hết hạn hoãn do Học xong (CĐ, ĐH) */}
+             {/* Ô 1: Học xong CĐ, ĐH - Cần đưa về Nguồn */}
              {stats.expiringEduCount > 0 && (
                 <Card 
                     title="HẾT HẠN HOÃN (HỌC XONG)" 
@@ -43,12 +43,12 @@ export default function ProgressSection({ stats, onNavigate }: any) {
                     icon={GraduationCap} 
                     color="bg-blue-600" 
                     onClick={() => onNavigate('DEFERRED_EDUCATION')} 
-                    detailText="Cần đưa về Nguồn"
+                    detailText="Cần đưa về Nguồn (DS 4)"
                     isAlert 
                 />
              )}
 
-             {/* Ô 2: Hết thời gian chấp hành án phạt */}
+             {/* Ô 2: Hết hạn chấp hành án phạt - Cần đưa về DS 3 */}
              {stats.expiringSentenceCount > 0 && (
                 <Card 
                     title="HẾT THỜI HẠN ÁN PHẠT" 
@@ -56,7 +56,7 @@ export default function ProgressSection({ stats, onNavigate }: any) {
                     icon={Gavel} 
                     color="bg-red-600" 
                     onClick={() => onNavigate('NOT_ALLOWED_REG')} 
-                    detailText="Cần đưa về DS 3"
+                    detailText="Cần đưa về ĐK lần đầu (DS 3)"
                     isAlert 
                 />
              )}

@@ -34,13 +34,17 @@ export const useDashboardStats = ({
     const stats = useMemo(() => {
         const checkAge = (r: Recruit, year: number) => year - parseInt(r.dob.split('-')[0] || '0');
 
-        // Helper check ending year
-        const isExpiringInCurrentYear = (period?: string) => {
+        /**
+         * Logic Hết hạn theo yêu cầu: 
+         * Nếu niên khóa 2020-2024 thì năm 2024 vẫn hoãn, sang 2025 mới hết hạn.
+         * Tức là: Năm kết thúc < Năm tuyển quân hiện tại.
+         */
+        const isExpiredInCurrentSession = (period?: string) => {
             if (!period) return false;
             const parts = period.split('-');
             const lastPart = parts[parts.length - 1].trim();
             const endYear = parseInt(lastPart);
-            return endYear === sessionYear;
+            return endYear > 0 && endYear < sessionYear; 
         };
 
         // --- TÍNH TOÁN CÁC CON SỐ TIẾN ĐỘ ---
@@ -48,7 +52,6 @@ export const useDashboardStats = ({
         const countExemptReg = currentYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPT_REGISTRATION).length;
         const countFirstTime = currentYearRecruits.filter(r => r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION).length;
         
-        // DS 4: Tổng nguồn (Đủ tuổi 18-27, trừ diện 1, 2, 3)
         const ds4_recruits = currentYearRecruits.filter(r => {
             if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.FIRST_TIME_REGISTRATION, RecruitmentStatus.DELETED].includes(r.status)) return false;
             const age = checkAge(r, sessionYear);
@@ -61,7 +64,6 @@ export const useDashboardStats = ({
         const countExempted = currentYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPTED).length;
         const countRemoved = currentYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
 
-        // DS 6: Đủ ĐK Sơ tuyển = DS 4 - (5 + 8 + 9 + 12)
         const ds6_count = ds4_recruits.filter(r => 
             ![RecruitmentStatus.NOT_SELECTED_TT50, RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.REMOVED_FROM_SOURCE].includes(r.status)
         ).length;
@@ -74,21 +76,18 @@ export const useDashboardStats = ({
         const finalized = currentYearRecruits.filter(r => [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status));
         const countEnlisted = currentYearRecruits.filter(r => (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') || (r.status === RecruitmentStatus.FINALIZED && r.enlistmentType === 'OFFICIAL')).length;
         
-        // DS 13: Nguồn còn lại (Những người trong DS 4 chưa đi nhập ngũ chính thức)
         const countRemaining = ds4_recruits.filter(r => {
             const isEnlistedOfficial = (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL';
             return !isEnlistedOfficial;
         }).length;
 
-        // DS 14: NGUỒN CỦA NĂM SAU = Nguồn còn lại (13) + Đăng ký lần đầu (3)
-        // Chú ý: Tuyệt đối không cộng thêm countNotAllowed (1) hoặc countExemptReg (2)
         const countNextYearSource = countRemaining + countFirstTime;
 
-        // --- CÔNG DÂN HẾT HẠN TRONG NĂM ---
-        const expiringEdu = currentYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED && isExpiringInCurrentYear(r.details.educationPeriod));
-        const expiringSentence = currentYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiringInCurrentYear(r.details.sentencePeriod));
+        // --- CÔNG DÂN HẾT HẠN (Logic mới: endYear < sessionYear) ---
+        const expiringEdu = currentYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED && isExpiredInCurrentSession(r.details.educationPeriod));
+        const expiringSentence = currentYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInCurrentSession(r.details.sentencePeriod));
 
-        // --- TÍNH TOÁN DỮ LIỆU BIỂU ĐỒ (Dựa trên Tổng nguồn DS 4) ---
+        // --- TÍNH TOÁN DỮ LIỆU BIỂU ĐỒ ---
         const validSource = ds4_recruits;
         
         const createMap = (arr: any[], keyPath: string) => {
@@ -122,7 +121,6 @@ export const useDashboardStats = ({
             geoMap[key] = (geoMap[key] || 0) + 1;
         });
 
-        // --- XU HƯỚNG NGUỒN QUA CÁC NĂM ---
         const yearTrendMap: Record<number, number> = {};
         recruits.forEach(r => {
             let isOurUnit = true;

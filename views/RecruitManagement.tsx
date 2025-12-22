@@ -160,15 +160,19 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     }
   };
 
+  /**
+   * Logic Hết hạn niên khóa (đối soát phiên làm việc hiện tại)
+   */
   const isExpiring = (recruit: Recruit) => {
-    const isExpiringInCurrentYear = (period?: string) => {
+    const isExpiredYear = (period?: string) => {
         if (!period) return false;
         const parts = period.split('-');
         const lastPart = parts[parts.length - 1].trim();
         const endYear = parseInt(lastPart);
-        return endYear === sessionYear;
+        // Hết hạn khi năm kết thúc NHỎ HƠN năm tuyển quân hiện tại
+        return endYear > 0 && endYear < sessionYear;
     };
-    return isExpiringInCurrentYear(recruit.details.educationPeriod) || isExpiringInCurrentYear(recruit.details.sentencePeriod);
+    return isExpiredYear(recruit.details.educationPeriod) || isExpiredYear(recruit.details.sentencePeriod);
   };
 
   return (
@@ -224,7 +228,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         <div className="font-black text-military-900 uppercase tracking-tight">{recruit.fullName}</div>
                         {recruit.attachments?.length ? <Paperclip size={14} className="text-blue-500" /> : null}
                         {expiring && (
-                          <span title="Sắp hết hạn tạm hoãn/cấm ĐK">
+                          <span title="Hồ sơ đã hết thời gian tạm hoãn/cấm ĐK - Cần chuyển trạng thái">
                             <AlertTriangle size={14} className="text-red-500 animate-bounce" />
                           </span>
                         )}
@@ -241,7 +245,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         <div className="flex items-center gap-1.5 text-gray-600">
                             <GraduationCap size={12} className="text-military-400"/> 
                             {recruit.details.education}
-                            {expiring && recruit.status === RecruitmentStatus.DEFERRED && <span className="text-red-600 bg-red-50 px-1 rounded ml-1">HẾT NIÊN KHÓA</span>}
+                            {expiring && recruit.status === RecruitmentStatus.DEFERRED && <span className="text-red-600 bg-red-50 px-1 rounded ml-1">ĐÃ HỌC XONG</span>}
                         </div>
                         <div className="flex items-center gap-1.5 text-gray-600"><Flag size={12} className="text-red-400"/> {recruit.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : recruit.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng'}</div>
                         <div className="flex items-center gap-1.5 text-gray-600"><HeartPulse size={12} className="text-blue-400"/> SK Loại {recruit.physical.healthGrade || '---'}</div>
