@@ -63,7 +63,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
     setLoadingFileId(docId);
     
     try {
-        // Tải nội dung file từ Server theo yêu cầu (On-demand)
         const fileContent = await api.getDocumentContent(docId);
         if (!fileContent) {
             alert("Không thể tải nội dung file từ máy chủ.");
@@ -81,7 +80,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         if (type === 'VIEW') {
             const newWindow = window.open(blobUrl, '_blank');
             if (!newWindow) alert("Vui lòng cho phép hiện Popup để xem file.");
-            // Thu hồi URL sau một khoảng thời gian để giải phóng RAM
             setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
         } else {
             const link = document.createElement('a');
@@ -117,7 +115,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
     }
 
     if (fileInput && fileInput.size > 55 * 1024 * 1024) {
-        alert(`File quá lớn (${(fileInput.size/1024/1024).toFixed(1)}MB). Vui lòng nén file PDF xuống dưới 50MB.`);
+        alert("File quá lớn. Vui lòng chọn file dưới 55MB.");
         return;
     }
 
@@ -218,6 +216,9 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         ) : filteredDocs.map(doc => {
           const docId = (doc as any)._id || doc.id;
           const isThisLoading = loadingFileId === docId;
+          const statusColors = doc.category === 'LUAT' ? 'bg-red-50 text-red-700 border-red-100' :
+                             doc.category === 'THONG_TU' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                             'bg-gray-50 text-gray-600 border-gray-100';
 
           return (
             <div key={docId} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col h-full relative overflow-hidden">
@@ -229,11 +230,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
               )}
               
               <div className="flex justify-between items-start mb-4">
-                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                  doc.category === 'LUAT' ? 'bg-red-50 text-red-700 border border-red-100' :
-                  doc.category === 'THONG_TU' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                  'bg-gray-50 text-gray-600 border border-gray-100'
-                }`}>
+                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${statusColors}`}>
                   {doc.category}
                 </div>
                 <div className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
@@ -306,6 +303,10 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                     <input name="docFile" type="file" accept=".pdf" className="w-full text-[10px] p-2 border border-dashed rounded-xl bg-gray-50" />
                 </div>
               </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Mô tả ngắn</label>
+                <textarea name="docDesc" rows={3} defaultValue={editingDoc?.description} className="w-full border-gray-200 border p-3 rounded-xl text-sm font-medium outline-none" />
+              </div>
               <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-start gap-3">
                  <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={16} />
                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
@@ -314,8 +315,8 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" disabled={isSubmitting} onClick={() => setShowModal(false)} className="px-6 py-3 text-xs font-black text-gray-500 uppercase">Hủy</button>
-                <button type="submit" disabled={isSubmitting} className={`px-10 py-3 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center gap-2 transition-all ${isSubmitting ? 'opacity-50' : 'hover:bg-military-800'}`}>
-                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Xác nhận lưu'}
+                <button type="submit" disabled={isSubmitting} className={"px-10 py-3 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center gap-2 transition-all " + (isSubmitting ? "opacity-50" : "hover:bg-military-800")}>
+                  {isSubmitting ? (<Loader2 size={14} className="animate-spin" />) : ("Xác nhận lưu")}
                 </button>
               </div>
             </form>
