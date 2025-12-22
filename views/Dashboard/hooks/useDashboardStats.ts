@@ -34,6 +34,15 @@ export const useDashboardStats = ({
     const stats = useMemo(() => {
         const checkAge = (r: Recruit, year: number) => year - parseInt(r.dob.split('-')[0] || '0');
 
+        // Helper check ending year
+        const isExpiringInCurrentYear = (period?: string) => {
+            if (!period) return false;
+            const parts = period.split('-');
+            const lastPart = parts[parts.length - 1].trim();
+            const endYear = parseInt(lastPart);
+            return endYear === sessionYear;
+        };
+
         // --- TÍNH TOÁN CÁC CON SỐ TIẾN ĐỘ ---
         const countNotAllowed = currentYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION).length;
         const countExemptReg = currentYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPT_REGISTRATION).length;
@@ -65,12 +74,19 @@ export const useDashboardStats = ({
         const finalized = currentYearRecruits.filter(r => [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status));
         const countEnlisted = currentYearRecruits.filter(r => (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') || (r.status === RecruitmentStatus.FINALIZED && r.enlistmentType === 'OFFICIAL')).length;
         
+        // DS 13: Nguồn còn lại (Những người trong DS 4 chưa đi nhập ngũ chính thức)
         const countRemaining = ds4_recruits.filter(r => {
             const isEnlistedOfficial = (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL';
             return !isEnlistedOfficial;
         }).length;
 
+        // DS 14: NGUỒN CỦA NĂM SAU = Nguồn còn lại (13) + Đăng ký lần đầu (3)
+        // Chú ý: Tuyệt đối không cộng thêm countNotAllowed (1) hoặc countExemptReg (2)
         const countNextYearSource = countRemaining + countFirstTime;
+
+        // --- CÔNG DÂN HẾT HẠN TRONG NĂM ---
+        const expiringEdu = currentYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED && isExpiringInCurrentYear(r.details.educationPeriod));
+        const expiringSentence = currentYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiringInCurrentYear(r.details.sentencePeriod));
 
         // --- TÍNH TOÁN DỮ LIỆU BIỂU ĐỒ (Dựa trên Tổng nguồn DS 4) ---
         const validSource = ds4_recruits;
@@ -81,7 +97,14 @@ export const useDashboardStats = ({
                 const parts = keyPath.split('.');
                 let val = r;
                 for(const p of parts) val = val ? val[p] : null;
-                const key = val || 'Không xác định';
+                
+                let rawKey = (val || 'Không xác định').toString().trim();
+                let key = rawKey;
+                
+                if (rawKey.length > 0 && rawKey !== 'Không xác định') {
+                    key = rawKey.charAt(0).toUpperCase() + rawKey.slice(1).toLowerCase();
+                }
+
                 map[key] = (map[key] || 0) + 1;
             });
             return Object.entries(map).map(([name, value]) => ({ name, value }));
@@ -102,7 +125,6 @@ export const useDashboardStats = ({
         // --- XU HƯỚNG NGUỒN QUA CÁC NĂM ---
         const yearTrendMap: Record<number, number> = {};
         recruits.forEach(r => {
-            // Lọc theo đơn vị trước khi tính trend
             let isOurUnit = true;
             if (userRole === 'PROVINCE_ADMIN') isOurUnit = r.address.province === userUnit?.province;
             if (userRole === 'EDITOR' || userRole === 'VIEWER') isOurUnit = r.address.province === userUnit?.province && r.address.commune === userUnit?.commune;
@@ -126,7 +148,10 @@ export const useDashboardStats = ({
                 countFinalizedOfficial: finalized.filter(r => r.enlistmentType === 'OFFICIAL').length,
                 countFinalizedReserve: finalized.filter(r => r.enlistmentType === 'RESERVE').length,
                 countEnlisted, countRemoved, countRemaining, countNextYearSource,
-                ds6_count
+                ds6_count,
+                expiringCount: expiringEdu.length + expiringSentence.length,
+                expiringEduCount: expiringEdu.length,
+                expiringSentenceCount: expiringSentence.length
             },
             political: {
                 dangVien: validSource.filter(r => r.details.politicalStatus === 'Dang_Vien').length,

@@ -1,8 +1,12 @@
+
 import React from 'react';
-import { Activity, GraduationCap, Award, Globe, Landmark } from 'lucide-react';
+import { Activity, GraduationCap, Award, Globe, Landmark, ShieldAlert } from 'lucide-react';
 import { EDUCATIONS, ETHNICITIES, RELIGIONS } from '../../constants';
+import { RecruitmentStatus } from '../../types';
 
 const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd }: any) => {
+  const isBanned = formData.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
+
   return (
     <div className="space-y-6">
       <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-2 flex items-center gap-2 uppercase text-sm">
@@ -61,8 +65,27 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
               value={formData.details.educationPeriod || ''} 
               onChange={(e) => handleChange('details.educationPeriod', e.target.value)} 
               readOnly={isReadOnly}
+              placeholder="VD: 2021-2025"
             />
           </div>
+        )}
+
+        {/* Mới: Niên khóa án phạt */}
+        {isBanned && (
+            <div className="col-span-2 animate-in fade-in slide-in-from-top-1">
+                <label className="block text-[10px] font-black text-red-600 uppercase mb-1 flex items-center gap-1">
+                    <ShieldAlert size={14}/> Thời hạn chấp hành án (VD: 2022-2026)
+                </label>
+                <input 
+                    type="text" 
+                    className="w-full rounded-lg border-red-200 bg-red-50 border p-2 text-sm font-bold text-red-900 focus:ring-2 focus:ring-red-500"
+                    value={formData.details.sentencePeriod || ''} 
+                    onChange={(e) => handleChange('details.sentencePeriod', e.target.value)} 
+                    readOnly={isReadOnly}
+                    placeholder="VD: 2022-2026"
+                />
+                <p className="text-[9px] text-red-500 mt-1 italic">* Năm cuối sẽ được hệ thống cảnh báo để đưa về nguồn.</p>
+            </div>
         )}
 
         {/* Công việc & Trường học */}

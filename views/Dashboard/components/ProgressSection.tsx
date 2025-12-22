@@ -2,18 +2,18 @@
 import React from 'react';
 import { 
   Users, ClipboardList, Stethoscope, FileSignature, Flag, Calendar, 
-  PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, UserX, ArrowRightCircle
+  PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, UserX, ArrowRightCircle, AlertOctagon
 } from 'lucide-react';
 
-const Card = ({ title, count, icon: Icon, color, onClick, detailText, isLast }: any) => (
-    <div onClick={onClick} className={`relative p-4 rounded-xl border transition-all cursor-pointer group bg-white hover:shadow-lg ${isLast ? 'border-teal-500 bg-teal-50/30' : 'border-gray-200 hover:border-military-300'}`}>
+const Card = ({ title, count, icon: Icon, color, onClick, detailText, isLast, isAlert }: any) => (
+    <div onClick={onClick} className={`relative p-4 rounded-xl border transition-all cursor-pointer group bg-white hover:shadow-lg ${isLast ? 'border-teal-500 bg-teal-50/30' : isAlert ? 'border-red-500 bg-red-50/50 animate-pulse' : 'border-gray-200 hover:border-military-300'}`}>
         <div className="flex justify-between items-start mb-2">
             <div className={`p-2 rounded-lg ${color} text-white`}><Icon size={20} /></div>
-            <p className={`text-2xl font-extrabold ${isLast ? 'text-teal-700' : 'text-slate-800'}`}>{count.toLocaleString()}</p>
+            <p className={`text-2xl font-extrabold ${isLast ? 'text-teal-700' : isAlert ? 'text-red-700' : 'text-slate-800'}`}>{count.toLocaleString()}</p>
         </div>
         <h3 className="text-[11px] font-bold text-slate-700 mt-2 uppercase leading-tight tracking-tight">{title}</h3>
         {detailText && <p className="text-[10px] text-gray-500 font-bold bg-gray-50 px-1.5 py-0.5 rounded inline-block mt-1">{detailText}</p>}
-        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"><ArrowRightCircle size={14} className="text-military-400" /></div>
+        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300"><ArrowRightCircle size={14} className={isAlert ? 'text-red-400' : "text-military-400"} /></div>
     </div>
 );
 
@@ -34,6 +34,17 @@ export default function ProgressSection({ stats, onNavigate }: any) {
              <Card title="12. LOẠI KHỎI NGUỒN" count={stats.countRemoved} icon={UserX} color="bg-gray-400" onClick={() => onNavigate('REMOVED')} />
              <Card title="13. NGUỒN CÒN LẠI" count={stats.countRemaining} icon={Layers} color="bg-teal-600" onClick={() => onNavigate('REMAINING')} />
              <Card title="14. NGUỒN NĂM SAU" count={stats.countNextYearSource} icon={Calendar} color="bg-cyan-600" onClick={() => onNavigate('NEXT_YEAR_SOURCE')} isLast />
+             {stats.expiringCount > 0 && (
+                <Card 
+                    title="CÔNG DANH HẾT HẠN" 
+                    count={stats.expiringCount} 
+                    icon={AlertOctagon} 
+                    color="bg-red-600" 
+                    onClick={() => onNavigate('ALL')} 
+                    detailText={`${stats.expiringEduCount} Học xong / ${stats.expiringSentenceCount} Hết án`}
+                    isAlert 
+                />
+             )}
         </div>
     );
 }

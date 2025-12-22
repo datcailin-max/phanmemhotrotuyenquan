@@ -59,9 +59,7 @@ export const useRecruitFilters = (
         result = result.filter(r => {
             const age = checkAge(r, sessionYear);
             if (age < 18) return false;
-            // Loại diện 1, 2, 3
             if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.FIRST_TIME_REGISTRATION].includes(r.status)) return false;
-            // Loại diện 5, 8, 9, 12 theo yêu cầu
             if ([
                 RecruitmentStatus.NOT_SELECTED_TT50, 
                 RecruitmentStatus.DEFERRED, 
@@ -74,7 +72,6 @@ export const useRecruitFilters = (
         break;
 
       case 'PRE_CHECK_PASS':
-        // DS 6.1: Những người đạt sơ tuyển và các bước sau đó
         result = result.filter(r => [
             RecruitmentStatus.PRE_CHECK_PASSED, 
             RecruitmentStatus.MED_EXAM_PASSED, 
@@ -89,7 +86,6 @@ export const useRecruitFilters = (
         break;
 
       case 'MED_EXAM':
-        // Danh sách 7: Chỉ những người đạt sơ tuyển mới được vào khám tuyển
         result = result.filter(r => [
             RecruitmentStatus.PRE_CHECK_PASSED, 
             RecruitmentStatus.MED_EXAM_PASSED, 
@@ -126,16 +122,62 @@ export const useRecruitFilters = (
         break;
 
       case 'FINAL':
-        result = result.filter(r => r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED);
+        result = result.filter(r => [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status));
+        break;
+
+      case 'FINAL_OFFICIAL':
+        result = result.filter(r => [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status) && r.enlistmentType === 'OFFICIAL');
+        break;
+
+      case 'FINAL_RESERVE':
+        result = result.filter(r => [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status) && r.enlistmentType === 'RESERVE');
+        break;
+
+      case 'ENLISTED':
+        result = result.filter(r => r.status === RecruitmentStatus.ENLISTED && r.enlistmentType === 'OFFICIAL');
         break;
 
       case 'REMAINING':
+        // DS 13: Nguồn còn lại (Nguồn sẵn sàng nhưng chưa đi)
         result = result.filter(r => {
             if (checkAge(r, sessionYear) < 18) return false;
-            const isRestricted = [RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.FIRST_TIME_REGISTRATION, RecruitmentStatus.DELETED, RecruitmentStatus.REMOVED_FROM_SOURCE];
+            // Loại bỏ hoàn toàn diện cấm, miễn, và đăng ký lần đầu
+            const isRestricted = [
+                RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
+                RecruitmentStatus.EXEMPT_REGISTRATION, 
+                RecruitmentStatus.FIRST_TIME_REGISTRATION, 
+                RecruitmentStatus.DELETED, 
+                RecruitmentStatus.REMOVED_FROM_SOURCE
+            ];
+            if (isRestricted.includes(r.status)) return false;
+            // Loại bỏ người đã phát lệnh chính thức
+            const isEnlistedOfficial = (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL';
+            if (isEnlistedOfficial) return false;
+            return true;
+        });
+        break;
+
+      case 'NEXT_YEAR_SOURCE':
+        // DS 14: NGUỒN CỦA NĂM SAU = (DS 3: Đăng ký lần đầu) + (DS 13: Nguồn còn lại)
+        // Tuyệt đối không bao gồm diện Cấm và Miễn (1 và 2)
+        result = result.filter(r => {
+            // 1. Chấp nhận diện đăng ký lần đầu
+            if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
+            
+            // 2. Chấp nhận diện Nguồn còn lại (Sẵn sàng nhưng chưa đi)
+            const age = checkAge(r, sessionYear);
+            if (age < 18) return false;
+            const isRestricted = [
+                RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
+                RecruitmentStatus.EXEMPT_REGISTRATION, 
+                RecruitmentStatus.FIRST_TIME_REGISTRATION, // Đã check ở trên
+                RecruitmentStatus.DELETED, 
+                RecruitmentStatus.REMOVED_FROM_SOURCE
+            ];
             if (isRestricted.includes(r.status)) return false;
             const isEnlistedOfficial = (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL';
             if (isEnlistedOfficial) return false;
+            
             return true;
         });
         break;

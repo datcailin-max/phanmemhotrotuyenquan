@@ -1,3 +1,4 @@
+
 // Fix: Import React to resolve namespace errors for React.Dispatch and React.SetStateAction
 import React, { useState } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../../../types';
@@ -34,7 +35,14 @@ export const useRecruitActions = (
 
   const handleConfirmRemove = () => {
     if (recruitToRemove) {
-      onUpdate({ ...recruitToRemove, status: RecruitmentStatus.REMOVED_FROM_SOURCE, defermentReason: removeReason });
+      onUpdate({ 
+        ...recruitToRemove, 
+        status: RecruitmentStatus.REMOVED_FROM_SOURCE, 
+        defermentReason: removeReason,
+        enlistmentType: undefined,
+        enlistmentUnit: undefined,
+        enlistmentDate: undefined
+      });
       setShowRemoveModal(false); 
       setRecruitToRemove(null); 
       setRemoveReason('');
@@ -52,7 +60,10 @@ export const useRecruitActions = (
         ...reasonModalConfig.recruit, 
         status: reasonModalConfig.type === 'DEFERRED' ? RecruitmentStatus.DEFERRED : RecruitmentStatus.EXEMPTED,
         defermentReason: reason,
-        previousStatus: reasonModalConfig.recruit.status
+        previousStatus: reasonModalConfig.recruit.status,
+        enlistmentType: undefined, // Làm sạch dữ liệu nhập ngũ khi hoãn/miễn
+        enlistmentUnit: undefined,
+        enlistmentDate: undefined
       });
       setShowReasonModal(false);
       setReasonModalConfig(null);
@@ -67,6 +78,8 @@ export const useRecruitActions = (
       physical: { ...recruit.physical, healthGrade: grade },
       status: newStatus,
       enlistmentType: isPassed ? 'OFFICIAL' : undefined,
+      enlistmentUnit: isPassed ? recruit.enlistmentUnit : undefined,
+      enlistmentDate: isPassed ? recruit.enlistmentDate : undefined,
       previousStatus: recruit.status
     });
   };

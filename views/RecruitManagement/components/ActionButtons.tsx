@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   FileSignature, FileEdit, ArrowUpCircle, Trash2, PauseCircle, ShieldCheck, 
-  BookX, UserX, CheckCircle2, XCircle, Flag, Tent, Undo2, Save, RotateCcw
+  BookX, UserX, CheckCircle2, XCircle, Flag, Tent, Undo2, Save, RotateCcw, UserPlus
 } from 'lucide-react';
 import { Recruit, RecruitmentStatus } from '../../../types';
 
@@ -16,14 +16,16 @@ interface ActionButtonsProps {
   onUpdate: (r: Recruit) => void;
   onDelete: (id: string) => void;
   onOpenReasonModal: (r: Recruit, type: 'DEFERRED' | 'EXEMPTED') => void;
-  onOpenRemoveModal: (r: Recruit) => void;
+  onOpenRemoveModal: (r: Recruit, type: 'DEFERRED' | 'EXEMPTED') => void; // Chỉnh sửa kiểu dữ liệu prop nếu cần, hoặc giữ nguyên
   onHealthGradeSelect: (r: Recruit, grade: number) => void;
   onUpdateFailureReason: (r: Recruit) => void;
+  isExpiring?: boolean; // Prop mới để nhận diện trạng thái hết hạn
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
   recruit, activeTabId, isReadOnly, failureReasons, setFailureReasons,
-  onEdit, onUpdate, onDelete, onOpenReasonModal, onOpenRemoveModal, onHealthGradeSelect, onUpdateFailureReason
+  onEdit, onUpdate, onDelete, onOpenReasonModal, onOpenRemoveModal, onHealthGradeSelect, onUpdateFailureReason,
+  isExpiring = false
 }) => {
   if (isReadOnly) return (
     <div className="flex items-center justify-center gap-1">
@@ -33,27 +35,52 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
     </div>
   );
 
-  // Hàm xử lý xóa mềm (chuyển vào DS 15)
   const handleSoftDelete = () => {
     if (window.confirm(`Xác nhận chuyển hồ sơ của công dân ${recruit.fullName} vào Thùng rác (Danh sách 15)?`)) {
       onUpdate({ 
         ...recruit, 
         status: RecruitmentStatus.DELETED, 
-        previousStatus: recruit.status 
+        previousStatus: recruit.status,
+        enlistmentType: undefined,
+        enlistmentUnit: undefined,
+        enlistmentDate: undefined
       });
     }
   };
   
   switch (activeTabId) {
-    case 'FIRST_TIME_REG':
     case 'NOT_ALLOWED_REG':
+      return (
+        <div className="flex items-center justify-center gap-1">
+          <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
+          {isExpiring && (
+            <button 
+              onClick={() => {
+                if(window.confirm(`Xác nhận đưa công dân ${recruit.fullName} về Danh sách 3 (Đăng ký lần đầu) sau khi hết thời hạn án phạt?`)) {
+                  onUpdate({ ...recruit, status: RecruitmentStatus.FIRST_TIME_REGISTRATION, previousStatus: recruit.status });
+                }
+              }}
+              className="p-1 text-purple-600 hover:bg-purple-50 rounded" 
+              title="Đưa về Đăng ký lần đầu (DS 3)"
+            >
+              <UserPlus size={16} />
+            </button>
+          )}
+          <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
+        </div>
+      );
     case 'EXEMPT_REG':
       return (
         <div className="flex items-center justify-center gap-1">
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
-          {activeTabId === 'FIRST_TIME_REG' && (
-            <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, previousStatus: recruit.status })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Đưa vào nguồn (DS 4)"><ArrowUpCircle size={16} /></button>
-          )}
+          <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
+        </div>
+      );
+    case 'FIRST_TIME_REG':
+      return (
+        <div className="flex items-center justify-center gap-1">
+          <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
+          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, previousStatus: recruit.status })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Đưa vào nguồn (DS 4)"><ArrowUpCircle size={16} /></button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
@@ -63,8 +90,8 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa"><FileEdit size={16} /></button>
           <button onClick={() => onOpenReasonModal(recruit, 'DEFERRED')} className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Tạm hoãn (DS 8)"><PauseCircle size={16}/></button>
           <button onClick={() => onOpenReasonModal(recruit, 'EXEMPTED')} className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="Miễn gọi nhập ngũ (DS 9)"><ShieldCheck size={16}/></button>
-          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.NOT_SELECTED_TT50, previousStatus: recruit.status })} className="p-1 text-slate-600 hover:bg-slate-50 rounded" title="TT 50 (DS 5)"><BookX size={16}/></button>
-          <button onClick={() => onOpenRemoveModal(recruit)} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="Loại khỏi nguồn (DS 12)"><UserX size={16} /></button>
+          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.NOT_SELECTED_TT50, previousStatus: recruit.status, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} className="p-1 text-slate-600 hover:bg-slate-50 rounded" title="TT 50 (DS 5)"><BookX size={16}/></button>
+          <button onClick={() => onOpenRemoveModal(recruit, 'DEFERRED')} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="Loại khỏi nguồn (DS 12)"><UserX size={16} /></button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
@@ -111,7 +138,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             onChange={(e) => setFailureReasons({...failureReasons, [recruit.id]: e.target.value})}
           />
           <button onClick={() => onUpdateFailureReason(recruit)} className="p-1.5 bg-military-600 text-white rounded hover:bg-military-700" title="Lưu lý do"><Save size={14}/></button>
-          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', previousStatus: recruit.status })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Khôi phục về Nguồn"><Undo2 size={16}/></button>
+          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', previousStatus: recruit.status, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Khôi phục về Nguồn"><Undo2 size={16}/></button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
@@ -119,7 +146,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       return (
         <div className="flex items-center justify-center gap-1">
           <button 
-            onClick={() => onUpdate({ ...recruit, status: recruit.previousStatus || RecruitmentStatus.SOURCE, previousStatus: RecruitmentStatus.DELETED })} 
+            onClick={() => onUpdate({ ...recruit, status: recruit.previousStatus || RecruitmentStatus.SOURCE, previousStatus: RecruitmentStatus.DELETED, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} 
             className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white rounded text-[10px] font-black uppercase hover:bg-green-700 transition-all"
             title="Khôi phục hồ sơ"
           >
@@ -142,7 +169,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       return (
         <div className="flex items-center justify-center gap-1">
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa"><FileEdit size={16} /></button>
-          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', previousStatus: recruit.status })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Khôi phục về Nguồn"><Undo2 size={16}/></button>
+          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', previousStatus: recruit.status, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Khôi phục về Nguồn"><Undo2 size={16}/></button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );

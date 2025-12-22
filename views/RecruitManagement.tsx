@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Recruit, User } from '../types';
+import { Recruit, User, RecruitmentStatus } from '../types';
 import RecruitForm from '../components/RecruitForm';
 import { 
-  Paperclip, ChevronRight, ChevronLeft, GraduationCap, Flag, HeartPulse
+  Paperclip, ChevronRight, ChevronLeft, GraduationCap, Flag, HeartPulse, AlertTriangle
 } from 'lucide-react';
 
 import { TABS, ITEMS_PER_PAGE } from './RecruitManagement/constants';
@@ -114,7 +114,20 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const paginatedRecruits = filteredRecruits.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const handleEdit = (recruit: Recruit) => { setEditingRecruit(recruit); setShowForm(true); };
-  const handleCreate = () => { setEditingRecruit(undefined); setShowForm(true); };
+  
+  // Xác định trạng thái mặc định khi thêm mới dựa trên Tab đang chọn
+  const handleCreate = () => { 
+    setEditingRecruit(undefined); 
+    setShowForm(true); 
+  };
+
+  const initialStatusForNew = useMemo(() => {
+    if (activeTabId === 'NOT_ALLOWED_REG') return RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
+    if (activeTabId === 'EXEMPT_REG') return RecruitmentStatus.EXEMPT_REGISTRATION;
+    if (activeTabId === 'FIRST_TIME_REG') return RecruitmentStatus.FIRST_TIME_REGISTRATION;
+    return RecruitmentStatus.SOURCE;
+  }, [activeTabId]);
+
   const handleSave = (data: Recruit) => { onUpdate(data); setShowForm(false); };
 
   const handleDeleteAllTrash = async () => {
@@ -125,9 +138,8 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     
     const password = window.prompt("CẢNH BÁO: Thao tác này sẽ xóa VĨNH VIỄN toàn bộ " + filteredRecruits.length + " hồ sơ trong Thùng rác.\nVui lòng nhập mật khẩu xác nhận:");
     
-    if (password === null) return; // Người dùng nhấn Cancel
+    if (password === null) return; 
     
-    // Kiểm tra mật khẩu (Sử dụng mật khẩu của User hiện tại hoặc ADMIN mặc định)
     const isValidPass = password === user.password || password === 'ADMIN' || (password === '1' && user.username === 'DEMO');
     
     if (!isValidPass) {
@@ -135,12 +147,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       return;
     }
 
-    if (window.confirm(`XÁC NHẬN CUỐI CÙNG: Bạn có chắc chắn muốn xóa VĨNH VIỄN ${filteredRecruits.length} hồ sơ? Thao tác này KHÔNG THỂ khôi phục.`)) {
+    if (window.confirm(`XÁC NHẬN CUỐI CÙNG: Bạn có chắc chắn muốn xóa vĩnh viễn ${filteredRecruits.length} hồ sơ? Thao tác này KHÔNG THỂ khôi phục.`)) {
       try {
-        // Thực hiện xóa vĩnh viễn từng hồ sơ
         for (const recruit of filteredRecruits) {
           await api.deleteRecruit(recruit.id);
-          onDelete(recruit.id); // Đồng bộ lên App state
+          onDelete(recruit.id); 
         }
         alert("Đã dọn sạch thùng rác vĩnh viễn.");
       } catch (e) {
@@ -148,6 +159,18 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
         alert("Đã xảy ra lỗi trong quá trình xóa dữ liệu.");
       }
     }
+  };
+
+  // Helper kiểm tra hết niên khóa/án phạt
+  const isExpiring = (recruit: Recruit) => {
+    const isExpiringInCurrentYear = (period?: string) => {
+        if (!period) return false;
+        const parts = period.split('-');
+        const lastPart = parts[parts.length - 1].trim();
+        const endYear = parseInt(lastPart);
+        return endYear === sessionYear;
+    };
+    return isExpiringInCurrentYear(recruit.details.educationPeriod) || isExpiringInCurrentYear(recruit.details.sentencePeriod);
   };
 
   return (
@@ -192,55 +215,73 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
             <tbody className="text-sm divide-y divide-gray-100">
               {paginatedRecruits.length === 0 ? (
                 <tr><td colSpan={7} className="p-12 text-center text-gray-400 italic">Không tìm thấy hồ sơ nào phù hợp với điều kiện lọc.</td></tr>
-              ) : paginatedRecruits.map((recruit, index) => (
-                <tr key={recruit.id} className="hover:bg-military-50/30 transition-colors group">
-                  <td className="p-4 text-center text-gray-400 font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <div className="font-black text-military-900 uppercase tracking-tight">{recruit.fullName}</div>
-                      {recruit.attachments?.length ? <Paperclip size={14} className="text-blue-500" /> : null}
-                    </div>
-                    <div className="text-[10px] text-gray-500 font-mono mt-0.5 tracking-tighter">{recruit.citizenId || 'Chưa cập nhật CCCD'}</div>
-                  </td>
-                  <td className="p-4 text-center font-bold text-gray-700">{recruit.dob ? recruit.dob.split('-')[0] : '---'}</td>
-                  <td className="p-4">
-                    <div className="text-xs font-bold text-gray-800">{recruit.address.village}</div>
-                    <div className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">{recruit.address.commune}</div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-col gap-1 text-[10px] font-black uppercase">
-                      <div className="flex items-center gap-1.5 text-gray-600"><GraduationCap size={12} className="text-military-400"/> {recruit.details.education}</div>
-                      <div className="flex items-center gap-1.5 text-gray-600"><Flag size={12} className="text-red-400"/> {recruit.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : recruit.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng'}</div>
-                      <div className="flex items-center gap-1.5 text-gray-600"><HeartPulse size={12} className="text-blue-400"/> SK Loại {recruit.physical.healthGrade || '---'}</div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black border uppercase tracking-wider ${getStatusColor(recruit.status)}`}>{getStatusLabel(recruit.status)}</span>
-                    {recruit.defermentReason && (
-                      <div className="text-[10px] text-gray-500 italic mt-1.5 leading-tight truncate max-w-[180px]" title={recruit.defermentReason}>{recruit.defermentReason}</div>
-                    )}
-                    {recruit.enlistmentType === 'OFFICIAL' && (
-                      <div className="mt-1.5 flex items-center gap-1 text-[9px] font-black text-red-700 uppercase"><Flag size={10}/> Phát lệnh chính thức</div>
-                    )}
-                  </td>
-                  <td className="p-4 text-right">
-                    <ActionButtons 
-                      recruit={recruit}
-                      activeTabId={activeTabId}
-                      isReadOnly={isReadOnly}
-                      failureReasons={ra.failureReasons}
-                      setFailureReasons={ra.setFailureReasons}
-                      onEdit={handleEdit}
-                      onUpdate={onUpdate}
-                      onDelete={onDelete}
-                      onOpenReasonModal={ra.handleOpenReasonModal}
-                      onOpenRemoveModal={(r) => { ra.setRecruitToRemove(r); ra.setShowRemoveModal(true); }}
-                      onHealthGradeSelect={ra.handleHealthGradeSelect}
-                      onUpdateFailureReason={ra.handleUpdateFailureReason}
-                    />
-                  </td>
-                </tr>
-              ))}
+              ) : paginatedRecruits.map((recruit, index) => {
+                const expiring = isExpiring(recruit);
+                return (
+                  <tr key={recruit.id} className={`hover:bg-military-50/30 transition-colors group ${expiring ? 'bg-red-50/20' : ''}`}>
+                    <td className="p-4 text-center text-gray-400 font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <div className="font-black text-military-900 uppercase tracking-tight">{recruit.fullName}</div>
+                        {recruit.attachments?.length ? <Paperclip size={14} className="text-blue-500" /> : null}
+                        {expiring && (
+                          <span title="Sắp hết hạn tạm hoãn/cấm ĐK">
+                            <AlertTriangle size={14} className="text-red-500 animate-bounce" />
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-mono mt-0.5 tracking-tighter">{recruit.citizenId || 'Chưa cập nhật CCCD'}</div>
+                    </td>
+                    <td className="p-4 text-center font-bold text-gray-700">{recruit.dob ? recruit.dob.split('-')[0] : '---'}</td>
+                    <td className="p-4">
+                      <div className="text-xs font-bold text-gray-800">{recruit.address.village}</div>
+                      <div className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">{recruit.address.commune}</div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex flex-col gap-1 text-[10px] font-black uppercase">
+                        <div className="flex items-center gap-1.5 text-gray-600">
+                            <GraduationCap size={12} className="text-military-400"/> 
+                            {recruit.details.education}
+                            {expiring && recruit.status === RecruitmentStatus.DEFERRED && <span className="text-red-600 bg-red-50 px-1 rounded ml-1">HẾT NIÊN KHÓA</span>}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-gray-600"><Flag size={12} className="text-red-400"/> {recruit.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : recruit.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng'}</div>
+                        <div className="flex items-center gap-1.5 text-gray-600"><HeartPulse size={12} className="text-blue-400"/> SK Loại {recruit.physical.healthGrade || '---'}</div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black border uppercase tracking-wider ${getStatusColor(recruit.status)}`}>{getStatusLabel(recruit.status)}</span>
+                      {recruit.defermentReason && (
+                        <div className="text-[10px] text-gray-500 italic mt-1.5 leading-tight truncate max-w-[180px]" title={recruit.defermentReason}>{recruit.defermentReason}</div>
+                      )}
+                      {expiring && recruit.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && (
+                        <div className="mt-1 flex items-center gap-1 text-[9px] font-black text-red-600 uppercase">
+                            <AlertTriangle size={10}/> HẾT ÁN PHẠT ({recruit.details.sentencePeriod}) - CẦN ĐƯA VỀ DS 3
+                        </div>
+                      )}
+                      {(recruit.status === RecruitmentStatus.FINALIZED || recruit.status === RecruitmentStatus.ENLISTED) && recruit.enlistmentType === 'OFFICIAL' && (
+                        <div className="mt-1.5 flex items-center gap-1 text-[9px] font-black text-red-700 uppercase animate-in slide-in-from-left-1"><Flag size={10}/> Phát lệnh chính thức</div>
+                      )}
+                    </td>
+                    <td className="p-4 text-right">
+                      <ActionButtons 
+                        recruit={recruit}
+                        activeTabId={activeTabId}
+                        isReadOnly={isReadOnly}
+                        failureReasons={ra.failureReasons}
+                        setFailureReasons={ra.setFailureReasons}
+                        onEdit={handleEdit}
+                        onUpdate={onUpdate}
+                        onDelete={onDelete}
+                        onOpenReasonModal={ra.handleOpenReasonModal}
+                        onOpenRemoveModal={(r) => { ra.setRecruitToRemove(r); ra.setShowRemoveModal(true); }}
+                        onHealthGradeSelect={ra.handleHealthGradeSelect}
+                        onUpdateFailureReason={ra.handleUpdateFailureReason}
+                        isExpiring={expiring}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -256,7 +297,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
         )}
       </div>
       
-      {showForm && <RecruitForm initialData={editingRecruit} user={user} onSubmit={handleSave} onClose={() => setShowForm(false)} sessionYear={sessionYear} />}
+      {showForm && (
+        <RecruitForm 
+            initialData={editingRecruit} 
+            initialStatus={initialStatusForNew}
+            user={user} 
+            onSubmit={handleSave} 
+            onClose={() => setShowForm(false)} 
+            sessionYear={sessionYear} 
+        />
+      )}
       
       {ra.showReasonModal && ra.reasonModalConfig && (
         <LegalReasonModal 

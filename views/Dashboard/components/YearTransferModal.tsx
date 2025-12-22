@@ -22,11 +22,16 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
   const transferData = useMemo(() => {
     const checkAge = (r: Recruit, year: number) => year - parseInt(r.dob.split('-')[0] || '0');
     
-    // Lấy những người thuộc diện "Nguồn năm sau" (Danh sách 14)
-    // 1. Danh sách 3 (17 tuổi)
+    // 1. Danh sách 1 (Không được đăng ký NVQS)
+    const list1 = currentRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION);
+    
+    // 2. Danh sách 2 (Miễn đăng ký NVQS)
+    const list2 = currentRecruits.filter(r => r.status === RecruitmentStatus.EXEMPT_REGISTRATION);
+
+    // 3. Danh sách 3 (17 tuổi - Đăng ký lần đầu)
     const list3 = currentRecruits.filter(r => r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION);
     
-    // 2. Danh sách 13 (Nguồn còn lại)
+    // 4. Danh sách 13 (Nguồn còn lại - Sẵn sàng nhập ngũ nhưng chưa đi)
     const list13 = currentRecruits.filter(r => {
       if (checkAge(r, sessionYear) < 18) return false;
       const isRestricted = [
@@ -42,14 +47,23 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
       return true;
     });
 
-    const totalToTransfer = [...list3, ...list13].filter(r => checkAge(r, targetYear) <= 27);
+    // Gộp tất cả các đối tượng cần chuyển (Lưu ý: Chỉ chuyển những người còn trong độ tuổi gọi nhập ngũ 17-27 cho năm tới)
+    const rawTotalList = [...list1, ...list2, ...list3, ...list13];
+    const filteredByAge = rawTotalList.filter(r => {
+        const ageInTargetYear = checkAge(r, targetYear);
+        // List 1 và 2 thường là vĩnh viễn nên có thể chuyển hết, hoặc áp dụng trần 27 tuổi tùy quy định địa phương
+        // Ở đây hệ thống giữ lại tất cả những người <= 27 tuổi để đảm bảo nguồn sạch
+        return ageInTargetYear <= 27;
+    });
 
     // Phân tích trạng thái sau khi chuyển
-    const finalizedTransferList = totalToTransfer.map(r => {
+    const finalizedTransferList = filteredByAge.map(r => {
       let nextStatus = RecruitmentStatus.SOURCE;
       
-      // Giữ nguyên trạng thái cho diện 5, 8, 9
+      // Giữ nguyên trạng thái cho diện 1, 2, 5, 8, 9
       if ([
+        RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
+        RecruitmentStatus.EXEMPT_REGISTRATION,
         RecruitmentStatus.NOT_SELECTED_TT50, 
         RecruitmentStatus.DEFERRED, 
         RecruitmentStatus.EXEMPTED
@@ -64,8 +78,10 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
       total: finalizedTransferList.length,
       list: finalizedTransferList,
       stats: {
+          list1Count: list1.length,
+          list2Count: list2.length,
           ds3ToDs4: list3.length,
-          keepStatus: finalizedTransferList.filter(r => [RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.NOT_SELECTED_TT50].includes(r.status)).length,
+          keepStatus: finalizedTransferList.filter(r => [RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.NOT_SELECTED_TT50, RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(r.status)).length,
           resetToSource: finalizedTransferList.filter(r => r.status === RecruitmentStatus.SOURCE && !list3.find(l => l.id === r.id)).length
       }
     };
@@ -77,7 +93,7 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
         return;
     }
 
-    if (!window.confirm(`Xác nhận kết chuyển ${transferData.total} hồ sơ từ năm ${sessionYear} sang năm ${targetYear}?\n\nLưu ý: Thao tác này sẽ tạo bản sao hồ sơ mới cho năm ${targetYear}.`)) {
+    if (!window.confirm(`Xác nhận kết chuyển ${transferData.total} hồ sơ từ năm ${sessionYear} sang năm ${targetYear}?\n\nLưu ý:\n- Danh sách 1 và 2 sẽ được kế thừa trạng thái.\n- Danh sách 3 và Nguồn cũ sẽ được đưa về diện sẵn sàng gọi nhập ngũ.\n- Thao tác này sẽ tạo bản sao hồ sơ mới cho năm ${targetYear}.`)) {
         return;
     }
 
@@ -114,9 +130,14 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
           <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-start gap-3">
              <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
              <div className="text-xs text-amber-800 leading-relaxed font-medium">
-               Quy trình này sẽ quét toàn bộ công dân thuộc <b>Danh sách 14 (Nguồn năm sau)</b> của năm {sessionYear} và tự động thiết lập hồ sơ cho năm mới. 
-               Hệ thống sẽ giữ nguyên trạng thái đối với các diện <b>Tạm hoãn, Miễn gọi và Không tuyển chọn (TT50)</b>. 
-               Các diện khác sẽ được đưa về trạng thái <b>Nguồn (Sẵn sàng gọi nhập ngũ)</b>.
+               Quy trình này thực hiện kết chuyển dữ liệu công dân từ năm cũ sang năm mới. 
+               <br/><br/>
+               <b>Quy tắc chuyển đổi:</b>
+               <ul className="list-disc ml-4 mt-1 space-y-1">
+                 <li>Hồ sơ diện <b>Cấm ĐK (DS 1)</b> và <b>Miễn ĐK (DS 2)</b>: Giữ nguyên trạng thái.</li>
+                 <li>Hồ sơ diện <b>Tạm hoãn, Miễn gọi và Không tuyển chọn (TT50)</b>: Giữ nguyên trạng thái.</li>
+                 <li>Hồ sơ diện <b>Đăng ký lần đầu (DS 3)</b> và <b>Nguồn cũ</b>: Đưa về trạng thái <b>Nguồn sẵn sàng</b>.</li>
+               </ul>
              </div>
           </div>
 
@@ -145,18 +166,22 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
 
           <div className="space-y-3">
              <h4 className="text-xs font-black text-gray-700 uppercase tracking-wider mb-2">Thống kê hồ sơ dự kiến ({transferData.total})</h4>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="p-3 bg-cyan-50 rounded-xl border border-cyan-100">
-                   <p className="text-[10px] font-black text-cyan-700 uppercase">ĐK lần đầu sang Nguồn</p>
-                   <p className="text-xl font-black text-cyan-900">{transferData.stats.ds3ToDs4}</p>
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-red-50 rounded-xl border border-red-100">
+                   <p className="text-[9px] font-black text-red-700 uppercase">Kế thừa DS 1</p>
+                   <p className="text-xl font-black text-red-900">{transferData.stats.list1Count}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                   <p className="text-[9px] font-black text-slate-700 uppercase">Kế thừa DS 2</p>
+                   <p className="text-xl font-black text-slate-900">{transferData.stats.list2Count}</p>
                 </div>
                 <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                   <p className="text-[10px] font-black text-amber-700 uppercase">Giữ nguyên trạng thái</p>
-                   <p className="text-xl font-black text-amber-900">{transferData.stats.keepStatus}</p>
+                   <p className="text-[9px] font-black text-amber-700 uppercase">Hoãn/Miễn/TT50</p>
+                   <p className="text-xl font-black text-amber-900">{transferData.stats.keepStatus - (transferData.stats.list1Count + transferData.stats.list2Count)}</p>
                 </div>
                 <div className="p-3 bg-teal-50 rounded-xl border border-teal-100">
-                   <p className="text-[10px] font-black text-teal-700 uppercase">Làm mới về Nguồn</p>
-                   <p className="text-xl font-black text-teal-900">{transferData.stats.resetToSource}</p>
+                   <p className="text-[9px] font-black text-teal-700 uppercase">Làm mới Nguồn</p>
+                   <p className="text-xl font-black text-teal-900">{transferData.stats.resetToSource + transferData.stats.ds3ToDs4}</p>
                 </div>
              </div>
           </div>

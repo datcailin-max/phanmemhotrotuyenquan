@@ -28,6 +28,7 @@ const recruitSchema = new mongoose.Schema({
   details: {
     education: String,
     educationPeriod: String,
+    sentencePeriod: String, // Mới
     major: String,
     school: String,
     ethnicity: String,

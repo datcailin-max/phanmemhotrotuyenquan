@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
 import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert } from 'lucide-react';
@@ -64,6 +65,11 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     const edu = formData.details.education;
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason;
+
+    // QUAN TRỌNG: Nếu đang ở diện 1 (Cấm ĐK) hoặc diện 2 (Miễn ĐK), tuyệt đối không áp dụng logic tự động
+    if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(formData.status)) {
+        return;
+    }
 
     // 1. Tạm hoãn diện Đang học ĐH, CĐ (Lý do số 7)
     if (edu === 'Đang học ĐH' || edu === 'Đang học CĐ') {
@@ -132,6 +138,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     
     const birthYear = parseInt(formData.dob.split('-')[0] || '0');
     const age = sessionYear - birthYear;
+    
+    // Chỉ kiểm tra tuổi 18 cho những diện thuộc "Nguồn" thực sự (DS 4 trở lên)
     const isSourceTab = ![
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION, 
@@ -180,7 +188,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
             <div className="space-y-8">
                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                  <div className="flex flex-col md:flex-row gap-6 mb-8">
-                    {/* Avatar Area - SỬA LỖI HÌNH THẺ */}
+                    {/* Avatar Area */}
                     <div className="relative shrink-0 mx-auto md:mx-0">
                        <div className="w-32 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative group">
                           {formData.avatarUrl ? (

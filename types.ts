@@ -90,6 +90,7 @@ export interface Recruit {
   details: {
     education: string;
     educationPeriod?: string;
+    sentencePeriod?: string; // Mới: Niên khóa án phạt (VD: 2022-2026)
     major?: string;
     school?: string;
     ethnicity: string;
