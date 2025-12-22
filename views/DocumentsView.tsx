@@ -22,7 +22,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
 
   const isAdmin = user.role === 'ADMIN';
 
-  // Lọc dữ liệu an toàn, kiểm tra doc tồn tại để tránh lỗi render
   const filteredDocs = useMemo(() => {
     if (!Array.isArray(documents)) return [];
     return documents.filter(doc => {
@@ -33,20 +32,16 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
     });
   }, [documents, searchTerm, filterCategory]);
 
-  // Hàm hỗ trợ chuyển đổi Base64 thành Blob an toàn hơn
   const getBlobFromBase64 = (base64Data: string) => {
     try {
       if (!base64Data) return null;
-      
       let contentType = 'application/pdf';
       let b64 = base64Data;
-
       if (base64Data.includes(';base64,')) {
         const parts = base64Data.split(';base64,');
         contentType = parts[0].split(':')[1] || 'application/pdf';
         b64 = parts[1];
       }
-
       const raw = window.atob(b64);
       const rawLength = raw.length;
       const uInt8Array = new Uint8Array(rawLength);
@@ -109,14 +104,13 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         return;
     }
 
-    // Giới hạn thực tế cho trình duyệt xử lý Base64 tốt nhất là dưới 30MB
-    if (fileInput && fileInput.size > 30 * 1024 * 1024) {
-        alert(`File quá lớn (${(fileInput.size/1024/1024).toFixed(1)}MB). Vui lòng nén file PDF xuống dưới 30MB để đảm bảo hệ thống không bị treo.`);
+    // Nới lỏng giới hạn lên 55MB
+    if (fileInput && fileInput.size > 55 * 1024 * 1024) {
+        alert(`File quá lớn (${(fileInput.size/1024/1024).toFixed(1)}MB). Vui lòng nén file PDF xuống dưới 50MB để đảm bảo hệ thống ổn định.`);
         return;
     }
 
     setIsSubmitting(true);
-
     const processSubmission = async (fileBase64?: string) => {
         const payload = {
             title: target.docTitle.value,
@@ -137,7 +131,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
             setShowModal(false);
             onRefresh();
         } catch (err) {
-            alert("Lỗi máy chủ khi lưu tài liệu.");
+            alert("Lỗi máy chủ khi lưu tài liệu. Có thể do file quá nặng so với khả năng xử lý của RAM máy chủ.");
         } finally {
             setIsSubmitting(false);
         }
@@ -158,7 +152,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
 
   return (
     <div className="p-4 md:p-8 space-y-6 animate-in fade-in duration-500">
-      {/* Header Area */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-4">
           <div className="bg-military-100 p-3 rounded-xl text-military-700">
@@ -169,7 +162,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
             <p className="text-sm text-gray-500 font-medium">Lưu trữ văn bản chỉ đạo & pháp lý về Tuyển quân</p>
           </div>
         </div>
-        
         {isAdmin && (
           <button 
             onClick={() => { setEditingDoc(null); setShowModal(true); }}
@@ -180,7 +172,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         )}
       </div>
 
-      {/* Filter Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative md:col-span-2">
           <Search className="absolute left-4 top-3 text-gray-400" size={20} />
@@ -210,7 +201,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         </div>
       </div>
 
-      {/* Documents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredDocs.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
@@ -220,9 +210,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         ) : filteredDocs.map(doc => {
           try {
             const docId = (doc as any)._id || doc.id;
-            // Kiểm tra dung lượng file Base64 để cảnh báo nếu quá nặng
-            const isHeavy = doc.url ? doc.url.length > 10 * 1024 * 1024 : false;
-
+            const isHeavy = doc.url ? doc.url.length > 20 * 1024 * 1024 : false;
             return (
               <div key={docId} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col h-full">
                 <div className="flex justify-between items-start mb-4">
@@ -237,21 +225,17 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                     <FileCheck size={12}/> {doc.uploadDate}
                   </div>
                 </div>
-
                 <h4 className="text-sm font-black text-military-900 leading-tight mb-2 line-clamp-2 uppercase group-hover:text-military-600 transition-colors">
                   {doc.title}
                 </h4>
-                
                 <p className="text-xs text-gray-500 font-medium mb-6 line-clamp-3 italic flex-1">
                   {doc.description || 'Không có mô tả.'}
                 </p>
-
                 {isHeavy && (
                     <div className="mb-4 flex items-center gap-1.5 text-[9px] font-bold text-amber-600 bg-amber-50 p-1.5 rounded border border-amber-100">
                         <AlertCircle size={12}/> File nặng, quá trình mở có thể chậm
                     </div>
                 )}
-
                 <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
                   <div className="flex items-center gap-4">
                     <button onClick={() => handleView(doc)} className="flex items-center gap-2 text-military-600 hover:text-military-800 text-[10px] font-black uppercase transition-all">
@@ -261,7 +245,6 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                       <Download size={16} /> Tải về
                     </button>
                   </div>
-                  
                   {isAdmin && (
                     <div className="flex items-center gap-1">
                       <button onClick={() => { setEditingDoc(doc); setShowModal(true); }} className="p-1.5 text-gray-400 hover:text-military-600"><Edit3 size={14} /></button>
@@ -271,9 +254,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                 </div>
               </div>
             );
-          } catch (err) {
-            return null; // Bỏ qua card nếu bị lỗi dữ liệu cụ thể
-          }
+          } catch (err) { return null; }
         })}
       </div>
 
@@ -286,13 +267,11 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
               </h3>
               <button onClick={() => setShowModal(false)}><X size={24}/></button>
             </div>
-            
             <form onSubmit={handleSubmit} className="p-8 space-y-5">
               <div>
                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Tiêu đề / Số hiệu</label>
                 <input name="docTitle" required type="text" defaultValue={editingDoc?.title} className="w-full border-gray-200 border p-3 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-military-50" />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Loại văn bản</label>
@@ -306,23 +285,20 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                   </select>
                 </div>
                 <div>
-                    <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Chọn PDF (Tối đa 30MB)</label>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Chọn PDF (Tối đa 55MB)</label>
                     <input name="docFile" type="file" accept=".pdf" className="w-full text-[10px] p-2 border border-dashed rounded-xl bg-gray-50" />
                 </div>
               </div>
-
               <div>
                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Mô tả ngắn</label>
                 <textarea name="docDesc" rows={3} defaultValue={editingDoc?.description} className="w-full border-gray-200 border p-3 rounded-xl text-sm font-medium outline-none" />
               </div>
-
               <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-start gap-3">
                  <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={16} />
                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                   Lưu ý: File quá lớn có thể khiến hệ thống xử lý chậm. Hãy nén PDF trước khi tải lên để bảo vệ tài nguyên máy chủ.
+                   Lưu ý: Bạn đang tải file rất nặng (>30MB). Hệ thống sẽ cần nhiều thời gian để xử lý và lưu trữ. Vui lòng không đóng trình duyệt.
                  </p>
               </div>
-
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" disabled={isSubmitting} onClick={() => setShowModal(false)} className="px-6 py-3 text-xs font-black text-gray-500 uppercase">Hủy</button>
                 <button type="submit" disabled={isSubmitting} className={`px-10 py-3 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center gap-2 transition-all ${isSubmitting ? 'opacity-50' : 'hover:bg-military-800'}`}>

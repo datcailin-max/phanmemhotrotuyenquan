@@ -17,9 +17,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CẤU HÌNH GIỚI HẠN PAYLOAD - Giảm xuống 50MB để ổn định hơn trên môi trường web
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// CẤU HÌNH GIỚI HẠN PAYLOAD - Nâng lên 100MB để hỗ trợ file đính kèm nặng
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cors());
 app.use(express.static(path.join(__dirname, '../dist')));
 
@@ -69,8 +69,6 @@ app.delete('/api/recruits/:id', async (req, res) => {
 // --- DOCUMENT API ---
 app.get('/api/documents', async (req, res) => {
   try { 
-    // Chỉ lấy metadata cơ bản trước nếu danh sách quá lớn? 
-    // Hiện tại vẫn lấy full để dùng chung code, nhưng thêm sắp xếp
     res.json(await Document.find().sort({ createdAt: -1 })); 
   } catch (e) { 
     res.status(500).json({ message: e.message }); 
@@ -110,15 +108,12 @@ app.delete('/api/feedbacks/:id', async (req, res) => {
 app.get('/api/reports', async (req, res) => {
   const { province, targetProvince, username, year } = req.query;
   let query = {};
-  
   const pName = targetProvince || province;
   if (pName) {
     query.targetProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
   }
-  
   if (username) query.senderUsername = username;
   if (year) query.year = Number(year);
-  
   try { 
     const results = await Report.find(query).sort({ timestamp: -1 });
     res.json(results); 
@@ -141,24 +136,19 @@ app.delete('/api/reports/:id', async (req, res) => {
 app.get('/api/dispatches', async (req, res) => {
   const { province, senderProvince, username, commune, year } = req.query;
   let query = {};
-  
   const pName = senderProvince || province;
   if (pName) {
     query.senderProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
   }
-  
   if (username || commune) {
     const targets = ['ALL'];
     if (username) targets.push(username);
     if (commune) targets.push(commune);
-    
     query.recipients = { 
       $in: targets.map(t => new RegExp("^" + t.trim() + "$", "i")) 
     };
   }
-  
   if (year) query.year = Number(year);
-  
   try { 
     const results = await Dispatch.find(query).sort({ timestamp: -1 });
     res.json(results); 
@@ -178,4 +168,4 @@ app.delete('/api/dispatches/:id', async (req, res) => {
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../dist/index.html')));
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with 50MB limit` ));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with 100MB limit` ));
