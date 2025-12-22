@@ -5,6 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GridFSBucket, ObjectId } from 'mongodb';
+import { Readable } from 'stream';
 import Recruit from './models/Recruit.js';
 import User from './models/User.js';
 import Document from './models/Document.js';
@@ -18,6 +19,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Hỗ trợ Payload cực lớn cho file PDF nặng
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cors());
@@ -29,10 +31,26 @@ let bucket;
 mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('✅ MongoDB Connected');
-    // Khởi tạo GridFS Bucket để quản lý file lớn triệt để
+    // Khởi tạo GridFS Bucket (Kho lưu trữ nhị phân)
     bucket = new GridFSBucket(mongoose.connection.db, { bucketName: 'attachments' });
   })
   .catch(err => console.error('❌ MongoDB Error:', err.message));
+
+// Helper: Lưu dữ liệu Base64 vào GridFS
+const saveBase64ToGridFS = async (base64String, filename) => {
+    if (!base64String || !base64String.includes('base64,')) return base64String;
+    
+    const parts = base64String.split('base64,');
+    const buffer = Buffer.from(parts[1], 'base64');
+    const stream = Readable.from(buffer);
+    
+    return new Promise((resolve, reject) => {
+        const uploadStream = bucket.openUploadStream(filename);
+        stream.pipe(uploadStream)
+            .on('error', reject)
+            .on('finish', () => resolve(uploadStream.id.toString()));
+    });
+};
 
 // --- USER API ---
 app.get('/api/users', async (req, res) => {
@@ -69,31 +87,34 @@ app.delete('/api/recruits/:id', async (req, res) => {
   try { await Recruit.findOneAndDelete({ id: req.params.id }); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// --- DOCUMENT API (KIẾN TRÚC MỚI CHO FILE SIÊU NẶNG) ---
+// --- DOCUMENT API (KIẾN TRÚC MỚI) ---
 app.get('/api/documents', async (req, res) => {
   try { 
-    // Chỉ lấy metadata, tuyệt đối không lấy dữ liệu nhị phân ở đây
-    const docs = await Document.find({}, '-url').sort({ createdAt: -1 }); 
+    // Trả về metadata, ẩn trường url/data nhị phân để client load nhanh
+    const docs = await Document.find({}).sort({ createdAt: -1 }); 
     res.json(docs); 
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// TẢI FILE DẠY NHỊ PHÂN (BINARY STREAMING) - GIẢI QUYẾT TRIỆT ĐỂ LỖI TRẮNG MÀN HÌNH
+// STREAM FILE TỪ GRIDFS - Giải quyết triệt để lỗi file lớn
 app.get('/api/documents/:id/file', async (req, res) => {
     try {
         const doc = await Document.findById(req.params.id);
-        if (!doc || !doc.url) return res.status(404).json({ message: 'Không thấy tài liệu' });
+        if (!doc) return res.status(404).json({ message: 'Không thấy tài liệu' });
 
-        // Tách Base64 nếu đang lưu cũ, hoặc xử lý GridFS
-        let base64Data = doc.url;
-        if (base64Data.includes(';base64,')) {
-            base64Data = base64Data.split(';base64,')[1];
+        // Nếu url là một ObjectId của GridFS (dài 24 ký tự hex)
+        if (doc.url.length === 24 && /^[0-9a-fA-F]+$/.test(doc.url)) {
+            res.setHeader('Content-Type', 'application/pdf');
+            const downloadStream = bucket.openDownloadStream(new ObjectId(doc.url));
+            downloadStream.pipe(res);
+        } else {
+            // Tương thích ngược với Base64 cũ
+            let base64Data = doc.url;
+            if (base64Data.includes(';base64,')) base64Data = base64Data.split(';base64,')[1];
+            const buffer = Buffer.from(base64Data, 'base64');
+            res.setHeader('Content-Type', 'application/pdf');
+            res.send(buffer);
         }
-        
-        const buffer = Buffer.from(base64Data, 'base64');
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="document.pdf"`);
-        res.send(buffer);
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
@@ -101,21 +122,28 @@ app.get('/api/documents/:id/file', async (req, res) => {
 
 app.post('/api/documents', async (req, res) => {
   try { 
-    const doc = new Document(req.body);
+    const { title, url, ...rest } = req.body;
+    // Nếu có file đính kèm dạng Base64, lưu vào GridFS và lấy ID
+    const fileId = await saveBase64ToGridFS(url, `${title}.pdf`);
+    
+    const doc = new Document({ ...rest, title, url: fileId });
     const result = await doc.save();
     res.status(201).json(result); 
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
-app.put('/api/documents/:id', async (req, res) => {
-  try { res.json(await Document.findByIdAndUpdate(req.params.id, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); }
-});
-
 app.delete('/api/documents/:id', async (req, res) => {
-  try { await Document.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
+  try { 
+    const doc = await Document.findById(req.params.id);
+    if (doc && doc.url.length === 24) {
+        try { await bucket.delete(new ObjectId(doc.url)); } catch(err) {}
+    }
+    await Document.findByIdAndDelete(req.params.id); 
+    res.json({ message: 'OK' }); 
+  } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// --- FEEDBACK API ---
+// --- FEEDBACK / REPORTS / DISPATCHES ---
 app.get('/api/feedbacks', async (req, res) => {
   try { res.json(await Feedback.find().sort({ createdAt: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
 });
@@ -123,30 +151,29 @@ app.post('/api/feedbacks', async (req, res) => {
   try { res.status(201).json(await new Feedback(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
-// --- REPORTS & DISPATCHES ---
 app.get('/api/reports', async (req, res) => {
   const { province, targetProvince, username, year } = req.query;
   let query = {};
-  const pName = targetProvince || province;
-  if (pName) query.targetProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
+  if (targetProvince || province) query.targetProvince = { $regex: new RegExp("^" + (targetProvince || province).trim() + "$", "i") };
   if (username) query.senderUsername = username;
   if (year) query.year = Number(year);
   try { res.json(await Report.find(query).sort({ timestamp: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
 app.post('/api/reports', async (req, res) => {
-  try { res.status(201).json(await new Report(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
+  try { 
+      const { title, url, ...rest } = req.body;
+      const fileId = await saveBase64ToGridFS(url, `REPORT_${title}.pdf`);
+      res.status(201).json(await new Report({ ...rest, title, url: fileId }).save()); 
+  } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 app.get('/api/dispatches', async (req, res) => {
   const { province, senderProvince, username, commune, year } = req.query;
   let query = {};
-  const pName = senderProvince || province;
-  if (pName) query.senderProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
+  if (senderProvince || province) query.senderProvince = { $regex: new RegExp("^" + (senderProvince || province).trim() + "$", "i") };
   if (username || commune) {
-    const targets = ['ALL'];
-    if (username) targets.push(username);
-    if (commune) targets.push(commune);
+    const targets = ['ALL', username, commune].filter(Boolean);
     query.recipients = { $in: targets.map(t => new RegExp("^" + t.trim() + "$", "i")) };
   }
   if (year) query.year = Number(year);
@@ -154,8 +181,12 @@ app.get('/api/dispatches', async (req, res) => {
 });
 
 app.post('/api/dispatches', async (req, res) => {
-  try { res.status(201).json(await new Dispatch(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
+  try { 
+      const { title, url, ...rest } = req.body;
+      const fileId = await saveBase64ToGridFS(url, `DISPATCH_${title}.pdf`);
+      res.status(201).json(await new Dispatch({ ...rest, title, url: fileId }).save()); 
+  } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../dist/index.html')));
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with Binary Support`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with GridFS Support`));
