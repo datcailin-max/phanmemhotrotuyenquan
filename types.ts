@@ -84,9 +84,11 @@ export interface Recruit {
   physical: {
     height: number;
     weight: number;
+    chest: number; // Mới: Vòng ngực
     bmi: number;
     healthGrade?: number;
-    bloodPressure?: string; // Mới: Huyết áp
+    bloodPressure?: string;
+    note?: string; // Ghi chú sức khỏe
   };
   details: {
     education: string;

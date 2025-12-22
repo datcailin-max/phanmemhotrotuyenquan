@@ -54,8 +54,8 @@ export class ExcelExportService {
         // Cột G: Gia đình (Cha, Mẹ, Vợ)
         const colG = `Cha: ${r.family.father.fullName} (${r.family.father.job})\nMẹ: ${r.family.mother.fullName} (${r.family.mother.job})\n${r.family.wife?.fullName ? `Vợ: ${r.family.wife.fullName}` : ''}`;
         
-        // Cột H: Sức khỏe + Huyết áp
-        const colH = `Sức khỏe: Loại ${r.physical.healthGrade || '...'}\nHuyết áp: ${r.physical.bloodPressure || '---'}\nCao: ${r.physical.height}cm, Nặng: ${r.physical.weight}kg`;
+        // Cột H: Sức khỏe + Huyết áp + Vòng ngực
+        const colH = `Sức khỏe: Loại ${r.physical.healthGrade || '...'}\nHuyết áp: ${r.physical.bloodPressure || '---'}\nCao: ${r.physical.height}cm, Nặng: ${r.physical.weight}kg, Ngực: ${r.physical.chest || '--'}cm`;
 
         // Ghi chú: Kèm thêm hình thức đăng ký nếu có
         let notes = r.defermentReason || '';

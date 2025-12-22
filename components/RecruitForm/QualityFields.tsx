@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Activity, GraduationCap, Award, Globe, Landmark, ShieldAlert, HeartPulse, Briefcase, MapPin } from 'lucide-react';
+import { Activity, Globe, Landmark, ShieldAlert, HeartPulse, Briefcase, MapPin, Award, FileEdit } from 'lucide-react';
 import { EDUCATIONS, ETHNICITIES, RELIGIONS } from '../../constants';
 import { RecruitmentStatus } from '../../types';
 
@@ -69,7 +69,7 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
           </div>
         )}
 
-        {/* Mới: Niên khóa án phạt */}
+        {/* Niên khóa án phạt */}
         {isBanned && (
             <div className="col-span-2 animate-in fade-in slide-in-from-top-1">
                 <label className="block text-[10px] font-black text-red-600 uppercase mb-1 flex items-center gap-1">
@@ -86,7 +86,7 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
             </div>
         )}
 
-        {/* Công việc & Nghề nghiệp chuyên sâu */}
+        {/* Công việc & Nghề nghiệp */}
         <div className="col-span-2">
           <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nghề nghiệp hiện tại</label>
           <input 
@@ -111,59 +111,56 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
           />
         </div>
 
-        <div>
-          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nhóm ngạch</label>
-          <input 
-            type="text" placeholder="VD: Chuyên viên, Kỹ thuật..."
-            className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold"
-            value={formData.details.gradeGroup || ''} 
-            onChange={(e) => handleChange('details.gradeGroup', e.target.value)} 
-            readOnly={isReadOnly}
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Bậc lương</label>
-          <input 
-            type="text" placeholder="VD: 2.34, 3/10..."
-            className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold"
-            value={formData.details.salaryLevel || ''} 
-            onChange={(e) => handleChange('details.salaryLevel', e.target.value)} 
-            readOnly={isReadOnly}
-          />
-        </div>
-
-        <div>
-          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên trường (nếu có)</label>
-          <input type="text" className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold" value={formData.details.school || ''} onChange={(e) => handleChange('details.school', e.target.value)} readOnly={isReadOnly}/>
-        </div>
-        <div>
-          <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Chuyên ngành</label>
-          <input type="text" className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold" value={formData.details.major || ''} onChange={(e) => handleChange('details.major', e.target.value)} readOnly={isReadOnly}/>
-        </div>
-
         {/* Thể lực */}
-        <div className="col-span-2 grid grid-cols-5 gap-3 bg-military-50/50 p-3 rounded-xl border border-military-100">
-          <div>
-            <label className="block text-[9px] font-black text-military-700 uppercase">C.Cao (cm)</label>
-            <input type="number" className="w-full mt-1 p-2 border rounded-lg text-center font-black text-military-900" value={formData.physical.height || ''} onChange={(e) => handleChange('physical.height', Number(e.target.value))} readOnly={isReadOnly}/>
+        <div className="col-span-2 space-y-3 bg-military-50/50 p-4 rounded-xl border border-military-100">
+          <div className="grid grid-cols-6 gap-2">
+            <div>
+              <label className="block text-[9px] font-black text-military-700 uppercase">C.Cao</label>
+              <input type="number" className="w-full mt-1 p-2 border rounded-lg text-center font-black text-military-900 text-xs" value={formData.physical.height || ''} onChange={(e) => handleChange('physical.height', Number(e.target.value))} readOnly={isReadOnly}/>
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-military-700 uppercase">C.Nặng</label>
+              <input type="number" className="w-full mt-1 p-2 border rounded-lg text-center font-black text-military-900 text-xs" value={formData.physical.weight || ''} onChange={(e) => handleChange('physical.weight', Number(e.target.value))} readOnly={isReadOnly}/>
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-military-700 uppercase">V.Ngực</label>
+              <input type="number" className={`w-full mt-1 p-2 border rounded-lg text-center font-black text-xs ${formData.physical.chest > 0 && formData.physical.chest < 75 ? 'text-red-600 bg-red-50 border-red-200' : 'text-military-900'}`} value={formData.physical.chest || ''} onChange={(e) => handleChange('physical.chest', Number(e.target.value))} readOnly={isReadOnly}/>
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-military-700 uppercase">BMI</label>
+              <input 
+                type="number" step="0.01"
+                className={`w-full mt-1 p-2 border border-gray-300 rounded-lg text-center font-black focus:ring-2 focus:ring-military-400 outline-none text-xs ${formData.physical.bmi > 29.9 || (formData.physical.bmi > 0 && formData.physical.bmi < 18.5) ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-700 bg-white'}`}
+                value={formData.physical.bmi || ''} 
+                onChange={(e) => handleChange('physical.bmi', Number(e.target.value))} 
+                readOnly={isReadOnly}
+                placeholder="--"
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-red-600 uppercase">H.ÁP</label>
+              <input type="text" className="w-full mt-1 p-2 border rounded-lg text-center font-black text-red-900 text-xs" value={formData.physical.bloodPressure || ''} onChange={(e) => handleChange('physical.bloodPressure', e.target.value)} readOnly={isReadOnly}/>
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-military-700 uppercase">PL SK</label>
+              <select className="w-full mt-1 p-2 border rounded-lg text-center font-black text-military-900 bg-white text-xs" value={formData.physical.healthGrade} onChange={(e) => handleChange('physical.healthGrade', Number(e.target.value))} disabled={isReadOnly}>
+                <option value="0">-</option>{[1,2,3,4,5,6].map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
           </div>
+          
           <div>
-            <label className="block text-[9px] font-black text-military-700 uppercase">C.Nặng (kg)</label>
-            <input type="number" className="w-full mt-1 p-2 border rounded-lg text-center font-black text-military-900" value={formData.physical.weight || ''} onChange={(e) => handleChange('physical.weight', Number(e.target.value))} readOnly={isReadOnly}/>
-          </div>
-          <div>
-            <label className="block text-[9px] font-black text-military-700 uppercase">BMI</label>
-            <div className={`mt-1 py-2 px-1 border rounded-lg text-center text-[10px] font-black bg-white ${formData.physical.bmi >= 18.5 && formData.physical.bmi <= 29.9 ? 'text-green-600' : 'text-red-600'}`}>{formData.physical.bmi || '--'}</div>
-          </div>
-          <div>
-            <label className="block text-[9px] font-black text-red-600 uppercase">H.Áp</label>
-            <input type="text" placeholder="120/80" className="w-full mt-1 p-2 border rounded-lg text-center font-black text-red-900" value={formData.physical.bloodPressure || ''} onChange={(e) => handleChange('physical.bloodPressure', e.target.value)} readOnly={isReadOnly}/>
-          </div>
-          <div>
-            <label className="block text-[9px] font-black text-military-700 uppercase">PL SK</label>
-            <select className="w-full mt-1 p-2 border rounded-lg text-center font-black text-military-900 bg-white" value={formData.physical.healthGrade} onChange={(e) => handleChange('physical.healthGrade', Number(e.target.value))} disabled={isReadOnly}>
-              <option value="0">-</option>{[1,2,3,4,5,6].map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
+            <label className="block text-[9px] font-black text-gray-500 uppercase flex items-center gap-1">
+              <FileEdit size={12} className="text-military-500"/> Ghi chú về sức khỏe (Dị tật, bệnh lý, lưu ý đặc biệt...)
+            </label>
+            <textarea 
+              rows={2}
+              className="w-full mt-1 p-2 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 bg-white outline-none focus:ring-1 focus:ring-military-400"
+              placeholder="Nhập các chú ý đặc biệt về thể lực công dân..."
+              value={formData.physical.note || ''}
+              onChange={(e) => handleChange('physical.note', e.target.value)}
+              readOnly={isReadOnly}
+            />
           </div>
         </div>
 

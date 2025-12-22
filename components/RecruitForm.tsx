@@ -29,7 +29,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     id: generateId(), citizenId: '', fullName: '', dob: '', phoneNumber: '', avatarUrl: '',
     address: { province: user.unit.province, commune: user.unit.commune, village: '', street: '' },
     hometown: { province: '', commune: '', village: '' },
-    physical: { height: 0, weight: 0, bmi: 0, healthGrade: 0, bloodPressure: '' },
+    physical: { height: 0, weight: 0, chest: 0, bmi: 0, healthGrade: 0, bloodPressure: '', note: '' },
     details: { 
       education: 'Lớp 12', ethnicity: 'Kinh', religion: 'Không', maritalStatus: 'Độc thân', 
       job: '', workAddress: '', gradeGroup: '', salaryLevel: '',
@@ -56,37 +56,77 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     }
   }, [initialData]);
 
-  // Logic tự động tính BMI
+  // Logic tự động tính BMI, xét hoãn sức khỏe và phân loại danh sách khám tuyển
   useEffect(() => {
-    if (formData.physical.height > 0 && formData.physical.weight > 0) {
-      const h = formData.physical.height / 100;
-      const bmi = parseFloat((formData.physical.weight / (h * h)).toFixed(2));
-      setFormData(prev => ({ ...prev, physical: { ...prev.physical, bmi } }));
-    }
-  }, [formData.physical.height, formData.physical.weight]);
+    const { height, weight, chest, bmi, healthGrade } = formData.physical;
+    let nextStatus = formData.status;
+    let nextReason = formData.defermentReason || '';
 
-  // LOGIC TỰ ĐỘNG XÉT TẠM HOÃN THEO HỌC VẤN
+    // 1. Tự động tính BMI nếu có đủ chiều cao cân nặng (Nếu không có đủ thì giữ nguyên BMI do người dùng nhập)
+    let calculatedBmi = bmi;
+    if (height > 0 && weight > 0) {
+      const h = height / 100;
+      calculatedBmi = parseFloat((weight / (h * h)).toFixed(2));
+      if (calculatedBmi !== bmi) {
+        setFormData(prev => ({ ...prev, physical: { ...prev.physical, bmi: calculatedBmi } }));
+        return; 
+      }
+    }
+
+    // Không áp dụng logic tự động cho diện Cấm/Miễn đăng ký để giữ tính nhất quán của luật
+    if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(formData.status)) {
+        return;
+    }
+
+    // 2. Logic Tự động Tạm hoãn về Sức khỏe (Dựa trên chiều cao, cân nặng, vòng ngực, BMI)
+    const isUnderHeight = height > 0 && height < 157;
+    const isUnderWeight = weight > 0 && weight < 43;
+    const isUnderChest = chest > 0 && chest < 75; // Mới: Vòng ngực < 75cm
+    const isInvalidBmi = calculatedBmi > 0 && (calculatedBmi > 29.9 || calculatedBmi < 18.5);
+
+    if (isUnderHeight || isUnderWeight || isUnderChest || isInvalidBmi) {
+        nextStatus = RecruitmentStatus.DEFERRED;
+        nextReason = LEGAL_DEFERMENT_REASONS[0]; // "1. Chưa đủ sức khỏe phục vụ tại ngũ..."
+    } else {
+      // 3. Logic Tự động chuyển danh sách theo loại Sức khỏe (Nếu không bị hoãn do các chỉ số thô bên trên)
+      if (healthGrade !== undefined && healthGrade > 0) {
+          if (healthGrade >= 1 && healthGrade <= 3) {
+              nextStatus = RecruitmentStatus.MED_EXAM_PASSED; // Tự động về 7.1
+              nextReason = '';
+          } else if (healthGrade >= 4 && healthGrade <= 6) {
+              nextStatus = RecruitmentStatus.MED_EXAM_FAILED; // Tự động về 7.2
+              nextReason = 'Sức khỏe loại ' + healthGrade;
+          }
+      } else if (nextStatus === RecruitmentStatus.DEFERRED && nextReason === LEGAL_DEFERMENT_REASONS[0]) {
+          // Khôi phục về nguồn nếu các chỉ số thô đã hợp lệ và chưa có phân loại SK
+          nextStatus = RecruitmentStatus.SOURCE;
+          nextReason = '';
+      }
+    }
+
+    if (nextStatus !== formData.status || nextReason !== formData.defermentReason) {
+      setFormData(prev => ({ ...prev, status: nextStatus, defermentReason: nextReason }));
+    }
+  }, [formData.physical.height, formData.physical.weight, formData.physical.chest, formData.physical.bmi, formData.physical.healthGrade]);
+
+  // LOGIC TỰ ĐỘNG XÉT TẠM HOÃN THEO HỌC VẤN (Giữ nguyên tính năng cũ)
   useEffect(() => {
     const edu = formData.details.education;
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason;
 
-    // QUAN TRỌNG: Nếu đang ở diện 1 (Cấm ĐK) hoặc diện 2 (Miễn ĐK), tuyệt đối không áp dụng logic tự động
     if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(formData.status)) {
         return;
     }
 
-    // 1. Tạm hoãn diện Đang học ĐH, CĐ (Lý do số 7)
     if (edu === 'Đang học ĐH' || edu === 'Đang học CĐ') {
       nextStatus = RecruitmentStatus.DEFERRED;
-      nextReason = LEGAL_DEFERMENT_REASONS[6]; // "7. Đang học tại cơ sở giáo dục..."
+      nextReason = LEGAL_DEFERMENT_REASONS[6];
     } 
-    // 2. Tạm hoãn diện học vấn thấp dưới lớp 8 (Lý do số 9)
     else if (LOW_EDUCATION_GRADES.includes(edu)) {
       nextStatus = RecruitmentStatus.DEFERRED;
-      nextReason = LEGAL_DEFERMENT_REASONS[8]; // "9. Trình độ học vấn thấp (dưới lớp 8)"
+      nextReason = LEGAL_DEFERMENT_REASONS[8];
     }
-    // 3. Nếu chuyển về Lớp 12 hoặc các lớp >= 8 và đang ở trạng thái Tạm hoãn do học vấn thì trả về Nguồn
     else if (formData.status === RecruitmentStatus.DEFERRED && 
             (formData.defermentReason === LEGAL_DEFERMENT_REASONS[6] || formData.defermentReason === LEGAL_DEFERMENT_REASONS[8])) {
       nextStatus = RecruitmentStatus.SOURCE;
