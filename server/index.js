@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CẤU HÌNH GIỚI HẠN PAYLOAD - Nâng lên 100MB để hỗ trợ file đính kèm nặng
+// CẤU HÌNH GIỚI HẠN PAYLOAD - 100MB để hỗ trợ file nặng
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 app.use(cors());
@@ -66,14 +66,28 @@ app.delete('/api/recruits/:id', async (req, res) => {
   try { await Recruit.findOneAndDelete({ id: req.params.id }); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-// --- DOCUMENT API ---
+// --- DOCUMENT API (TỐI ƯU HÓA CHO NHIỀU FILE NẶNG) ---
 app.get('/api/documents', async (req, res) => {
   try { 
-    res.json(await Document.find().sort({ createdAt: -1 })); 
+    // CHỈ LẤY THÔNG TIN CƠ BẢN, LOẠI BỎ TRƯỜNG 'url' (chứa Base64 nặng) để tránh sập trình duyệt
+    const docs = await Document.find({}, '-url').sort({ createdAt: -1 }); 
+    res.json(docs); 
   } catch (e) { 
     res.status(500).json({ message: e.message }); 
   }
 });
+
+// Endpoint mới: Chỉ lấy nội dung file của một tài liệu cụ thể
+app.get('/api/documents/:id/content', async (req, res) => {
+    try {
+        const doc = await Document.findById(req.params.id, 'url');
+        if (!doc) return res.status(404).json({ message: 'Không tìm thấy file' });
+        res.json({ url: doc.url });
+    } catch (e) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
 app.post('/api/documents', async (req, res) => {
   try { 
     const doc = new Document(req.body);

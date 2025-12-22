@@ -5,10 +5,7 @@ const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
 const API_URL = isLocal && window.location.port !== '5000' ? `http://${hostname}:5000/api` : '/api';
 
-// Helper kiểm tra chế độ DEMO
 const isDemoMode = () => localStorage.getItem('isDemoAccount') === 'true';
-
-// Helper thao tác LocalStorage cho DEMO
 const getLocal = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
 const setLocal = (key: string, data: any) => localStorage.setItem(key, JSON.stringify(data));
 
@@ -19,7 +16,6 @@ export const api = {
     try { const res = await fetch(`${API_URL}/users`); return await res.json(); } catch { return []; }
   },
   login: async (u: string, p: string) => {
-    // Tài khoản DEMO đặc biệt
     if (u.trim().toUpperCase() === 'DEMO' && p === '1') {
         localStorage.setItem('isDemoAccount', 'true');
         return {
@@ -31,8 +27,6 @@ export const api = {
             password: '1'
         };
     }
-    
-    // Đăng nhập bình thường
     localStorage.setItem('isDemoAccount', 'false');
     try {
       const res = await fetch(`${API_URL}/users/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
@@ -94,29 +88,23 @@ export const api = {
     try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   },
 
-  /**
-   * Phương thức kết chuyển dữ liệu hàng loạt giữa các năm
-   */
   transferYearData: async (sourceRecruits: Recruit[], targetYear: number) => {
     if (isDemoMode()) {
         const list = getLocal('demo_recruits');
         const newRecruits = sourceRecruits.map(r => ({
             ...r,
-            id: 'T' + Math.random().toString(36).substr(2, 9), // ID mới cho bản ghi năm mới
+            id: 'T' + Math.random().toString(36).substr(2, 9),
             recruitmentYear: targetYear,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            // Logic chuyển đổi trạng thái đã được xử lý từ UI truyền vào
         }));
         setLocal('demo_recruits', [...list, ...newRecruits]);
         return true;
     }
-
-    // Trên môi trường Server, thực hiện gửi từng bản ghi hoặc tạo endpoint bulk
     try {
         for (const r of sourceRecruits) {
             const payload = { ...r, id: 'T' + Date.now() + Math.random().toString(36).substr(2, 4), recruitmentYear: targetYear };
-            delete (payload as any)._id; // Xóa ID của MongoDB cũ nếu có
+            delete (payload as any)._id;
             await fetch(`${API_URL}/recruits`, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -134,6 +122,19 @@ export const api = {
   getDocuments: async (): Promise<ResearchDocument[]> => {
     if (isDemoMode()) return getLocal('demo_documents');
     try { const res = await fetch(`${API_URL}/documents`); return await res.json(); } catch { return []; }
+  },
+  getDocumentContent: async (id: string): Promise<string | null> => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_documents');
+        const doc = list.find((d: any) => d.id === id || d._id === id);
+        return doc ? doc.url : null;
+    }
+    try {
+        const res = await fetch(`${API_URL}/documents/${id}/content`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.url;
+    } catch { return null; }
   },
   createDocument: async (d: any) => {
     if (isDemoMode()) {

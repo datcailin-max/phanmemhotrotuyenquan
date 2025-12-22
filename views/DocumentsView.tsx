@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   FileText, Plus, Trash2, Edit3, Download, Search, 
-  Filter, FileCheck, ShieldAlert, RefreshCw, X, UploadCloud, Eye, AlertCircle
+  Filter, FileCheck, ShieldAlert, RefreshCw, X, Eye, AlertCircle, Loader2
 } from 'lucide-react';
 import { ResearchDocument, User } from '../types';
 import { api } from '../api';
@@ -19,6 +19,9 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
   const [showModal, setShowModal] = useState(false);
   const [editingDoc, setEditingDoc] = useState<ResearchDocument | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // State quản lý việc tải file đơn lẻ
+  const [loadingFileId, setLoadingFileId] = useState<string | null>(null);
 
   const isAdmin = user.role === 'ADMIN';
 
@@ -55,42 +58,51 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
     }
   };
 
-  const handleView = (doc: ResearchDocument) => {
-    const blob = getBlobFromBase64(doc.url);
-    if (!blob) {
-      alert("Không thể hiển thị tài liệu này. Dữ liệu có thể đã bị lỗi hoặc trình duyệt không đủ bộ nhớ.");
-      return;
-    }
-    const blobUrl = URL.createObjectURL(blob);
-    const newWindow = window.open(blobUrl, '_blank');
-    if (!newWindow) {
-      alert("Vui lòng cho phép trình duyệt hiển thị Popup để xem tài liệu.");
-    }
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
-  };
+  const handleAction = async (doc: ResearchDocument, type: 'VIEW' | 'DOWNLOAD') => {
+    const docId = (doc as any)._id || doc.id;
+    setLoadingFileId(docId);
+    
+    try {
+        // Tải nội dung file từ Server theo yêu cầu (On-demand)
+        const fileContent = await api.getDocumentContent(docId);
+        if (!fileContent) {
+            alert("Không thể tải nội dung file từ máy chủ.");
+            return;
+        }
 
-  const handleDownload = (doc: ResearchDocument) => {
-    const blob = getBlobFromBase64(doc.url);
-    if (!blob) {
-      alert("Không thể tải tài liệu này.");
-      return;
+        const blob = getBlobFromBase64(fileContent);
+        if (!blob) {
+            alert("Lỗi xử lý file. Dữ liệu có thể bị hỏng.");
+            return;
+        }
+
+        const blobUrl = URL.createObjectURL(blob);
+        
+        if (type === 'VIEW') {
+            const newWindow = window.open(blobUrl, '_blank');
+            if (!newWindow) alert("Vui lòng cho phép hiện Popup để xem file.");
+            // Thu hồi URL sau một khoảng thời gian để giải phóng RAM
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } else {
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `${doc.title.replace(/[/\\?%*:|"<>]/g, '-')}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+        }
+    } catch (err) {
+        alert("Đã xảy ra lỗi khi truy xuất tệp tin.");
+    } finally {
+        setLoadingFileId(null);
     }
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = `${doc.title.replace(/[/\\?%*:|"<>]/g, '-')}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm("Xóa vĩnh viễn tài liệu này khỏi hệ thống?")) {
       const success = await api.deleteDocument(id);
-      if (success) {
-        onRefresh();
-      }
+      if (success) onRefresh();
     }
   };
 
@@ -104,9 +116,8 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         return;
     }
 
-    // Nới lỏng giới hạn lên 55MB
     if (fileInput && fileInput.size > 55 * 1024 * 1024) {
-        alert(`File quá lớn (${(fileInput.size/1024/1024).toFixed(1)}MB). Vui lòng nén file PDF xuống dưới 50MB để đảm bảo hệ thống ổn định.`);
+        alert(`File quá lớn (${(fileInput.size/1024/1024).toFixed(1)}MB). Vui lòng nén file PDF xuống dưới 50MB.`);
         return;
     }
 
@@ -131,7 +142,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
             setShowModal(false);
             onRefresh();
         } catch (err) {
-            alert("Lỗi máy chủ khi lưu tài liệu. Có thể do file quá nặng so với khả năng xử lý của RAM máy chủ.");
+            alert("Lỗi máy chủ khi lưu tài liệu.");
         } finally {
             setIsSubmitting(false);
         }
@@ -139,10 +150,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
 
     if (fileInput) {
         const reader = new FileReader();
-        reader.onerror = () => {
-            alert("Lỗi khi đọc file từ thiết bị.");
-            setIsSubmitting(false);
-        };
+        reader.onerror = () => { alert("Lỗi đọc file."); setIsSubmitting(false); };
         reader.onload = (ev) => processSubmission(ev.target?.result as string);
         reader.readAsDataURL(fileInput);
     } else {
@@ -158,14 +166,14 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
             <FileText size={32} />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Thư viện văn bản pháp luật</h2>
-            <p className="text-sm text-gray-500 font-medium">Lưu trữ văn bản chỉ đạo & pháp lý về Tuyển quân</p>
+            <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Thư viện tài liệu nghiên cứu</h2>
+            <p className="text-sm text-gray-500 font-medium">Đã tối ưu hóa cho hàng trăm văn bản pháp luật nặng</p>
           </div>
         </div>
         {isAdmin && (
           <button 
             onClick={() => { setEditingDoc(null); setShowModal(true); }}
-            className="flex items-center gap-2 bg-military-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"
+            className="flex items-center gap-2 bg-military-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all"
           >
             <Plus size={18} /> Thêm tài liệu
           </button>
@@ -177,7 +185,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
           <Search className="absolute left-4 top-3 text-gray-400" size={20} />
           <input 
             type="text" 
-            placeholder="Tìm kiếm tên văn bản..." 
+            placeholder="Tìm kiếm tài liệu..." 
             className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm outline-none focus:ring-2 focus:ring-military-50"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -205,56 +213,65 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
         {filteredDocs.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
              <FileText size={48} className="mx-auto text-gray-200 mb-4" />
-             <p className="text-gray-400 font-bold">Không tìm thấy tài liệu phù hợp.</p>
+             <p className="text-gray-400 font-bold">Không tìm thấy tài liệu nào.</p>
           </div>
         ) : filteredDocs.map(doc => {
-          try {
-            const docId = (doc as any)._id || doc.id;
-            const isHeavy = doc.url ? doc.url.length > 20 * 1024 * 1024 : false;
-            return (
-              <div key={docId} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col h-full">
-                <div className="flex justify-between items-start mb-4">
-                  <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    doc.category === 'LUAT' ? 'bg-red-50 text-red-700 border border-red-100' :
-                    doc.category === 'THONG_TU' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                    'bg-gray-50 text-gray-600 border border-gray-100'
-                  }`}>
-                    {doc.category}
+          const docId = (doc as any)._id || doc.id;
+          const isThisLoading = loadingFileId === docId;
+
+          return (
+            <div key={docId} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-all group flex flex-col h-full relative overflow-hidden">
+              {isThisLoading && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center space-y-2">
+                      <Loader2 size={32} className="text-military-600 animate-spin" />
+                      <span className="text-[10px] font-black text-military-800 uppercase animate-pulse">Đang truy xuất file...</span>
                   </div>
-                  <div className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
-                    <FileCheck size={12}/> {doc.uploadDate}
-                  </div>
+              )}
+              
+              <div className="flex justify-between items-start mb-4">
+                <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                  doc.category === 'LUAT' ? 'bg-red-50 text-red-700 border border-red-100' :
+                  doc.category === 'THONG_TU' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                  'bg-gray-50 text-gray-600 border border-gray-100'
+                }`}>
+                  {doc.category}
                 </div>
-                <h4 className="text-sm font-black text-military-900 leading-tight mb-2 line-clamp-2 uppercase group-hover:text-military-600 transition-colors">
-                  {doc.title}
-                </h4>
-                <p className="text-xs text-gray-500 font-medium mb-6 line-clamp-3 italic flex-1">
-                  {doc.description || 'Không có mô tả.'}
-                </p>
-                {isHeavy && (
-                    <div className="mb-4 flex items-center gap-1.5 text-[9px] font-bold text-amber-600 bg-amber-50 p-1.5 rounded border border-amber-100">
-                        <AlertCircle size={12}/> File nặng, quá trình mở có thể chậm
-                    </div>
-                )}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
-                  <div className="flex items-center gap-4">
-                    <button onClick={() => handleView(doc)} className="flex items-center gap-2 text-military-600 hover:text-military-800 text-[10px] font-black uppercase transition-all">
-                      <Eye size={16} /> Xem
-                    </button>
-                    <button onClick={() => handleDownload(doc)} className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-[10px] font-black uppercase transition-all">
-                      <Download size={16} /> Tải về
-                    </button>
-                  </div>
-                  {isAdmin && (
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => { setEditingDoc(doc); setShowModal(true); }} className="p-1.5 text-gray-400 hover:text-military-600"><Edit3 size={14} /></button>
-                      <button onClick={() => handleDelete(docId)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
-                    </div>
-                  )}
+                <div className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
+                  <FileCheck size={12}/> {doc.uploadDate}
                 </div>
               </div>
-            );
-          } catch (err) { return null; }
+              <h4 className="text-sm font-black text-military-900 leading-tight mb-2 line-clamp-2 uppercase group-hover:text-military-600 transition-colors">
+                {doc.title}
+              </h4>
+              <p className="text-xs text-gray-500 font-medium mb-6 line-clamp-3 italic flex-1">
+                {doc.description || 'Không có mô tả.'}
+              </p>
+              <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
+                <div className="flex items-center gap-4">
+                  <button 
+                    disabled={!!loadingFileId}
+                    onClick={() => handleAction(doc, 'VIEW')} 
+                    className="flex items-center gap-2 text-military-600 hover:text-military-800 text-[10px] font-black uppercase disabled:opacity-50"
+                  >
+                    <Eye size={16} /> Xem
+                  </button>
+                  <button 
+                    disabled={!!loadingFileId}
+                    onClick={() => handleAction(doc, 'DOWNLOAD')} 
+                    className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-[10px] font-black uppercase disabled:opacity-50"
+                  >
+                    <Download size={16} /> Tải về
+                  </button>
+                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => { setEditingDoc(doc); setShowModal(true); }} className="p-1.5 text-gray-400 hover:text-military-600"><Edit3 size={14} /></button>
+                    <button onClick={() => handleDelete(docId)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
         })}
       </div>
 
@@ -289,20 +306,16 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, user, onRefres
                     <input name="docFile" type="file" accept=".pdf" className="w-full text-[10px] p-2 border border-dashed rounded-xl bg-gray-50" />
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Mô tả ngắn</label>
-                <textarea name="docDesc" rows={3} defaultValue={editingDoc?.description} className="w-full border-gray-200 border p-3 rounded-xl text-sm font-medium outline-none" />
-              </div>
               <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-start gap-3">
                  <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={16} />
                  <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
-                   Lưu ý: Bạn đang tải file rất nặng (>30MB). Hệ thống sẽ cần nhiều thời gian để xử lý và lưu trữ. Vui lòng không đóng trình duyệt.
+                   Lưu ý: Hệ thống đã hỗ trợ file lớn, nhưng để tốc độ nghiên cứu nhanh nhất, bạn nên sử dụng file dưới 20MB.
                  </p>
               </div>
               <div className="pt-4 flex justify-end gap-3">
                 <button type="button" disabled={isSubmitting} onClick={() => setShowModal(false)} className="px-6 py-3 text-xs font-black text-gray-500 uppercase">Hủy</button>
                 <button type="submit" disabled={isSubmitting} className={`px-10 py-3 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center gap-2 transition-all ${isSubmitting ? 'opacity-50' : 'hover:bg-military-800'}`}>
-                  {isSubmitting ? <RefreshCw size={14} className="animate-spin" /> : 'Xác nhận'}
+                  {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Xác nhận lưu'}
                 </button>
               </div>
             </form>
