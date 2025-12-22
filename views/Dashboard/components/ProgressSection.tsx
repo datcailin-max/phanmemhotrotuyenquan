@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Users, ClipboardList, Stethoscope, FileSignature, Flag, Calendar, 
-  PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, UserX, ArrowRightCircle, AlertOctagon
+  PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, UserX, ArrowRightCircle, AlertOctagon, GraduationCap, Gavel
 } from 'lucide-react';
 
 const Card = ({ title, count, icon: Icon, color, onClick, detailText, isLast, isAlert }: any) => (
@@ -31,17 +31,32 @@ export default function ProgressSection({ stats, onNavigate }: any) {
              <Card title="9. MIỄN GỌI NN" count={stats.countExempted} icon={ShieldCheck} color="bg-purple-600" onClick={() => onNavigate('EXEMPTED_LIST')} />
              <Card title="10. CHỐT HỒ SƠ" count={stats.countFinalized} icon={FileSignature} color="bg-green-600" onClick={() => onNavigate('FINAL')} detailText={`${stats.countFinalizedOfficial} CT / ${stats.countFinalizedReserve} DB`} />
              <Card title="11. NHẬP NGŨ" count={stats.countEnlisted} icon={Flag} color="bg-red-600" onClick={() => onNavigate('ENLISTED')} />
-             <Card title="12. LOẠI KHỎI NGUỒN" count={stats.countRemoved} icon={UserX} color="bg-gray-400" onClick={() => onNavigate('REMOVED')} />
+             <Card title="12. LOẠI KHỔI NGUỒN" count={stats.countRemoved} icon={UserX} color="bg-gray-400" onClick={() => onNavigate('REMOVED')} />
              <Card title="13. NGUỒN CÒN LẠI" count={stats.countRemaining} icon={Layers} color="bg-teal-600" onClick={() => onNavigate('REMAINING')} />
              <Card title="14. NGUỒN NĂM SAU" count={stats.countNextYearSource} icon={Calendar} color="bg-cyan-600" onClick={() => onNavigate('NEXT_YEAR_SOURCE')} isLast />
-             {stats.expiringCount > 0 && (
+             
+             {/* Ô 1: Hết hạn hoãn do Học xong (CĐ, ĐH) */}
+             {stats.expiringEduCount > 0 && (
                 <Card 
-                    title="CÔNG DANH HẾT HẠN" 
-                    count={stats.expiringCount} 
-                    icon={AlertOctagon} 
+                    title="HẾT HẠN HOÃN (HỌC XONG)" 
+                    count={stats.expiringEduCount} 
+                    icon={GraduationCap} 
+                    color="bg-blue-600" 
+                    onClick={() => onNavigate('DEFERRED_EDUCATION')} 
+                    detailText="Cần đưa về Nguồn"
+                    isAlert 
+                />
+             )}
+
+             {/* Ô 2: Hết thời gian chấp hành án phạt */}
+             {stats.expiringSentenceCount > 0 && (
+                <Card 
+                    title="HẾT THỜI HẠN ÁN PHẠT" 
+                    count={stats.expiringSentenceCount} 
+                    icon={Gavel} 
                     color="bg-red-600" 
-                    onClick={() => onNavigate('ALL')} 
-                    detailText={`${stats.expiringEduCount} Học xong / ${stats.expiringSentenceCount} Hết án`}
+                    onClick={() => onNavigate('NOT_ALLOWED_REG')} 
+                    detailText="Cần đưa về DS 3"
                     isAlert 
                 />
              )}

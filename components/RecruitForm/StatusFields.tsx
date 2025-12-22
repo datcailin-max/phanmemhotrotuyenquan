@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { AlertTriangle, Tent, FileText, Calendar, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Tent, FileText, Calendar, CheckCircle2, UserPlus, Globe, User } from 'lucide-react';
 import { RecruitmentStatus } from '../../types';
 import { 
   LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS, 
@@ -38,7 +39,8 @@ const StatusFields = ({ formData, isReadOnly, handleChange }: any) => {
     RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
     RecruitmentStatus.EXEMPT_REGISTRATION,
     RecruitmentStatus.FINALIZED,
-    RecruitmentStatus.ENLISTED
+    RecruitmentStatus.ENLISTED,
+    RecruitmentStatus.FIRST_TIME_REGISTRATION
   ].includes(s);
 
   if (!isSpecialStatus) return null;
@@ -49,8 +51,48 @@ const StatusFields = ({ formData, isReadOnly, handleChange }: any) => {
         <AlertTriangle size={18} className="text-amber-500" /> Thông tin trạng thái đặc biệt
       </h3>
 
-      <div className={`p-5 rounded-2xl border shadow-sm space-y-4 ${s === RecruitmentStatus.FINALIZED || s === RecruitmentStatus.ENLISTED ? 'bg-green-50/50 border-green-200' : 'bg-amber-50/50 border-amber-200'}`}>
+      <div className={`p-5 rounded-2xl border shadow-sm space-y-4 ${
+        s === RecruitmentStatus.FIRST_TIME_REGISTRATION ? 'bg-cyan-50/50 border-cyan-200' :
+        s === RecruitmentStatus.FINALIZED || s === RecruitmentStatus.ENLISTED ? 'bg-green-50/50 border-green-200' : 
+        'bg-amber-50/50 border-amber-200'
+      }`}>
         
+        {/* Trường hợp Danh sách 3: Đăng ký lần đầu */}
+        {s === RecruitmentStatus.FIRST_TIME_REGISTRATION && (
+          <div className="space-y-4">
+            <label className="block text-[10px] font-black text-cyan-800 uppercase mb-2 flex items-center gap-1">
+              <UserPlus size={14}/> Hình thức đăng ký Nghĩa vụ quân sự
+            </label>
+            <div className="flex gap-4">
+              <button 
+                type="button"
+                onClick={() => handleChange('details.registrationMethod', 'DIRECT')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all font-black uppercase text-xs ${
+                  formData.details.registrationMethod === 'DIRECT' 
+                    ? 'bg-cyan-600 border-cyan-700 text-white shadow-md' 
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-200'
+                }`}
+                disabled={isReadOnly}
+              >
+                <User size={16}/> Trực tiếp
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleChange('details.registrationMethod', 'ONLINE')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all font-black uppercase text-xs ${
+                  formData.details.registrationMethod === 'ONLINE' 
+                    ? 'bg-blue-600 border-blue-700 text-white shadow-md' 
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-blue-200'
+                }`}
+                disabled={isReadOnly}
+              >
+                <Globe size={16}/> Trực tuyến
+              </button>
+            </div>
+            <p className="text-[9px] text-cyan-600 font-bold italic">* Phân loại cách thức công dân thực hiện nghĩa vụ đăng ký tại địa phương.</p>
+          </div>
+        )}
+
         {/* Lý do cho các diện Tạm hoãn/Miễn/Không được ĐK */}
         {reasons.length > 0 && (
           <div className="space-y-3">

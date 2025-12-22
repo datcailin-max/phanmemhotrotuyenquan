@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Users, Heart, Calendar } from 'lucide-react';
+import { Users, Heart, ShieldCheck, UserCheck } from 'lucide-react';
 import { FAMILY_JOBS } from '../../constants';
 
 const FamilyFields = ({ formData, isReadOnly, handleChange }: any) => {
@@ -9,11 +10,43 @@ const FamilyFields = ({ formData, isReadOnly, handleChange }: any) => {
     { key: 'wife', label: 'Thông tin Vợ' }
   ];
 
+  const compositionsFamily = ["Bần nông", "Trung nông", "Bần nông (cố nông)", "Trí thức", "Công chức", "Tiểu thương", "Tiểu tư sản", "Địa chủ", "Khác"];
+  const compositionsPersonal = ["Phụ thuộc", "Bần nông", "Công nhân", "Trí thức", "Lao động tự do", "Công chức/Viên chức", "Khác"];
+
   return (
     <div className="space-y-6">
       <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-2 flex items-center gap-2 uppercase text-sm mt-6">
-        <Users size={18} className="text-military-600" /> Quan hệ gia đình
+        <Users size={18} className="text-military-600" /> Quan hệ gia đình & Thành phần
       </h3>
+
+      <div className="grid grid-cols-2 gap-4 mb-6">
+         <div>
+            <label className="block text-[10px] font-black text-military-700 uppercase mb-1 flex items-center gap-1">
+               <ShieldCheck size={12}/> Thành phần gia đình
+            </label>
+            <select 
+              className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold text-gray-800 bg-military-50/30"
+              value={formData.details.familyComposition} 
+              onChange={(e) => handleChange('details.familyComposition', e.target.value)} 
+              disabled={isReadOnly}
+            >
+              {compositionsFamily.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+         </div>
+         <div>
+            <label className="block text-[10px] font-black text-military-700 uppercase mb-1 flex items-center gap-1">
+               <UserCheck size={12}/> Thành phần bản thân
+            </label>
+            <select 
+              className="w-full rounded-lg border-gray-300 border p-2 text-sm font-bold text-gray-800 bg-military-50/30"
+              value={formData.details.personalComposition} 
+              onChange={(e) => handleChange('details.personalComposition', e.target.value)} 
+              disabled={isReadOnly}
+            >
+              {compositionsPersonal.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+         </div>
+      </div>
 
       <div className="space-y-4">
         {members.map((m) => (

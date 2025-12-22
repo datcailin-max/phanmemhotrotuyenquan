@@ -29,8 +29,13 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     id: generateId(), citizenId: '', fullName: '', dob: '', phoneNumber: '', avatarUrl: '',
     address: { province: user.unit.province, commune: user.unit.commune, village: '', street: '' },
     hometown: { province: '', commune: '', village: '' },
-    physical: { height: 0, weight: 0, bmi: 0, healthGrade: 0 },
-    details: { education: 'Lớp 12', ethnicity: 'Kinh', religion: 'Không', maritalStatus: 'Độc thân', job: '', politicalStatus: 'Doan_Vien', gifted: '' },
+    physical: { height: 0, weight: 0, bmi: 0, healthGrade: 0, bloodPressure: '' },
+    details: { 
+      education: 'Lớp 12', ethnicity: 'Kinh', religion: 'Không', maritalStatus: 'Độc thân', 
+      job: '', workAddress: '', gradeGroup: '', salaryLevel: '',
+      politicalStatus: 'Doan_Vien', gifted: '',
+      familyComposition: 'Bần nông', personalComposition: 'Phụ thuộc'
+    },
     family: { father: { ...emptyFamilyMember }, mother: { ...emptyFamilyMember }, wife: { ...emptyFamilyMember }, children: '' },
     status: initialStatus || RecruitmentStatus.SOURCE,
     recruitmentYear: sessionYear,
@@ -139,7 +144,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     const birthYear = parseInt(formData.dob.split('-')[0] || '0');
     const age = sessionYear - birthYear;
     
-    // Chỉ kiểm tra tuổi 18 cho những diện thuộc "Nguồn" thực sự (DS 4 trở lên)
     const isSourceTab = ![
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION, 
@@ -230,7 +234,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                  </div>
 
                  <LocationFields 
-                    label="Nơi ở hiện tại (Theo hộ khẩu)" icon={null} prefix="address"
+                    label="Địa chỉ thường trú (Theo hộ khẩu)" icon={null} prefix="address"
                     province={formData.address.province} commune={formData.address.commune} village={formData.address.village} street={formData.address.street}
                     isLocalityFixed={!!user.unit.commune} isReadOnly={isReadOnly} onUpdate={handleChange}
                  />

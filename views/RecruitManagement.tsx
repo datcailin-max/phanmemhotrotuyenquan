@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, User, RecruitmentStatus } from '../types';
 import RecruitForm from '../components/RecruitForm';
 import { 
-  Paperclip, ChevronRight, ChevronLeft, GraduationCap, Flag, HeartPulse, AlertTriangle
+  Paperclip, ChevronRight, ChevronLeft, GraduationCap, Flag, HeartPulse, AlertTriangle, Globe, User as UserIcon
 } from 'lucide-react';
 
 import { TABS, ITEMS_PER_PAGE } from './RecruitManagement/constants';
@@ -115,7 +115,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
   const handleEdit = (recruit: Recruit) => { setEditingRecruit(recruit); setShowForm(true); };
   
-  // Xác định trạng thái mặc định khi thêm mới dựa trên Tab đang chọn
   const handleCreate = () => { 
     setEditingRecruit(undefined); 
     setShowForm(true); 
@@ -161,7 +160,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     }
   };
 
-  // Helper kiểm tra hết niên khóa/án phạt
   const isExpiring = (recruit: Recruit) => {
     const isExpiringInCurrentYear = (period?: string) => {
         if (!period) return false;
@@ -208,13 +206,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                 <th className="p-4 border-b text-center">Năm sinh</th>
                 <th className="p-4 border-b">Địa bàn cư trú</th>
                 <th className="p-4 border-b">Chất lượng (HV/CT/SK)</th>
+                {activeTabId === 'FIRST_TIME_REG' && <th className="p-4 border-b text-center">Hình thức ĐK</th>}
                 <th className="p-4 border-b min-w-[150px]">Tình trạng hiện tại</th>
                 <th className="p-4 border-b text-center">Thao tác xử lý</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-gray-100">
               {paginatedRecruits.length === 0 ? (
-                <tr><td colSpan={7} className="p-12 text-center text-gray-400 italic">Không tìm thấy hồ sơ nào phù hợp với điều kiện lọc.</td></tr>
+                <tr><td colSpan={activeTabId === 'FIRST_TIME_REG' ? 8 : 7} className="p-12 text-center text-gray-400 italic">Không tìm thấy hồ sơ nào phù hợp với điều kiện lọc.</td></tr>
               ) : paginatedRecruits.map((recruit, index) => {
                 const expiring = isExpiring(recruit);
                 return (
@@ -248,6 +247,17 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         <div className="flex items-center gap-1.5 text-gray-600"><HeartPulse size={12} className="text-blue-400"/> SK Loại {recruit.physical.healthGrade || '---'}</div>
                       </div>
                     </td>
+                    {activeTabId === 'FIRST_TIME_REG' && (
+                      <td className="p-4 text-center">
+                        {recruit.details.registrationMethod === 'ONLINE' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-black border border-blue-100 uppercase"><Globe size={10}/> Trực tuyến</span>
+                        ) : recruit.details.registrationMethod === 'DIRECT' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cyan-50 text-cyan-700 rounded text-[9px] font-black border border-cyan-100 uppercase"><UserIcon size={10}/> Trực tiếp</span>
+                        ) : (
+                          <span className="text-[9px] text-gray-400 italic font-bold">Chưa chọn</span>
+                        )}
+                      </td>
+                    )}
                     <td className="p-4">
                       <span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black border uppercase tracking-wider ${getStatusColor(recruit.status)}`}>{getStatusLabel(recruit.status)}</span>
                       {recruit.defermentReason && (
@@ -257,9 +267,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         <div className="mt-1 flex items-center gap-1 text-[9px] font-black text-red-600 uppercase">
                             <AlertTriangle size={10}/> HẾT ÁN PHẠT ({recruit.details.sentencePeriod}) - CẦN ĐƯA VỀ DS 3
                         </div>
-                      )}
-                      {(recruit.status === RecruitmentStatus.FINALIZED || recruit.status === RecruitmentStatus.ENLISTED) && recruit.enlistmentType === 'OFFICIAL' && (
-                        <div className="mt-1.5 flex items-center gap-1 text-[9px] font-black text-red-700 uppercase animate-in slide-in-from-left-1"><Flag size={10}/> Phát lệnh chính thức</div>
                       )}
                     </td>
                     <td className="p-4 text-right">

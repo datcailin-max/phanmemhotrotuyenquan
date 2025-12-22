@@ -1,3 +1,4 @@
+
 import XLSX from 'xlsx-js-style';
 import { Recruit } from '../types';
 
@@ -29,7 +30,7 @@ export class ExcelExportService {
       
       // 1. Định nghĩa Headers theo mẫu chuyên ngành quân sự
       const headers = [
-        ['Số TT', 'Họ, chữ đệm và tên thường dùng\n- Họ, chữ đệm và tên khai sinh\n- Ngày, tháng, năm sinh', 'Nghề nghiệp\n- Nơi làm việc\n- Nhóm, ngạch,\n- Bậc lương', 'Nơi thường trú của gia đình; bản thân\n- Nơi ở hiện nay của bản thân\n- Nơi làm việc (nếu có)', 'Thành phần gia đình\n- Thành phần bản thân\n- Dân tộc\n- Tôn giáo', 'Học vấn, CMKT\n- Ngoại ngữ\n- Đảng, đoàn', 'Họ tên cha, năm sinh, nghề nghiệp\n- Họ tên mẹ, năm sinh, nghề nghiệp\n- Họ và tên vợ (chồng), năm sinh, nghề nghiệp', 'Khen thưởng\n- Kỷ luật\n- Sức khỏe', 'Ghi chú']
+        ['Số TT', 'Họ, chữ đệm và tên thường dùng\n- Họ, chữ đệm và tên khai sinh\n- Ngày, tháng, năm sinh', 'Nghề nghiệp\n- Nơi làm việc\n- Nhóm, ngạch,\n- Bậc lương', 'Địa chỉ thường trú\n- Nơi ở hiện nay của bản thân\n- Nơi làm việc (nếu có)', 'Thành phần gia đình\n- Thành phần bản thân\n- Dân tộc\n- Tôn giáo', 'Học vấn, CMKT\n- Ngoại ngữ\n- Đảng, đoàn', 'Họ tên cha, năm sinh, nghề nghiệp\n- Họ tên mẹ, năm sinh, nghề nghiệp\n- Họ và tên vợ (chồng), năm sinh, nghề nghiệp', 'Khen thưởng\n- Kỷ luật\n- Sức khỏe', 'Ghi chú']
       ];
 
       // 2. Chuyển đổi dữ liệu từ mảng Recruit sang định dạng dòng của Excel
@@ -37,14 +38,14 @@ export class ExcelExportService {
         // Cột B: Họ tên + Ngày sinh
         const colB = `${r.fullName.toUpperCase()}\nSinh ngày: ${r.dob ? new Date(r.dob).toLocaleDateString('vi-VN') : '---'}`;
         
-        // Cột C: Nghề nghiệp
-        const colC = `${r.details.job || 'Lao động tự do'}\n${r.details.school || ''}`;
+        // Cột C: Nghề nghiệp, nhóm ngạch, bậc lương
+        const colC = `Nghề: ${r.details.job || 'Lao động tự do'}\nNgạch: ${r.details.gradeGroup || '---'}\nBậc lương: ${r.details.salaryLevel || '---'}`;
         
-        // Cột D: Địa chỉ
-        const colD = `${r.address.village}, ${r.address.commune}, ${r.address.province}\nHiện nay: ${r.address.street || ''} ${r.address.village}`;
+        // Cột D: Địa chỉ + Nơi làm việc
+        const colD = `${r.address.village}, ${r.address.commune}, ${r.address.province}\nLàm việc tại: ${r.details.workAddress || 'Địa phương'}`;
         
         // Cột E: Thành phần, Dân tộc, Tôn giáo
-        const colE = `GĐ: Lao động\nBT: ${r.details.job || 'Lao động'}\nDT: ${r.details.ethnicity}\nTG: ${r.details.religion}`;
+        const colE = `GĐ: ${r.details.familyComposition || 'Lao động'}\nBT: ${r.details.personalComposition || 'Lao động'}\nDT: ${r.details.ethnicity}\nTG: ${r.details.religion}`;
         
         // Cột F: Học vấn, Đảng, Đoàn
         const polStatus = r.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng');
@@ -53,8 +54,15 @@ export class ExcelExportService {
         // Cột G: Gia đình (Cha, Mẹ, Vợ)
         const colG = `Cha: ${r.family.father.fullName} (${r.family.father.job})\nMẹ: ${r.family.mother.fullName} (${r.family.mother.job})\n${r.family.wife?.fullName ? `Vợ: ${r.family.wife.fullName}` : ''}`;
         
-        // Cột H: Sức khỏe
-        const colH = `Sức khỏe: Loại ${r.physical.healthGrade || '...'}\nCao: ${r.physical.height}cm, Nặng: ${r.physical.weight}kg`;
+        // Cột H: Sức khỏe + Huyết áp
+        const colH = `Sức khỏe: Loại ${r.physical.healthGrade || '...'}\nHuyết áp: ${r.physical.bloodPressure || '---'}\nCao: ${r.physical.height}cm, Nặng: ${r.physical.weight}kg`;
+
+        // Ghi chú: Kèm thêm hình thức đăng ký nếu có
+        let notes = r.defermentReason || '';
+        if (r.details.registrationMethod) {
+            const methodText = r.details.registrationMethod === 'ONLINE' ? 'ĐK Trực tuyến' : 'ĐK Trực tiếp';
+            notes = notes ? `${notes}\n(${methodText})` : methodText;
+        }
 
         return [
           (index + 1).toString(),
@@ -65,7 +73,7 @@ export class ExcelExportService {
           colF,
           colG,
           colH,
-          r.defermentReason || ''
+          notes
         ];
       });
 
@@ -134,7 +142,7 @@ export class ExcelExportService {
       // Thiết lập độ cao dòng
       ws['!rows'] = [
         { hpt: 80 }, // Header cao hơn
-        ...dataRows.map(() => ({ hpt: 100 }))
+        ...dataRows.map(() => ({ hpt: 110 })) // Tăng chiều cao để hiện đủ nhiều trường mới
       ];
 
       excelUtils.book_append_sheet(wb, ws, 'Danh sách trích ngang');

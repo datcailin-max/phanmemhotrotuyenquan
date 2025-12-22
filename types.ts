@@ -86,20 +86,27 @@ export interface Recruit {
     weight: number;
     bmi: number;
     healthGrade?: number;
+    bloodPressure?: string; // Mới: Huyết áp
   };
   details: {
     education: string;
     educationPeriod?: string;
-    sentencePeriod?: string; // Mới: Niên khóa án phạt (VD: 2022-2026)
+    sentencePeriod?: string; 
     major?: string;
     school?: string;
     ethnicity: string;
     religion: string;
     maritalStatus: string;
     job: string;
+    workAddress?: string; // Mới: Địa chỉ làm việc
+    gradeGroup?: string; // Mới: Nhóm ngạch
+    salaryLevel?: string; // Mới: Bậc lương
     politicalStatus: 'None' | 'Doan_Vien' | 'Dang_Vien';
     partyEntryDate?: string;
     gifted?: string;
+    familyComposition?: string; // Mới: Thành phần gia đình
+    personalComposition?: string; // Mới: Thành phần bản thân
+    registrationMethod?: 'DIRECT' | 'ONLINE'; // Mới: Hình thức đăng ký
   };
   family: {
     father: FamilyMember;
@@ -131,7 +138,6 @@ export interface ResearchDocument {
   category?: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC';
 }
 
-// Mới: Báo cáo từ xã lên tỉnh
 export interface UnitReport {
     id: string;
     senderUsername: string;
@@ -143,7 +149,6 @@ export interface UnitReport {
     timestamp: number;
 }
 
-// Mới: Văn bản từ tỉnh xuống xã
 export interface ProvincialDispatch {
     id: string;
     senderUsername: string;

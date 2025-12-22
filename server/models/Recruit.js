@@ -23,21 +23,27 @@ const recruitSchema = new mongoose.Schema({
     height: Number,
     weight: Number,
     bmi: Number,
-    healthGrade: Number
+    healthGrade: Number,
+    bloodPressure: String // Mới
   },
   details: {
     education: String,
     educationPeriod: String,
-    sentencePeriod: String, // Mới
+    sentencePeriod: String,
     major: String,
     school: String,
     ethnicity: String,
     religion: String,
     maritalStatus: String,
     job: String,
+    workAddress: String, // Mới
+    gradeGroup: String, // Mới
+    salaryLevel: String, // Mới
     politicalStatus: String,
     partyEntryDate: String,
-    gifted: String // Năng khiếu
+    gifted: String,
+    familyComposition: String, // Mới
+    personalComposition: String // Mới
   },
   family: {
     father: {
