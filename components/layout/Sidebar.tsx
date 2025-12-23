@@ -2,8 +2,9 @@
 import React from 'react';
 import { 
   LayoutDashboard, Users, Menu, ShieldAlert, LogOut, Key, 
-  UserCircle, Share2, HelpCircle 
+  UserCircle, Share2, HelpCircle, UsersRound 
 } from 'lucide-react';
+import { User } from '../../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -14,11 +15,14 @@ interface SidebarProps {
   onPasswordClick: () => void;
   onLogout: () => void;
   sessionYear: number | null;
+  user: User;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-  isOpen, setIsOpen, activeTab, setActiveTab, onProfileClick, onPasswordClick, onLogout, sessionYear 
+  isOpen, setIsOpen, activeTab, setActiveTab, onProfileClick, onPasswordClick, onLogout, sessionYear, user 
 }) => {
+  const isAdmin = user.role === 'ADMIN';
+
   return (
     <aside className={`bg-military-900 text-white transition-all duration-300 flex flex-col shadow-2xl z-20 ${isOpen ? 'w-64' : 'w-20'}`}>
       <div className="p-4 flex items-center justify-between border-b border-military-800 h-16 shrink-0 overflow-hidden bg-military-950">
@@ -47,6 +51,13 @@ const Sidebar: React.FC<SidebarProps> = ({
           {isOpen && <span className="text-xs font-bold uppercase tracking-wide">Báo cáo & Văn bản</span>}
         </button>
         
+        {isAdmin && (
+          <button onClick={() => setActiveTab('accounts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'accounts' ? 'bg-white text-military-900 font-bold shadow-lg' : 'text-military-200 hover:bg-military-800'}`}>
+            <UsersRound size={20} />
+            {isOpen && <span className="text-xs font-bold uppercase tracking-wide">Quản lý tài khoản</span>}
+          </button>
+        )}
+
         <button onClick={() => setActiveTab('qa')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'qa' ? 'bg-white text-military-900 font-bold shadow-lg' : 'text-military-200 hover:bg-military-800'}`}>
           <HelpCircle size={20} />
           {isOpen && <span className="text-xs font-bold uppercase tracking-wide">Hỏi đáp & Hỗ trợ</span>}

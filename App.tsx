@@ -7,6 +7,7 @@ import Login from './views/Login';
 import YearSelection from './views/YearSelection';
 import CommunicationView from './views/CommunicationView';
 import QAView from './views/QAView';
+import AccountManagement from './views/AccountManagement';
 import Sidebar from './components/layout/Sidebar';
 import MainHeader from './components/layout/MainHeader';
 import ProfileModal from './components/modals/ProfileModal';
@@ -17,7 +18,7 @@ import { useInitialData } from './hooks/useInitialData';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessionYear, setSessionYear] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'qa' | 'communication'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'qa' | 'communication' | 'accounts'>('dashboard');
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   
@@ -111,6 +112,7 @@ function App() {
         onPasswordClick={() => setShowPasswordModal(true)}
         onLogout={handleLogout}
         sessionYear={sessionYear}
+        user={user}
       />
       
       <main className="flex-1 flex flex-col min-w-0 bg-gray-50 h-full relative">
@@ -145,6 +147,7 @@ function App() {
               />
             )}
             {activeTab === 'communication' && <CommunicationView user={user} sessionYear={sessionYear} />}
+            {activeTab === 'accounts' && user.role === 'ADMIN' && <AccountManagement user={user} />}
             {activeTab === 'qa' && <QAView feedbacks={feedbacks} user={user} />}
         </div>
       </main>
