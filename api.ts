@@ -1,5 +1,5 @@
 
-import { Recruit, User, ResearchDocument, Feedback, UnitReport, ProvincialDispatch, RecruitmentStatus } from './types';
+import { Recruit, User, Feedback, UnitReport, ProvincialDispatch, RecruitmentStatus, ResearchDocument } from './types';
 
 const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
@@ -106,13 +106,11 @@ export const api = {
             recruitmentYear: targetYear,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            // Logic chuyển đổi trạng thái đã được xử lý từ UI truyền vào
         }));
         setLocal('demo_recruits', [...list, ...newRecruits]);
         return true;
     }
 
-    // Trên môi trường Server, thực hiện gửi từng bản ghi hoặc tạo endpoint bulk
     try {
         for (const r of sourceRecruits) {
             const payload = { ...r, id: 'T' + Date.now() + Math.random().toString(36).substr(2, 4), recruitmentYear: targetYear };
@@ -128,49 +126,6 @@ export const api = {
         console.error("Lỗi kết chuyển:", e);
         return false;
     }
-  },
-
-  // --- DOCUMENTS ---
-  getDocuments: async (): Promise<ResearchDocument[]> => {
-    if (isDemoMode()) return getLocal('demo_documents');
-    try { const res = await fetch(`${API_URL}/documents`); return await res.json(); } catch { return []; }
-  },
-  createDocument: async (d: any) => {
-    if (isDemoMode()) {
-        const list = getLocal('demo_documents');
-        const newDoc = { ...d, id: Date.now().toString(), createdAt: new Date().toISOString() };
-        list.push(newDoc);
-        setLocal('demo_documents', list);
-        return newDoc;
-    }
-    try { 
-      const res = await fetch(`${API_URL}/documents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
-      return await res.json();
-    } catch (e: any) { return null; }
-  },
-  updateDocument: async (id: string, d: any) => {
-    if (isDemoMode()) {
-        const list = getLocal('demo_documents');
-        const index = list.findIndex((doc: any) => doc.id === id || doc._id === id);
-        if (index > -1) {
-            list[index] = { ...list[index], ...d };
-            setLocal('demo_documents', list);
-            return list[index];
-        }
-        return null;
-    }
-    try { 
-      const res = await fetch(`${API_URL}/documents/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
-      return await res.json();
-    } catch (e: any) { return null; }
-  },
-  deleteDocument: async (id: string) => {
-    if (isDemoMode()) {
-        const list = getLocal('demo_documents');
-        setLocal('demo_documents', list.filter((d: any) => d.id !== id && (d as any)._id !== id));
-        return true;
-    }
-    try { const res = await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   },
 
   // --- FEEDBACK / QA ---
@@ -270,5 +225,49 @@ export const api = {
         return true;
     }
     try { const res = await fetch(`${API_URL}/dispatches/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
+  },
+
+  // Fix: Add document management methods to handle requests from DocumentsView.tsx
+  // --- DOCUMENTS ---
+  getDocuments: async (): Promise<ResearchDocument[]> => {
+    if (isDemoMode()) return getLocal('demo_documents');
+    try { const res = await fetch(`${API_URL}/documents`); return await res.json(); } catch { return []; }
+  },
+  createDocument: async (d: any) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_documents');
+        const newItem = { ...d, id: Date.now().toString(), createdAt: new Date().toISOString() };
+        list.push(newItem);
+        setLocal('demo_documents', list);
+        return newItem;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/documents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
+  },
+  updateDocument: async (id: string, d: any) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_documents');
+        const index = list.findIndex((doc: any) => (doc.id || doc._id) === id);
+        if (index > -1) {
+            list[index] = { ...list[index], ...d };
+            setLocal('demo_documents', list);
+            return list[index];
+        }
+        return null;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/documents/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
+  },
+  deleteDocument: async (id: string) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_documents');
+        setLocal('demo_documents', list.filter((doc: any) => (doc.id || doc._id) !== id));
+        return true;
+    }
+    try { const res = await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   }
 };

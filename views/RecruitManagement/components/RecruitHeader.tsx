@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Download, Plus, Trash2 } from 'lucide-react';
+import { Download, Plus, Trash2, MapPin } from 'lucide-react';
 
 interface RecruitHeaderProps {
   activeTab: any;
@@ -11,10 +11,11 @@ interface RecruitHeaderProps {
   onExport: () => void;
   onAdd: () => void;
   onDeleteAll?: () => void;
+  onBulkVillageRename?: () => void;
 }
 
 const RecruitHeader: React.FC<RecruitHeaderProps> = ({ 
-  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onExport, onAdd, onDeleteAll 
+  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onExport, onAdd, onDeleteAll, onBulkVillageRename 
 }) => {
   return (
     <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white shrink-0 shadow-sm relative z-10">
@@ -32,6 +33,16 @@ const RecruitHeader: React.FC<RecruitHeaderProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        {/* Nút đổi tên thôn đồng loạt - Chỉ hiện cho đơn vị có quyền sửa */}
+        {!isReadOnly && onBulkVillageRename && (
+           <button 
+             onClick={onBulkVillageRename}
+             className="flex items-center gap-2 px-4 py-2.5 bg-military-100 text-military-800 rounded-xl font-black uppercase text-xs border border-military-200 hover:bg-military-200 transition-all active:scale-95"
+           >
+             <MapPin size={18} /> Đổi tên Thôn/Ấp
+           </button>
+        )}
+
         {/* Nút xóa vĩnh viễn toàn bộ - Chỉ dành cho DS 15 */}
         {activeTabId === 'DELETED_LIST' && !isReadOnly && (
           <button 

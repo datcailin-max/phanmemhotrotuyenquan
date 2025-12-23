@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { 
   LayoutDashboard, Users, Menu, ShieldAlert, LogOut, Key, 
-  UserCircle, FileText, Share2, HelpCircle 
+  UserCircle, Share2, HelpCircle 
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -44,11 +45,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button onClick={() => setActiveTab('communication')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'communication' ? 'bg-white text-military-900 font-bold shadow-lg' : 'text-military-200 hover:bg-military-800'}`}>
           <Share2 size={20} />
           {isOpen && <span className="text-xs font-bold uppercase tracking-wide">Báo cáo & Văn bản</span>}
-        </button>
-        
-        <button onClick={() => setActiveTab('documents')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'documents' ? 'bg-white text-military-900 font-bold shadow-lg' : 'text-military-200 hover:bg-military-800'}`}>
-          <FileText size={20} />
-          {isOpen && <span className="text-xs font-bold uppercase tracking-wide">Thư viện tài liệu</span>}
         </button>
         
         <button onClick={() => setActiveTab('qa')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'qa' ? 'bg-white text-military-900 font-bold shadow-lg' : 'text-military-200 hover:bg-military-800'}`}>

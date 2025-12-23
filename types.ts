@@ -1,4 +1,5 @@
 
+
 export enum RecruitmentStatus {
   NOT_ALLOWED_REGISTRATION = 'KHONG_DUOC_DANG_KY', // 1. Không được đăng ký NVQS
   EXEMPT_REGISTRATION = 'MIEN_DANG_KY', // 2. Miễn đăng ký NVQS
@@ -130,16 +131,6 @@ export interface Recruit {
   updatedAt?: string;
 }
 
-export interface ResearchDocument {
-  id: string;
-  title: string;
-  description?: string;
-  url: string;
-  uploadDate: string;
-  fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER';
-  category?: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC';
-}
-
 export interface UnitReport {
     id: string;
     senderUsername: string;
@@ -160,4 +151,15 @@ export interface ProvincialDispatch {
     recipients: string[]; // Danh sách username xã nhận, hoặc ['ALL']
     year: number;
     timestamp: number;
+}
+
+// Fix: Add ResearchDocument interface to match the model and fixing import error in DocumentsView.tsx
+export interface ResearchDocument {
+  id: string;
+  title: string;
+  description: string;
+  url: string; // Base64 PDF
+  uploadDate: string;
+  fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER';
+  category: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC';
 }

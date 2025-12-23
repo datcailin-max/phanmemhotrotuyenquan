@@ -6,7 +6,6 @@ import RecruitManagement from './views/RecruitManagement';
 import Login from './views/Login';
 import YearSelection from './views/YearSelection';
 import CommunicationView from './views/CommunicationView';
-import DocumentsView from './views/DocumentsView';
 import QAView from './views/QAView';
 import Sidebar from './components/layout/Sidebar';
 import MainHeader from './components/layout/MainHeader';
@@ -18,13 +17,13 @@ import { useInitialData } from './hooks/useInitialData';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessionYear, setSessionYear] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'documents' | 'qa' | 'communication'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'qa' | 'communication'>('dashboard');
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   
   // Custom hook quản lý dữ liệu
   const { 
-    recruits, setRecruits, documents, feedbacks, isLoading, fetchAllData 
+    recruits, setRecruits, feedbacks, isLoading, fetchAllData 
   } = useInitialData(user, sessionYear);
   
   // Modals States
@@ -51,7 +50,6 @@ function App() {
   }, [user]);
 
   const handleUpdateRecruit = async (updated: Recruit) => {
-    // Kiểm tra sự tồn tại dựa trên ID thay vì createdAt để đảm bảo cập nhật đúng bản ghi
     const isExisting = recruits.some(r => r.id === updated.id);
     const res = isExisting ? await api.updateRecruit(updated) : await api.createRecruit(updated);
     
@@ -147,13 +145,6 @@ function App() {
               />
             )}
             {activeTab === 'communication' && <CommunicationView user={user} sessionYear={sessionYear} />}
-            {activeTab === 'documents' && (
-              <DocumentsView 
-                documents={documents} 
-                user={user} 
-                onRefresh={fetchAllData} 
-              />
-            )}
             {activeTab === 'qa' && <QAView feedbacks={feedbacks} user={user} />}
         </div>
       </main>

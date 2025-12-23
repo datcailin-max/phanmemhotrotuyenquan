@@ -17,6 +17,7 @@ import RecruitFilterBar from './RecruitManagement/components/RecruitFilterBar';
 import ActionButtons from './RecruitManagement/components/ActionButtons';
 import LegalReasonModal from './RecruitManagement/modals/LegalReasonModal';
 import RemovalModal from './RecruitManagement/modals/RemovalModal';
+import BulkVillageRenameModal from './RecruitManagement/modals/BulkVillageRenameModal';
 import { useRecruitActions } from './RecruitManagement/hooks/useRecruitActions';
 import { api } from '../api';
 
@@ -37,6 +38,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [editingRecruit, setEditingRecruit] = useState<Recruit | undefined>(undefined);
   const [recruits, setRecruits] = useState<Recruit[]>(rawRecruits);
 
@@ -120,6 +122,28 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     setShowForm(true); 
   };
 
+  const handleBulkVillageRename = async (oldName: string, newName: string) => {
+    // Lọc các hồ sơ thuộc quyền quản lý của đơn vị và có tên thôn cũ
+    const targetRecruits = scopeRecruits.filter(r => r.address.village === oldName);
+    
+    try {
+      for (const r of targetRecruits) {
+        const updated = { 
+          ...r, 
+          address: { ...r.address, village: newName } 
+        };
+        // Gọi API cập nhật cho từng hồ sơ
+        await api.updateRecruit(updated);
+        // Cập nhật lên UI (thông qua hàm onUpdate từ App.tsx)
+        onUpdate(updated);
+      }
+      alert(`Đã cập nhật địa chỉ thành công cho ${targetRecruits.length} công dân.`);
+    } catch (e) {
+      console.error("Lỗi khi cập nhật đồng loạt:", e);
+      alert("Quá trình cập nhật gặp sự cố. Một số hồ sơ có thể chưa được đổi tên.");
+    }
+  };
+
   const initialStatusForNew = useMemo(() => {
     if (activeTabId === 'NOT_ALLOWED_REG') return RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
     if (activeTabId === 'EXEMPT_REG') return RecruitmentStatus.EXEMPT_REGISTRATION;
@@ -160,21 +184,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     }
   };
 
-  /**
-   * Logic Hết hạn niên khóa (đối soát phiên làm việc hiện tại)
-   * Sửa lỗi MM/YYYY: Sử dụng split('/').pop() để lấy phần năm cuối cùng
-   */
   const isExpiring = (recruit: Recruit) => {
     const isExpiredYear = (period?: string) => {
         if (!period) return false;
         const parts = period.split('-');
         const lastPart = parts[parts.length - 1].trim();
-        
-        // Trích xuất năm: Nếu có dấu / thì lấy phần cuối, nếu không lấy trực tiếp
         const yearStr = lastPart.includes('/') ? lastPart.split('/').pop() : lastPart;
         const endYear = parseInt(yearStr || '0');
-
-        // Hết hạn khi năm kết thúc NHỎ HƠN năm tuyển quân hiện tại
         return endYear > 0 && endYear < sessionYear;
     };
     return isExpiredYear(recruit.details.educationPeriod) || isExpiredYear(recruit.details.sentencePeriod);
@@ -194,6 +210,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onExport={() => ra.handleExportExcel(filteredRecruits, activeTabId, activeTab.label)}
           onAdd={handleCreate}
           onDeleteAll={handleDeleteAllTrash}
+          onBulkVillageRename={() => setShowBulkModal(true)}
         />
 
         <RecruitFilterBar 
@@ -330,7 +347,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
             user={user} 
             onSubmit={handleSave} 
             onClose={() => setShowForm(false)} 
-            sessionYear={sessionYear} 
+            sessionYear={sessionYear}
+            existingRecruits={recruits}
+        />
+      )}
+
+      {showBulkModal && (
+        <BulkVillageRenameModal 
+            recruits={scopeRecruits}
+            onClose={() => setShowBulkModal(false)}
+            onConfirm={handleBulkVillageRename}
         />
       )}
       

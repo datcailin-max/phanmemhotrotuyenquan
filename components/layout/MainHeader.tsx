@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Menu, ShieldCheck, RefreshCw } from 'lucide-react';
 import { User } from '../../types';
@@ -25,7 +26,6 @@ const MainHeader: React.FC<MainHeaderProps> = ({
           {activeTab === 'dashboard' && 'Bảng điều khiển tổng hợp'}
           {activeTab === 'recruits' && 'Quản lý hồ sơ công dân'}
           {activeTab === 'communication' && 'Trao đổi văn bản chỉ đạo'}
-          {activeTab === 'documents' && 'Thư viện tài liệu'}
           {activeTab === 'qa' && 'Hệ thống hỗ trợ trực tuyến'}
         </h1>
       </div>
