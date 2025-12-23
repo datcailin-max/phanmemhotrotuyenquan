@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ShieldAlert, LogIn, Key, UserCheck, MapPin, Landmark, ChevronRight, Lock, Edit3, Eye, HelpCircle, CheckCircle2, Phone, Zap } from 'lucide-react';
+import { ShieldAlert, LogIn, Key, UserCheck, MapPin, Landmark, ChevronRight, Lock, Edit3, Eye, HelpCircle, CheckCircle2, Phone, Zap, Clock } from 'lucide-react';
 import { PROVINCES_VN, LOCATION_DATA, removeVietnameseTones, generateUnitUsername } from '../constants';
 import { User, UserRole } from '../types';
 import { api } from '../api';
@@ -41,7 +41,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
 
-    // Gọi phương thức login từ API (nơi đã tích hợp logic phân biệt DEMO/REAL)
     const result = await api.login(username, password);
     
     if (typeof result !== 'string') {
@@ -50,7 +49,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         return;
     }
 
-    // Logic Admin dự phòng nếu DB chưa có
+    // Logic Admin dự phòng
     if (username === 'ADMIN' && password === '1') {
         const allUsers = await api.getUsers();
         const adminInDb = allUsers.find((u: any) => u.username === 'ADMIN');
@@ -58,7 +57,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         if (!adminInDb) {
             const adminData: User = { 
                 username: 'ADMIN', 
-                fullName: 'Đại úy Thới Hạ Sang', 
+                fullName: 'Quản trị viên Hệ thống', 
                 role: 'ADMIN', 
                 unit: { province: '', commune: '' }, 
                 isLocked: false, 
@@ -66,10 +65,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             };
             await api.syncAccount(adminData);
             onLogin(adminData);
-            setIsLoading(false);
-            return;
-        } else {
-            setError("Mật khẩu ADMIN không chính xác. Bạn đã đổi mật khẩu trước đó.");
             setIsLoading(false);
             return;
         }
@@ -97,8 +92,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       });
 
       setUsername(uName);
-      setMode('LOGIN');
       setError('');
+      setMsg(`Đã tạo yêu cầu cấp tài khoản ${uName}. Trạng thái hiện tại: ĐANG KHÓA. Vui lòng liên hệ Admin (0334.429.954) để được phê duyệt trước khi đăng nhập.`);
+      setMode('LOGIN');
   };
 
   const handleRequestPassword = async (e: React.FormEvent) => {
@@ -141,7 +137,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
              <div className="mt-4 pt-3 border-t border-military-700/50 flex flex-col items-center gap-1">
                 <div className="flex items-center gap-1.5 text-amber-400">
                   <Phone size={12} />
-                  <span className="text-[10px] font-black uppercase tracking-tighter">Hỗ trợ: Đại úy Thới Hạ Sang - 0334 429 954</span>
+                  <span className="text-[10px] font-black uppercase tracking-tighter">Hỗ trợ phê duyệt: 0334 429 954</span>
                 </div>
              </div>
         </div>
@@ -153,23 +149,23 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         <div className="p-8">
             {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded text-xs border border-red-200 mb-4 flex items-center gap-2">
+                <div className="bg-red-50 text-red-600 p-3 rounded text-xs border border-red-200 mb-4 flex items-center gap-2 font-bold">
                     <Lock size={16} className="shrink-0"/> <span>{error}</span>
                 </div>
             )}
             {msg && (
-                <div className="bg-green-50 text-green-700 p-4 rounded text-xs border border-green-200 mb-4 flex items-center gap-2 font-bold animate-pulse">
-                    <CheckCircle2 size={24} className="shrink-0"/> <span>{msg}</span>
+                <div className="bg-amber-50 text-amber-700 p-4 rounded text-xs border border-amber-200 mb-4 flex items-start gap-3 font-bold animate-in slide-in-from-top-2">
+                    <Clock size={20} className="shrink-0 mt-0.5"/> <span>{msg}</span>
                 </div>
             )}
 
             {mode === 'LOGIN' ? (
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên đăng nhập</label>
+                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên đăng nhập (Username)</label>
                         <div className="relative">
                             <UserCheck className="absolute left-3 top-2.5 text-gray-400" size={18}/>
-                            <input type="text" required className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-military-50 outline-none font-mono" value={username} onChange={e => setUsername(e.target.value)} placeholder="Tên đơn vị hoặc DEMO" />
+                            <input type="text" required className="w-full pl-10 pr-3 py-2 border rounded-md focus:ring-2 focus:ring-military-50 outline-none font-mono text-sm" value={username} onChange={e => setUsername(e.target.value)} placeholder="Nhập tên đơn vị..." />
                         </div>
                     </div>
                     <div>
@@ -188,22 +184,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-start gap-3">
                         <Zap size={16} className="text-blue-600 shrink-0 mt-0.5" />
                         <p className="text-[10px] text-blue-700 font-medium leading-relaxed italic">
-                            <b>Mẹo:</b> Nhập tên <b>DEMO</b>, mật khẩu <b>1</b> để thử nghiệm lưu trữ dữ liệu ngay trên máy tính này.
+                            <b>Mẹo:</b> Tài khoản mới cần được Master Admin phê duyệt sau khi đăng ký tại mục "Lấy tài khoản".
                         </p>
                     </div>
                 </form>
             ) : mode === 'FORGOT' ? (
                 <form onSubmit={handleRequestPassword} className="space-y-4 animate-in fade-in slide-in-from-right-4">
                     <div className="bg-amber-50 p-3 rounded border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                        Nhập Username của đơn vị bạn. Quản trị viên hệ thống sẽ liên hệ lại để cấp lại mật khẩu mới.
+                        Nhập Username của đơn vị bạn. Quản trị viên hệ thống sẽ liên hệ lại để xác minh và cấp lại mật khẩu.
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Username cần cấp lại</label>
                         <input name="userReq" type="text" required className="w-full p-2 border rounded-md font-mono text-sm" placeholder="VD: BINHPHUOC_XADONGXOAI_1" />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Số điện thoại liên hệ</label>
-                        <input name="phoneReq" type="tel" required className="w-full p-2 border rounded-md text-sm" placeholder="Nhập SĐT cán bộ" />
+                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Số điện thoại cán bộ phụ trách</label>
+                        <input name="phoneReq" type="tel" required className="w-full p-2 border rounded-md text-sm" placeholder="SĐT để Admin liên hệ..." />
                     </div>
                     <div className="flex gap-2">
                         <button type="button" onClick={() => setMode('LOGIN')} className="flex-1 py-2 text-xs font-bold text-gray-500 border rounded-md">Hủy bỏ</button>
@@ -211,42 +207,50 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     </div>
                 </form>
             ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 animate-in slide-in-from-bottom-2">
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => setSelLevel('COMMUNE')} className={`p-2 rounded text-[10px] font-bold border ${selLevel === 'COMMUNE' ? 'bg-military-600 text-white' : 'bg-gray-50'}`}>XÃ / PHƯỜNG</button>
-                        <button onClick={() => setSelLevel('PROVINCE')} className={`p-2 rounded text-[10px] font-bold border ${selLevel === 'PROVINCE' ? 'bg-red-700 text-white' : 'bg-gray-50'}`}>CẤP TỈNH</button>
+                        <button onClick={() => setSelLevel('COMMUNE')} className={`p-2 rounded text-[10px] font-bold border ${selLevel === 'COMMUNE' ? 'bg-military-600 text-white' : 'bg-gray-50'}`}>XÃ / PHƯỜNG / THỊ TRẤN</button>
+                        <button onClick={() => setSelLevel('PROVINCE')} className={`p-2 rounded text-[10px] font-bold border ${selLevel === 'PROVINCE' ? 'bg-red-700 text-white' : 'bg-gray-50'}`}>CẤP TỈNH / THÀNH PHỐ</button>
                     </div>
-                    <select className="w-full p-2 border rounded text-sm" value={selProvince} onChange={e => setSelProvince(e.target.value)}>
-                        <option value="">-- Chọn Tỉnh --</option>
-                        {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Chọn Tỉnh/Thành phố</label>
+                        <select className="w-full p-2 border rounded text-sm font-bold bg-gray-50" value={selProvince} onChange={e => setSelProvince(e.target.value)}>
+                            <option value="">-- Chọn Tỉnh --</option>
+                            {PROVINCES_VN.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                    </div>
                     {selLevel === 'COMMUNE' && (
                         <div className="relative" ref={wrapperRef}>
-                            <input type="text" placeholder="Tên Xã/Phường..." className="w-full p-2 border rounded text-sm" value={selCommune} onChange={e => {setSelCommune(e.target.value); setShowCommuneSuggestions(true);}} onFocus={() => setShowCommuneSuggestions(true)} />
+                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Tên đơn vị Xã/Phường</label>
+                            <input type="text" placeholder="Nhập tên Xã/Phường..." className="w-full p-2 border rounded text-sm font-bold" value={selCommune} onChange={e => {setSelCommune(e.target.value); setShowCommuneSuggestions(true);}} onFocus={() => setShowCommuneSuggestions(true)} />
                             {showCommuneSuggestions && selProvince && (
                                 <div className="absolute z-50 w-full mt-1 bg-white border rounded shadow-xl max-h-40 overflow-y-auto">
-                                    {filteredCommunes.map((c, i) => <div key={i} className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer" onClick={() => {setSelCommune(c); setShowCommuneSuggestions(false);}}>{c}</div>)}
+                                    {filteredCommunes.map((c, i) => <div key={i} className="px-3 py-2 text-sm hover:bg-military-50 font-medium cursor-pointer" onClick={() => {setSelCommune(c); setShowCommuneSuggestions(false);}}>{c}</div>)}
                                 </div>
                             )}
                         </div>
                     )}
                     {selLevel === 'COMMUNE' && (
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => setSelAccountType('1')} className={`p-2 border rounded flex flex-col items-center ${selAccountType === '1' ? 'border-military-600 bg-military-50' : ''}`}><Edit3 size={16}/><span className="text-[9px] font-bold">NHẬP LIỆU</span></button>
-                            <button onClick={() => setSelAccountType('2')} className={`p-2 border rounded flex flex-col items-center ${selAccountType === '2' ? 'border-blue-600 bg-blue-50' : ''}`}><Eye size={16}/><span className="text-[9px] font-bold">CHỈ HUY</span></button>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Loại tài khoản</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => setSelAccountType('1')} className={`p-2 border rounded flex flex-col items-center gap-1 ${selAccountType === '1' ? 'border-military-600 bg-military-50 text-military-800' : 'text-gray-400'}`}><Edit3 size={16}/><span className="text-[9px] font-black">NHẬP LIỆU</span></button>
+                                <button onClick={() => setSelAccountType('2')} className={`p-2 border rounded flex flex-col items-center gap-1 ${selAccountType === '2' ? 'border-blue-600 bg-blue-50 text-blue-800' : 'text-gray-400'}`}><Eye size={16}/><span className="text-[9px] font-black">CHỈ HUY (XEM)</span></button>
+                            </div>
                         </div>
                     )}
-                    <div className="p-3 bg-gray-100 rounded text-center">
-                        <p className="text-[10px] uppercase text-gray-400 font-bold">Username của đơn vị:</p>
-                        <p className="text-lg font-mono font-bold text-military-800">{generateUnitUsername(selProvince, selCommune, selLevel === 'PROVINCE' ? 'PROVINCE' : selAccountType)}</p>
+                    <div className="p-3 bg-gray-100 rounded text-center border-2 border-dashed border-gray-200">
+                        <p className="text-[10px] uppercase text-gray-400 font-bold mb-1">Tài khoản đơn vị của bạn:</p>
+                        <p className="text-lg font-mono font-black text-military-800">{generateUnitUsername(selProvince, selCommune, selLevel === 'PROVINCE' ? 'PROVINCE' : selAccountType)}</p>
+                        <p className="text-[9px] text-red-500 font-bold mt-1 uppercase italic">* Tài khoản mặc định sẽ bị khóa đến khi Admin duyệt</p>
                     </div>
-                    <button onClick={handleUnitConfirm} className="w-full bg-military-600 text-white py-3 rounded-md font-bold uppercase text-sm">Sử dụng tên này</button>
+                    <button onClick={handleUnitConfirm} className="w-full bg-military-700 text-white py-3 rounded-md font-bold uppercase text-sm shadow-xl hover:bg-military-800 active:scale-95 transition-all">Xác nhận đơn vị</button>
                 </div>
             )}
         </div>
         
         <div className="bg-gray-50 p-4 border-t border-gray-100 text-center">
-            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Tác giả: Đại úy Thới Hạ Sang</p>
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Tác giả & Kỹ thuật: Đại úy Thới Hạ Sang</p>
         </div>
       </div>
     </div>
