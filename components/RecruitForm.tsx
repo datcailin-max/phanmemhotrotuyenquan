@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
 import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert } from 'lucide-react';
-import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES } from '../constants';
+import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
 
 // Sub-components
 import LocationFields from './RecruitForm/LocationFields';
@@ -18,9 +18,18 @@ interface RecruitFormProps {
   onSubmit: (data: Recruit) => void;
   onClose: () => void;
   sessionYear: number;
+  existingRecruits: Recruit[];
 }
 
-const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, user, onSubmit, onClose, sessionYear }) => {
+const RecruitForm: React.FC<RecruitFormProps> = ({ 
+  initialData, 
+  initialStatus, 
+  user, 
+  onSubmit, 
+  onClose, 
+  sessionYear, 
+  existingRecruits 
+}) => {
   const isReadOnly = user.role === 'PROVINCE_ADMIN' || user.role === 'VIEWER';
   const emptyFamilyMember: FamilyMember = { fullName: '', job: '', phoneNumber: '', birthYear: '' };
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
@@ -62,7 +71,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason || '';
 
-    // 1. Tự động tính BMI nếu có đủ chiều cao cân nặng (Nếu không có đủ thì giữ nguyên BMI do người dùng nhập)
+    // 1. Tự động tính BMI
     let calculatedBmi = bmi;
     if (height > 0 && weight > 0) {
       const h = height / 100;
@@ -73,32 +82,30 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
       }
     }
 
-    // Không áp dụng logic tự động cho diện Cấm/Miễn đăng ký để giữ tính nhất quán của luật
     if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(formData.status)) {
         return;
     }
 
-    // 2. Logic Tự động Tạm hoãn về Sức khỏe (Dựa trên chiều cao, cân nặng, vòng ngực, BMI)
+    // 2. Logic Tự động Tạm hoãn về Sức khỏe
     const isUnderHeight = height > 0 && height < 157;
     const isUnderWeight = weight > 0 && weight < 43;
-    const isUnderChest = chest > 0 && chest < 75; // Mới: Vòng ngực < 75cm
+    const isUnderChest = chest > 0 && chest < 75;
     const isInvalidBmi = calculatedBmi > 0 && (calculatedBmi > 29.9 || calculatedBmi < 18.5);
 
     if (isUnderHeight || isUnderWeight || isUnderChest || isInvalidBmi) {
         nextStatus = RecruitmentStatus.DEFERRED;
-        nextReason = LEGAL_DEFERMENT_REASONS[0]; // "1. Chưa đủ sức khỏe phục vụ tại ngũ..."
+        nextReason = LEGAL_DEFERMENT_REASONS[0]; 
     } else {
-      // 3. Logic Tự động chuyển danh sách theo loại Sức khỏe (Nếu không bị hoãn do các chỉ số thô bên trên)
+      // 3. Tự động chuyển danh sách theo loại Sức khỏe
       if (healthGrade !== undefined && healthGrade > 0) {
           if (healthGrade >= 1 && healthGrade <= 3) {
-              nextStatus = RecruitmentStatus.MED_EXAM_PASSED; // Tự động về 7.1
+              nextStatus = RecruitmentStatus.MED_EXAM_PASSED;
               nextReason = '';
           } else if (healthGrade >= 4 && healthGrade <= 6) {
-              nextStatus = RecruitmentStatus.MED_EXAM_FAILED; // Tự động về 7.2
+              nextStatus = RecruitmentStatus.MED_EXAM_FAILED;
               nextReason = 'Sức khỏe loại ' + healthGrade;
           }
       } else if (nextStatus === RecruitmentStatus.DEFERRED && nextReason === LEGAL_DEFERMENT_REASONS[0]) {
-          // Khôi phục về nguồn nếu các chỉ số thô đã hợp lệ và chưa có phân loại SK
           nextStatus = RecruitmentStatus.SOURCE;
           nextReason = '';
       }
@@ -109,7 +116,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     }
   }, [formData.physical.height, formData.physical.weight, formData.physical.chest, formData.physical.bmi, formData.physical.healthGrade]);
 
-  // LOGIC TỰ ĐỘNG XÉT TẠM HOÃN THEO HỌC VẤN (Giữ nguyên tính năng cũ)
+  // LOGIC TỰ ĐỘNG XÉT TẠM HOÃN THEO HỌC VẤN
   useEffect(() => {
     const edu = formData.details.education;
     let nextStatus = formData.status;
@@ -180,6 +187,32 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isReadOnly) return;
+
+    // --- KIỂM TRA TRÙNG LẶP DỮ LIỆU ---
+    const cleanCitizenId = formData.citizenId?.trim();
+    const cleanFullName = formData.fullName?.trim();
+    const normalizedNewName = removeVietnameseTones(cleanFullName.toLowerCase());
+
+    const otherRecruits = existingRecruits.filter(r => r.id !== formData.id);
+
+    // 1. Kiểm tra trùng CCCD
+    if (cleanCitizenId) {
+      const duplicateCCCD = otherRecruits.find(r => r.citizenId?.trim() === cleanCitizenId);
+      if (duplicateCCCD) {
+        alert(`LỖI: Số CCCD "${cleanCitizenId}" đã tồn tại trong hệ thống (Hồ sơ: ${duplicateCCCD.fullName}).\n\nMỗi công dân chỉ được có duy nhất một mã định danh. Vui lòng kiểm tra lại.`);
+        return;
+      }
+    } 
+    // 2. Kiểm tra trùng tên
+    else {
+      const duplicateName = otherRecruits.find(r => removeVietnameseTones(r.fullName.toLowerCase()) === normalizedNewName);
+      if (duplicateName) {
+        const confirmSave = window.confirm(
+          `CẢNH BÁO: Công dân "${cleanFullName}" trùng tên với hồ sơ "${duplicateName.fullName}" (Sinh năm: ${duplicateName.dob?.split('-')[0] || '---'}) đã có trong hệ thống.\n\nVì công dân hiện tại chưa có số CCCD để đối soát duy nhất, bạn có chắc chắn đây là hai người khác nhau và muốn tiếp tục lưu không?`
+        );
+        if (!confirmSave) return;
+      }
+    }
     
     const birthYear = parseInt(formData.dob.split('-')[0] || '0');
     const age = sessionYear - birthYear;
@@ -204,7 +237,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col animate-in zoom-in duration-300">
         
-        {/* Header */}
         <div className="bg-military-800 text-white border-b p-5 flex justify-between items-center shrink-0 shadow-lg relative z-10">
           <div className="flex items-center gap-3">
              <div className="p-2 bg-white/10 rounded-lg"><UserIcon size={24}/></div>
@@ -215,7 +247,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
           <button onClick={onClose} className="hover:bg-white/10 p-2 rounded-full transition-colors"><X size={24} /></button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 bg-gray-50/50">
           {isReadOnly && (
             <div className="bg-blue-600 text-white p-4 rounded-xl mb-8 flex items-center justify-between shadow-lg animate-pulse">
@@ -228,11 +259,9 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            {/* Cột 1: Nhân thân */}
             <div className="space-y-8">
                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                  <div className="flex flex-col md:flex-row gap-6 mb-8">
-                    {/* Avatar Area */}
                     <div className="relative shrink-0 mx-auto md:mx-0">
                        <div className="w-32 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative group">
                           {formData.avatarUrl ? (
@@ -292,7 +321,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
                </div>
             </div>
 
-            {/* Cột 2: Chất lượng & Phụ lục */}
             <div className="space-y-8">
                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                  <QualityFields formData={formData} isReadOnly={isReadOnly} handleChange={handleChange} isStudyingHigherEd={isStudyingHigherEd} />
@@ -311,7 +339,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({ initialData, initialStatus, u
           </div>
         </form>
 
-        {/* Footer */}
         <div className="bg-white p-5 border-t flex items-center justify-between shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] relative z-10">
           <div className="hidden md:block text-left">
              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-tight">Đơn vị tiếp nhận hồ sơ:</p>

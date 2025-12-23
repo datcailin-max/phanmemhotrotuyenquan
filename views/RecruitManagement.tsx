@@ -123,7 +123,6 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   };
 
   const handleBulkVillageRename = async (oldName: string, newName: string) => {
-    // Lọc các hồ sơ thuộc quyền quản lý của đơn vị và có tên thôn cũ
     const targetRecruits = scopeRecruits.filter(r => r.address.village === oldName);
     
     try {
@@ -132,9 +131,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           ...r, 
           address: { ...r.address, village: newName } 
         };
-        // Gọi API cập nhật cho từng hồ sơ
         await api.updateRecruit(updated);
-        // Cập nhật lên UI (thông qua hàm onUpdate từ App.tsx)
         onUpdate(updated);
       }
       alert(`Đã cập nhật địa chỉ thành công cho ${targetRecruits.length} công dân.`);
