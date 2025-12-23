@@ -38,12 +38,16 @@ export const useDashboardStats = ({
          * Logic Hết hạn theo yêu cầu: 
          * Nếu niên khóa 2020-2024 thì năm 2024 vẫn hoãn, sang 2025 mới hết hạn.
          * Tức là: Năm kết thúc < Năm tuyển quân hiện tại.
+         * Sửa lỗi MM/YYYY: Lấy phần năm cuối cùng để so sánh.
          */
         const isExpiredInCurrentSession = (period?: string) => {
             if (!period) return false;
             const parts = period.split('-');
             const lastPart = parts[parts.length - 1].trim();
-            const endYear = parseInt(lastPart);
+            
+            const yearStr = lastPart.includes('/') ? lastPart.split('/').pop() : lastPart;
+            const endYear = parseInt(yearStr || '0');
+            
             return endYear > 0 && endYear < sessionYear; 
         };
 

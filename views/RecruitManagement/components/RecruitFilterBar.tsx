@@ -8,6 +8,8 @@ interface RecruitFilterBarProps {
   setSearchTerm: (v: string) => void;
   filterVillage: string;
   setFilterVillage: (v: string) => void;
+  filterAgeRange: string;
+  setFilterAgeRange: (v: string) => void;
   showAdvancedFilter: boolean;
   setShowAdvancedFilter: (v: boolean) => void;
   advFilterEducation: string;
@@ -21,6 +23,7 @@ interface RecruitFilterBarProps {
 
 const RecruitFilterBar: React.FC<RecruitFilterBarProps> = ({
   searchTerm, setSearchTerm, filterVillage, setFilterVillage,
+  filterAgeRange, setFilterAgeRange,
   showAdvancedFilter, setShowAdvancedFilter,
   advFilterEducation, setAdvFilterEducation,
   advFilterHealth, setAdvFilterHealth,
@@ -51,7 +54,7 @@ const RecruitFilterBar: React.FC<RecruitFilterBarProps> = ({
         <button 
           onClick={() => setShowAdvancedFilter(!showAdvancedFilter)} 
           className={`flex items-center gap-2 px-4 py-2 border rounded-xl hover:bg-white text-xs font-black uppercase tracking-widest transition-all ${
-            showAdvancedFilter || advFilterEducation || advFilterHealth || advFilterPolitical 
+            showAdvancedFilter || advFilterEducation || advFilterHealth || advFilterPolitical || filterAgeRange
               ? 'border-military-300 text-military-800 bg-military-50' 
               : 'border-gray-200 text-gray-500 bg-white'
           }`}
@@ -61,6 +64,20 @@ const RecruitFilterBar: React.FC<RecruitFilterBarProps> = ({
         {showAdvancedFilter && (
           <div className="absolute top-full right-0 mt-3 w-80 bg-white border border-gray-200 shadow-2xl rounded-2xl p-5 z-20 animate-in fade-in slide-in-from-top-2">
             <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Độ tuổi công dân</label>
+                <select 
+                  className="w-full border-gray-200 border rounded-lg p-2 text-xs font-bold" 
+                  value={filterAgeRange} 
+                  onChange={(e) => setFilterAgeRange(e.target.value)}
+                >
+                  <option value="">-- Tất cả độ tuổi --</option>
+                  <option value="under18">Dưới 18 tuổi</option>
+                  <option value="18-24">Từ 18 - 24 tuổi</option>
+                  <option value="25-27">Từ 25 - 27 tuổi</option>
+                  <option value="over27">Trên 27 tuổi</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Trình độ học vấn</label>
                 <select 
@@ -97,7 +114,12 @@ const RecruitFilterBar: React.FC<RecruitFilterBarProps> = ({
                 </select>
               </div>
               <button 
-                onClick={() => {setAdvFilterEducation(''); setAdvFilterHealth(''); setAdvFilterPolitical('');}} 
+                onClick={() => {
+                  setAdvFilterEducation(''); 
+                  setAdvFilterHealth(''); 
+                  setAdvFilterPolitical('');
+                  setFilterAgeRange('');
+                }} 
                 className="w-full text-xs font-bold text-military-600 hover:underline pt-2"
               >
                 Xóa bộ lọc

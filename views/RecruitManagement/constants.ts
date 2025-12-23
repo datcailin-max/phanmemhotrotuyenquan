@@ -3,7 +3,7 @@ import { RecruitmentStatus } from '../../types';
 import { 
   Users, ClipboardList, Stethoscope, FileSignature, Flag, Calendar, 
   PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, Trash2, 
-  CheckCircle2, XCircle, UserX, Tent
+  CheckCircle2, XCircle, UserX, Tent, AlertTriangle, GraduationCap, Gavel
 } from 'lucide-react';
 
 export const ITEMS_PER_PAGE = 10;
@@ -30,8 +30,11 @@ export const TABS = [
   { id: 'FINAL_OFFICIAL', label: '10.1. DANH SÁCH CHÍNH THỨC', status: null, color: 'bg-green-500', lightColor: 'bg-green-50', borderColor: 'border-green-500', textColor: 'text-green-800', icon: Flag, isSub: true, parentId: 'FINAL' },
   { id: 'FINAL_RESERVE', label: '10.2. DANH SÁCH DỰ BỊ', status: null, color: 'bg-teal-500', lightColor: 'bg-teal-50', borderColor: 'border-teal-500', textColor: 'text-teal-800', icon: Tent, isSub: true, parentId: 'FINAL' },
   { id: 'ENLISTED', label: '11. DS LỆNH NHẬP NGŨ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', lightColor: 'bg-red-50', borderColor: 'border-red-600', textColor: 'text-red-900', icon: Flag },
-  { id: 'REMOVED', label: '12. DS LOẠI KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
-  { id: 'REMAINING', label: '13. DS NGUỒN CÒN LẠI', status: null, color: 'bg-teal-600', lightColor: 'bg-teal-50', borderColor: 'border-teal-600', textColor: 'text-teal-900', icon: Layers },
+  { id: 'REMOVED', label: '12. DS LOẠI KHỔI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
+  { id: 'REMAINING', label: '13. DS NGUỒN CÒN LẠI', status: null, color: 'bg-teal-600', lightColor: 'bg-teal-50', borderColor: 'border-teal-500', textColor: 'text-teal-900', icon: Layers },
   { id: 'NEXT_YEAR_SOURCE', label: '14. NGUỒN CỦA NĂM SAU', status: null, color: 'bg-cyan-600', lightColor: 'bg-cyan-50', borderColor: 'border-cyan-600', textColor: 'text-cyan-900', icon: Calendar },
   { id: 'DELETED_LIST', label: '15. DS ĐÃ XÓA', status: [RecruitmentStatus.DELETED], color: 'bg-black', lightColor: 'bg-gray-200', borderColor: 'border-black', textColor: 'text-gray-900', icon: Trash2 },
+  { id: 'EXPIRING_LIST', label: '16. DS CẦN RÀ SOÁT LẠI', status: null, color: 'bg-orange-700', lightColor: 'bg-orange-50', borderColor: 'border-orange-700', textColor: 'text-orange-900', icon: AlertTriangle },
+  { id: 'EXPIRING_EDU', label: '16.1. CÔNG DÂN HỌC XONG', status: [RecruitmentStatus.DEFERRED], color: 'bg-orange-600', lightColor: 'bg-orange-50', borderColor: 'border-orange-600', textColor: 'text-orange-800', icon: GraduationCap, isSub: true, parentId: 'EXPIRING_LIST' },
+  { id: 'EXPIRING_SENTENCE', label: '16.2. XONG THỜI HẠN ÁN PHẠT', status: [RecruitmentStatus.NOT_ALLOWED_REGISTRATION], color: 'bg-orange-600', lightColor: 'bg-orange-50', borderColor: 'border-orange-600', textColor: 'text-orange-800', icon: Gavel, isSub: true, parentId: 'EXPIRING_LIST' },
 ];

@@ -5,7 +5,10 @@ const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
 const API_URL = isLocal && window.location.port !== '5000' ? `http://${hostname}:5000/api` : '/api';
 
+// Helper kiểm tra chế độ DEMO
 const isDemoMode = () => localStorage.getItem('isDemoAccount') === 'true';
+
+// Helper thao tác LocalStorage cho DEMO
 const getLocal = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
 const setLocal = (key: string, data: any) => localStorage.setItem(key, JSON.stringify(data));
 
@@ -16,10 +19,20 @@ export const api = {
     try { const res = await fetch(`${API_URL}/users`); return await res.json(); } catch { return []; }
   },
   login: async (u: string, p: string) => {
+    // Tài khoản DEMO đặc biệt
     if (u.trim().toUpperCase() === 'DEMO' && p === '1') {
         localStorage.setItem('isDemoAccount', 'true');
-        return { username: 'DEMO', fullName: 'Đơn vị trải nghiệm (DEMO)', role: 'EDITOR', unit: { province: 'An Giang', commune: 'Mỹ Hòa Hưng' }, isLocked: false, password: '1' };
+        return {
+            username: 'DEMO',
+            fullName: 'Đơn vị trải nghiệm (DEMO)',
+            role: 'EDITOR',
+            unit: { province: 'An Giang', commune: 'Mỹ Hòa Hưng' },
+            isLocked: false,
+            password: '1'
+        };
     }
+    
+    // Đăng nhập bình thường
     localStorage.setItem('isDemoAccount', 'false');
     try {
       const res = await fetch(`${API_URL}/users/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
@@ -51,121 +64,211 @@ export const api = {
     }
     try { 
       const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      if (!res.ok) throw new Error('Lỗi server');
       return await res.json();
-    } catch { return null; }
+    } catch (e: any) { alert("Lỗi khi lưu hồ sơ: " + e.message); return null; }
   },
   updateRecruit: async (d: any) => {
     if (isDemoMode()) {
         const list = getLocal('demo_recruits');
         const index = list.findIndex((r: any) => r.id === d.id);
-        if (index > -1) { list[index] = { ...d, updatedAt: new Date().toISOString() }; setLocal('demo_recruits', list); return list[index]; }
+        if (index > -1) {
+            list[index] = { ...d, updatedAt: new Date().toISOString() };
+            setLocal('demo_recruits', list);
+            return list[index];
+        }
         return null;
     }
     try { 
       const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      if (!res.ok) throw new Error('Lỗi server');
       return await res.json();
-    } catch { return null; }
+    } catch (e: any) { alert("Lỗi khi cập nhật: " + e.message); return null; }
   },
   deleteRecruit: async (id: string) => {
-    if (isDemoMode()) { setLocal('demo_recruits', getLocal('demo_recruits').filter((r: any) => r.id !== id)); return true; }
+    if (isDemoMode()) {
+        const list = getLocal('demo_recruits');
+        setLocal('demo_recruits', list.filter((r: any) => r.id !== id));
+        return true;
+    }
     try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   },
 
+  /**
+   * Phương thức kết chuyển dữ liệu hàng loạt giữa các năm
+   */
   transferYearData: async (sourceRecruits: Recruit[], targetYear: number) => {
     if (isDemoMode()) {
         const list = getLocal('demo_recruits');
-        const newRecruits = sourceRecruits.map(r => ({ ...r, id: 'T' + Math.random().toString(36).substr(2, 9), recruitmentYear: targetYear, createdAt: new Date().toISOString() }));
+        const newRecruits = sourceRecruits.map(r => ({
+            ...r,
+            id: 'T' + Math.random().toString(36).substr(2, 9), // ID mới cho bản ghi năm mới
+            recruitmentYear: targetYear,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            // Logic chuyển đổi trạng thái đã được xử lý từ UI truyền vào
+        }));
         setLocal('demo_recruits', [...list, ...newRecruits]);
         return true;
     }
+
+    // Trên môi trường Server, thực hiện gửi từng bản ghi hoặc tạo endpoint bulk
     try {
         for (const r of sourceRecruits) {
             const payload = { ...r, id: 'T' + Date.now() + Math.random().toString(36).substr(2, 4), recruitmentYear: targetYear };
-            delete (payload as any)._id;
-            await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            delete (payload as any)._id; // Xóa ID của MongoDB cũ nếu có
+            await fetch(`${API_URL}/recruits`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload) 
+            });
         }
         return true;
-    } catch { return false; }
+    } catch (e) {
+        console.error("Lỗi kết chuyển:", e);
+        return false;
+    }
   },
 
   // --- DOCUMENTS ---
   getDocuments: async (): Promise<ResearchDocument[]> => {
     if (isDemoMode()) return getLocal('demo_documents');
-    try { 
-        const res = await fetch(`${API_URL}/documents`); 
-        const data = await res.json();
-        return Array.isArray(data) ? data : []; 
-    } catch { return []; }
+    try { const res = await fetch(`${API_URL}/documents`); return await res.json(); } catch { return []; }
   },
-  
-  downloadDocumentBinary: async (id: string): Promise<Blob | null> => {
-    try {
-        const res = await fetch(`${API_URL}/documents/${id}/file`);
-        if (!res.ok) return null;
-        return await res.blob();
-    } catch { return null; }
-  },
-
-  // SỬ DỤNG FORMDATA ĐỂ UPLOAD FILE NẶNG
-  createDocument: async (formData: FormData) => {
+  createDocument: async (d: any) => {
     if (isDemoMode()) {
-        const title = formData.get('title');
-        const category = formData.get('category');
         const list = getLocal('demo_documents');
-        const newDoc = { title, category, id: Date.now().toString(), uploadDate: new Date().toLocaleDateString('vi-VN') };
+        const newDoc = { ...d, id: Date.now().toString(), createdAt: new Date().toISOString() };
         list.push(newDoc);
         setLocal('demo_documents', list);
         return newDoc;
     }
     try { 
-      const res = await fetch(`${API_URL}/documents`, { 
-          method: 'POST', 
-          body: formData // Không set Content-Type header để Fetch tự nhận diện Multipart
-      }); 
+      const res = await fetch(`${API_URL}/documents`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
       return await res.json();
-    } catch { return null; }
+    } catch (e: any) { return null; }
   },
-
+  updateDocument: async (id: string, d: any) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_documents');
+        const index = list.findIndex((doc: any) => doc.id === id || doc._id === id);
+        if (index > -1) {
+            list[index] = { ...list[index], ...d };
+            setLocal('demo_documents', list);
+            return list[index];
+        }
+        return null;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/documents/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return await res.json();
+    } catch (e: any) { return null; }
+  },
   deleteDocument: async (id: string) => {
-    if (isDemoMode()) { setLocal('demo_documents', getLocal('demo_documents').filter((d: any) => (d.id || d._id) !== id)); return true; }
+    if (isDemoMode()) {
+        const list = getLocal('demo_documents');
+        setLocal('demo_documents', list.filter((d: any) => d.id !== id && (d as any)._id !== id));
+        return true;
+    }
     try { const res = await fetch(`${API_URL}/documents/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   },
 
-  // --- FEEDBACK / REPORTS / DISPATCHES ---
+  // --- FEEDBACK / QA ---
   getFeedbacks: async (): Promise<Feedback[]> => {
     if (isDemoMode()) return getLocal('demo_feedbacks');
     try { const res = await fetch(`${API_URL}/feedbacks`); return await res.json(); } catch { return []; }
   },
   createFeedback: async (d: any) => {
-    if (isDemoMode()) { const list = getLocal('demo_feedbacks'); const item = { ...d, id: Date.now().toString() }; list.push(item); setLocal('demo_feedbacks', list); return item; }
-    try { const res = await fetch(`${API_URL}/feedbacks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    if (isDemoMode()) {
+        const list = getLocal('demo_feedbacks');
+        const newItem = { ...d, id: Date.now().toString(), createdAt: new Date().toISOString() };
+        list.push(newItem);
+        setLocal('demo_feedbacks', list);
+        return newItem;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/feedbacks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   updateFeedback: async (id: string, d: any) => {
-    try { const res = await fetch(`${API_URL}/feedbacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    if (isDemoMode()) {
+        const list = getLocal('demo_feedbacks');
+        const index = list.findIndex((f: any) => f.id === id || f._id === id);
+        if (index > -1) {
+            list[index] = { ...list[index], ...d };
+            setLocal('demo_feedbacks', list);
+            return list[index];
+        }
+        return null;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/feedbacks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
   },
   deleteFeedback: async (id: string) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_feedbacks');
+        setLocal('demo_feedbacks', list.filter((f: any) => f.id !== id && f._id !== id));
+        return true;
+    }
     try { await fetch(`${API_URL}/feedbacks/${id}`, { method: 'DELETE' }); return true; } catch { return false; }
   },
-  getReports: async (p: any): Promise<UnitReport[]> => {
+
+  // --- REPORTS ---
+  getReports: async (params: { province?: string, username?: string, year?: number }): Promise<UnitReport[]> => {
     if (isDemoMode()) return getLocal('demo_reports');
-    const q = new URLSearchParams(p).toString();
-    try { const res = await fetch(`${API_URL}/reports?${q}`); return await res.json(); } catch { return []; }
+    const query = new URLSearchParams(params as any).toString();
+    try { const res = await fetch(`${API_URL}/reports?${query}`); return await res.json(); } catch { return []; }
   },
   sendReport: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    if (isDemoMode()) {
+        const list = getLocal('demo_reports');
+        const newItem = { ...d, id: Date.now().toString(), timestamp: Date.now() };
+        list.push(newItem);
+        setLocal('demo_reports', list);
+        return newItem;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/reports`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return await res.json();
+    } catch (e: any) { return null; }
   },
   deleteReport: async (id: string) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_reports');
+        setLocal('demo_reports', list.filter((r: any) => (r.id || r._id) !== id));
+        return true;
+    }
     try { const res = await fetch(`${API_URL}/reports/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   },
-  getDispatches: async (p: any): Promise<ProvincialDispatch[]> => {
+
+  // --- DISPATCHES ---
+  getDispatches: async (params: { province?: string, username?: string, commune?: string, year?: number }): Promise<ProvincialDispatch[]> => {
     if (isDemoMode()) return getLocal('demo_dispatches');
-    const q = new URLSearchParams(p).toString();
-    try { const res = await fetch(`${API_URL}/dispatches?${q}`); return await res.json(); } catch { return []; }
+    const query = new URLSearchParams(params as any).toString();
+    try { const res = await fetch(`${API_URL}/dispatches?${query}`); return await res.json(); } catch { return []; }
   },
   sendDispatch: async (d: any) => {
-    try { const res = await fetch(`${API_URL}/dispatches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return await res.json(); } catch { return null; }
+    if (isDemoMode()) {
+        const list = getLocal('demo_dispatches');
+        const newItem = { ...d, id: Date.now().toString(), timestamp: Date.now() };
+        list.push(newItem);
+        setLocal('demo_dispatches', list);
+        return newItem;
+    }
+    try { 
+      const res = await fetch(`${API_URL}/dispatches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); 
+      return await res.json();
+    } catch (e: any) { return null; }
   },
   deleteDispatch: async (id: string) => {
+    if (isDemoMode()) {
+        const list = getLocal('demo_dispatches');
+        setLocal('demo_dispatches', list.filter((d: any) => (d.id || d._id) !== id));
+        return true;
+    }
     try { const res = await fetch(`${API_URL}/dispatches/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; }
   }
 };

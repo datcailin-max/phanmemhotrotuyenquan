@@ -26,6 +26,16 @@ export const useRecruitFilters = (
 
     const activeTab = TABS.find(t => t.id === activeTabId) || TABS[0];
 
+    // Helper check hết hạn
+    const isExpiredInSession = (period?: string) => {
+        if (!period) return false;
+        const parts = period.split('-');
+        const lastPart = parts[parts.length - 1].trim();
+        const yearStr = lastPart.includes('/') ? lastPart.split('/').pop() : lastPart;
+        const endYear = parseInt(yearStr || '0');
+        return endYear > 0 && endYear < sessionYear;
+    };
+
     // Logic lọc theo từng Tab (Danh sách)
     switch (activeTabId) {
       case 'NOT_ALLOWED_REG':
@@ -159,27 +169,41 @@ export const useRecruitFilters = (
 
       case 'NEXT_YEAR_SOURCE':
         // DS 14: NGUỒN CỦA NĂM SAU = (DS 3: Đăng ký lần đầu) + (DS 13: Nguồn còn lại)
-        // Tuyệt đối không bao gồm diện Cấm và Miễn (1 và 2)
         result = result.filter(r => {
-            // 1. Chấp nhận diện đăng ký lần đầu
             if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
-            
-            // 2. Chấp nhận diện Nguồn còn lại (Sẵn sàng nhưng chưa đi)
             const age = checkAge(r, sessionYear);
             if (age < 18) return false;
             const isRestricted = [
                 RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
                 RecruitmentStatus.EXEMPT_REGISTRATION, 
-                RecruitmentStatus.FIRST_TIME_REGISTRATION, // Đã check ở trên
+                RecruitmentStatus.FIRST_TIME_REGISTRATION,
                 RecruitmentStatus.DELETED, 
                 RecruitmentStatus.REMOVED_FROM_SOURCE
             ];
             if (isRestricted.includes(r.status)) return false;
             const isEnlistedOfficial = (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL';
             if (isEnlistedOfficial) return false;
-            
             return true;
         });
+        break;
+
+      case 'EXPIRING_LIST':
+        // DS 16: Tổng hợp những người hết thời gian tạm hoãn/án phạt
+        result = result.filter(r => {
+            const isEduExpired = r.status === RecruitmentStatus.DEFERRED && isExpiredInSession(r.details.educationPeriod);
+            const isSentenceExpired = r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInSession(r.details.sentencePeriod);
+            return isEduExpired || isSentenceExpired;
+        });
+        break;
+
+      case 'EXPIRING_EDU':
+        // 16.1: Học xong
+        result = result.filter(r => r.status === RecruitmentStatus.DEFERRED && isExpiredInSession(r.details.educationPeriod));
+        break;
+
+      case 'EXPIRING_SENTENCE':
+        // 16.2: Xong án phạt
+        result = result.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInSession(r.details.sentencePeriod));
         break;
 
       default:
@@ -200,7 +224,11 @@ export const useRecruitFilters = (
     if (filterAgeRange) {
       result = result.filter(r => {
         const age = checkAge(r, sessionYear);
-        return filterAgeRange === '18-25' ? (age >= 18 && age <= 25) : (age >= 26 && age <= 27);
+        if (filterAgeRange === 'under18') return age < 18;
+        if (filterAgeRange === '18-24') return age >= 18 && age <= 24;
+        if (filterAgeRange === '25-27') return age >= 25 && age <= 27;
+        if (filterAgeRange === 'over27') return age > 27;
+        return true;
       });
     }
     if (advFilterEducation) result = result.filter(r => r.details.education === advFilterEducation);

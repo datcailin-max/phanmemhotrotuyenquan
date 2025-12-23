@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 import { TABS, ITEMS_PER_PAGE } from './RecruitManagement/constants';
-import { getStatusLabel, getStatusColor } from './RecruitManagement/utils';
+import { getStatusLabel, getStatusColor, checkAge } from './RecruitManagement/utils';
 import { useRecruitFilters } from './RecruitManagement/useRecruitFilters';
 
 // Sub-components
@@ -162,13 +162,18 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
 
   /**
    * Logic Hết hạn niên khóa (đối soát phiên làm việc hiện tại)
+   * Sửa lỗi MM/YYYY: Sử dụng split('/').pop() để lấy phần năm cuối cùng
    */
   const isExpiring = (recruit: Recruit) => {
     const isExpiredYear = (period?: string) => {
         if (!period) return false;
         const parts = period.split('-');
         const lastPart = parts[parts.length - 1].trim();
-        const endYear = parseInt(lastPart);
+        
+        // Trích xuất năm: Nếu có dấu / thì lấy phần cuối, nếu không lấy trực tiếp
+        const yearStr = lastPart.includes('/') ? lastPart.split('/').pop() : lastPart;
+        const endYear = parseInt(yearStr || '0');
+
         // Hết hạn khi năm kết thúc NHỎ HƠN năm tuyển quân hiện tại
         return endYear > 0 && endYear < sessionYear;
     };
@@ -194,6 +199,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
         <RecruitFilterBar 
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
           filterVillage={filterVillage} setFilterVillage={setFilterVillage}
+          filterAgeRange={filterAgeRange} setFilterAgeRange={setFilterAgeRange}
           showAdvancedFilter={showAdvancedFilter} setShowAdvancedFilter={setShowAdvancedFilter}
           advFilterEducation={advFilterEducation} setAdvFilterEducation={setAdvFilterEducation}
           advFilterHealth={advFilterHealth} setAdvFilterHealth={setAdvFilterHealth}
@@ -207,7 +213,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
               <tr>
                 <th className="p-4 border-b text-center w-12">STT</th>
                 <th className="p-4 border-b min-w-[200px]">Họ và tên / CCCD</th>
-                <th className="p-4 border-b text-center">Năm sinh</th>
+                <th className="p-4 border-b text-center">Ngày sinh / Tuổi</th>
                 <th className="p-4 border-b">Địa bàn cư trú</th>
                 <th className="p-4 border-b">Chất lượng (HV/CT/SK)</th>
                 {activeTabId === 'FIRST_TIME_REG' && <th className="p-4 border-b text-center">Hình thức ĐK</th>}
@@ -235,7 +241,16 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                       </div>
                       <div className="text-[10px] text-gray-500 font-mono mt-0.5 tracking-tighter">{recruit.citizenId || 'Chưa cập nhật CCCD'}</div>
                     </td>
-                    <td className="p-4 text-center font-bold text-gray-700">{recruit.dob ? recruit.dob.split('-')[0] : '---'}</td>
+                    <td className="p-4 text-center">
+                      <div className="font-bold text-gray-700">
+                        {recruit.dob ? recruit.dob.split('-').reverse().join('/') : '---'}
+                      </div>
+                      {recruit.dob && (
+                        <div className="text-[10px] font-black text-military-500 uppercase mt-0.5 tracking-tighter">
+                          {checkAge(recruit, sessionYear)} Tuổi
+                        </div>
+                      )}
+                    </td>
                     <td className="p-4">
                       <div className="text-xs font-bold text-gray-800">{recruit.address.village}</div>
                       <div className="text-[10px] text-gray-400 uppercase font-black tracking-tighter">{recruit.address.commune}</div>
