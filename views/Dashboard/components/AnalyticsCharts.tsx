@@ -20,13 +20,17 @@ export default function AnalyticsCharts({ stats }: any) {
                         <Globe size={18} className="text-blue-500"/> CƠ CẤU DÂN TỘC
                     </h3>
                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={stats.charts.ethnicityData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-                                {stats.charts.ethnicityData.map((_:any, i:number) => <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />)}
-                            </Pie>
+                        <BarChart data={stats.charts.ethnicityData} margin={{ top: 5, right: 20, left: -25, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" fontSize={9} fontWeight="600" />
+                            <YAxis fontSize={9} fontWeight="600" />
                             <Tooltip />
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '600' }} />
-                        </PieChart>
+                            <Bar dataKey="value" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} barSize={30}>
+                                {stats.charts.ethnicityData.map((_: any, i: number) => (
+                                    <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
 
@@ -71,13 +75,17 @@ export default function AnalyticsCharts({ stats }: any) {
                         <BookOpen size={18} className="text-military-600"/> TRÌNH ĐỘ VĂN HÓA (DS 4)
                     </h3>
                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={stats.charts.eduData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-                                {stats.charts.eduData.map((_:any, i:number) => <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />)}
-                            </Pie>
+                        <BarChart data={stats.charts.eduData} margin={{ top: 5, right: 20, left: -25, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" fontSize={9} fontWeight="600" interval={0} angle={-15} textAnchor="end" height={40} />
+                            <YAxis fontSize={9} fontWeight="600" />
                             <Tooltip />
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '600' }} />
-                        </PieChart>
+                            <Bar dataKey="value" fill={CHART_COLORS.secondary} radius={[4, 4, 0, 0]} barSize={25}>
+                                {stats.charts.eduData.map((_: any, i: number) => (
+                                    <Cell key={i} fill={CHART_COLORS.pie[i % CHART_COLORS.pie.length]} />
+                                ))}
+                            </Bar>
+                        </BarChart>
                     </ResponsiveContainer>
                 </div>
 

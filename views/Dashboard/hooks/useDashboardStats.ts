@@ -34,12 +34,6 @@ export const useDashboardStats = ({
     const stats = useMemo(() => {
         const checkAge = (r: Recruit, year: number) => year - parseInt(r.dob.split('-')[0] || '0');
 
-        /**
-         * Logic Hết hạn theo yêu cầu: 
-         * Nếu niên khóa 2020-2024 thì năm 2024 vẫn hoãn, sang 2025 mới hết hạn.
-         * Tức là: Năm kết thúc < Năm tuyển quân hiện tại.
-         * Sửa lỗi MM/YYYY: Lấy phần năm cuối cùng để so sánh.
-         */
         const isExpiredInCurrentSession = (period?: string) => {
             if (!period) return false;
             const parts = period.split('-');
@@ -87,7 +81,7 @@ export const useDashboardStats = ({
 
         const countNextYearSource = countRemaining + countFirstTime;
 
-        // --- CÔNG DÂN HẾT HẠN (Logic mới: endYear < sessionYear) ---
+        // --- CÔNG DÂN HẾT HẠN ---
         const expiringEdu = currentYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED && isExpiredInCurrentSession(r.details.educationPeriod));
         const expiringSentence = currentYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInCurrentSession(r.details.sentencePeriod));
 
@@ -113,7 +107,39 @@ export const useDashboardStats = ({
             return Object.entries(map).map(([name, value]) => ({ name, value }));
         };
 
-        const eduMap = createMap(validSource, 'details.education');
+        // Custom Edu Mapping
+        const eduMapping: Record<string, string> = {
+            "Lớp 1": "Dưới lớp 8", "Lớp 2": "Dưới lớp 8", "Lớp 3": "Dưới lớp 8",
+            "Lớp 4": "Dưới lớp 8", "Lớp 5": "Dưới lớp 8", "Lớp 6": "Dưới lớp 8",
+            "Lớp 7": "Dưới lớp 8",
+            "Lớp 8": "Lớp 8-12", "Lớp 9": "Lớp 8-12", "Lớp 10": "Lớp 8-12",
+            "Lớp 11": "Lớp 8-12", "Lớp 12": "Lớp 8-12",
+            "Đang học lớp 11": "Lớp 8-12", "Đang học lớp 12": "Lớp 8-12",
+            "Đại học": "Đại học",
+            "Cao đẳng": "Cao đẳng",
+            "Trung cấp": "Trung cấp",
+            "Đang học CĐ": "Đang học CĐ",
+            "Đang học ĐH": "Đang học ĐH"
+        };
+
+        const eduStats: Record<string, number> = {
+            "Dưới lớp 8": 0,
+            "Lớp 8-12": 0,
+            "Trung cấp": 0,
+            "Cao đẳng": 0,
+            "Đại học": 0,
+            "Đang học CĐ": 0,
+            "Đang học ĐH": 0
+        };
+
+        validSource.forEach(r => {
+            const cat = eduMapping[r.details.education];
+            if (cat && eduStats[cat] !== undefined) {
+                eduStats[cat]++;
+            }
+        });
+        const eduData = Object.entries(eduStats).map(([name, value]) => ({ name, value }));
+
         const ethnicityMap = createMap(validSource, 'details.ethnicity');
         const religionMap = createMap(validSource, 'details.religion');
         const jobMap = createMap(validSource, 'details.job');
@@ -161,8 +187,8 @@ export const useDashboardStats = ({
                 total: validSource.length || 1
             },
             charts: {
-                eduData: eduMap,
-                ethnicityData: ethnicityMap.sort((a,b) => b.value - a.value).slice(0, 5),
+                eduData,
+                ethnicityData: ethnicityMap.sort((a,b) => b.value - a.value).slice(0, 8),
                 religionData: religionMap,
                 jobData: jobMap.sort((a,b) => b.value - a.value).slice(0, 8),
                 geoData: Object.entries(geoMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 10),
