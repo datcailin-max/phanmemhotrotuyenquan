@@ -47,25 +47,35 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       });
     }
   };
+
+  const handleMoveToFirstTimeReg = () => {
+    const listName = activeTabId === 'NOT_ALLOWED_REG' ? 'Danh sách 1' : 'Danh sách 2';
+    if (window.confirm(`Xác nhận chuyển công dân ${recruit.fullName} từ ${listName} sang Danh sách 3 (Đăng ký lần đầu)?\n\nHệ thống sẽ xóa bỏ hoàn toàn lý do và tình trạng cấm/miễn đăng ký trước đó.`)) {
+      onUpdate({ 
+        ...recruit, 
+        status: RecruitmentStatus.FIRST_TIME_REGISTRATION, 
+        previousStatus: recruit.status,
+        defermentReason: '',
+        defermentProof: '',
+        enlistmentType: undefined,
+        enlistmentUnit: undefined,
+        enlistmentDate: undefined
+      });
+    }
+  };
   
   switch (activeTabId) {
     case 'NOT_ALLOWED_REG':
       return (
         <div className="flex items-center justify-center gap-1">
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
-          {isExpiring && (
-            <button 
-              onClick={() => {
-                if(window.confirm(`Xác nhận đưa công dân ${recruit.fullName} về Danh sách 3 (Đăng ký lần đầu) sau khi hết thời hạn án phạt?`)) {
-                  onUpdate({ ...recruit, status: RecruitmentStatus.FIRST_TIME_REGISTRATION, previousStatus: recruit.status });
-                }
-              }}
-              className="p-1 text-purple-600 hover:bg-purple-50 rounded" 
-              title="Đưa về Đăng ký lần đầu (DS 3)"
-            >
-              <UserPlus size={16} />
-            </button>
-          )}
+          <button 
+            onClick={handleMoveToFirstTimeReg}
+            className="p-1 text-purple-600 hover:bg-purple-50 rounded" 
+            title="Đưa về Đăng ký lần đầu (DS 3)"
+          >
+            <UserPlus size={16} />
+          </button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
@@ -73,6 +83,13 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       return (
         <div className="flex items-center justify-center gap-1">
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
+          <button 
+            onClick={handleMoveToFirstTimeReg}
+            className="p-1 text-purple-600 hover:bg-purple-50 rounded" 
+            title="Đưa về Đăng ký lần đầu (DS 3)"
+          >
+            <UserPlus size={16} />
+          </button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );

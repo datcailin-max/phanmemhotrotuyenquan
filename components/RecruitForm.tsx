@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
-import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert } from 'lucide-react';
+import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt } from 'lucide-react';
 import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
 
 // Sub-components
@@ -228,10 +228,17 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
         return;
     }
 
+    // Yêu cầu chọn hình thức đăng ký cho DS 3
+    if (formData.status === RecruitmentStatus.FIRST_TIME_REGISTRATION && !formData.details.registrationMethod) {
+        alert("Vui lòng chọn Hình thức đăng ký (Trực tiếp hoặc Trực tuyến) cho công dân này.");
+        return;
+    }
+
     onSubmit(formData);
   };
 
   const isStudyingHigherEd = formData.details.education?.startsWith('Đang học');
+  const isDS3 = formData.status === RecruitmentStatus.FIRST_TIME_REGISTRATION;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
@@ -255,6 +262,42 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
                   <span className="text-sm font-black uppercase tracking-widest">Dữ liệu đang được bảo vệ (Chế độ xem)</span>
                </div>
                <div className="text-[10px] font-bold opacity-75">Ban CHQS Tỉnh giám sát</div>
+            </div>
+          )}
+
+          {/* MỤC CHỌN HÌNH THỨC ĐĂNG KÝ - ĐƯA LÊN ĐẦU CHO DS 3 */}
+          {isDS3 && (
+            <div className="bg-cyan-50 border-2 border-cyan-200 p-5 rounded-2xl mb-8 animate-in slide-in-from-top-2 duration-500">
+               <label className="block text-xs font-black text-cyan-800 uppercase mb-3 flex items-center gap-2">
+                  <UserPlus size={18} className="text-cyan-600"/> Hình thức đăng ký Nghĩa vụ quân sự (Bắt buộc)
+               </label>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => handleChange('details.registrationMethod', 'DIRECT')}
+                    className={`flex items-center justify-center gap-3 py-3.5 rounded-xl border-2 transition-all font-black uppercase text-xs ${
+                      formData.details.registrationMethod === 'DIRECT' 
+                        ? 'bg-cyan-600 border-cyan-700 text-white shadow-lg scale-[1.02]' 
+                        : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-200'
+                    }`}
+                    disabled={isReadOnly}
+                  >
+                    <UserIconAlt size={20}/> Đăng ký trực tiếp
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => handleChange('details.registrationMethod', 'ONLINE')}
+                    className={`flex items-center justify-center gap-3 py-3.5 rounded-xl border-2 transition-all font-black uppercase text-xs ${
+                      formData.details.registrationMethod === 'ONLINE' 
+                        ? 'bg-blue-600 border-blue-700 text-white shadow-lg scale-[1.02]' 
+                        : 'bg-white border-gray-200 text-gray-400 hover:border-blue-200'
+                    }`}
+                    disabled={isReadOnly}
+                  >
+                    <Globe size={20}/> Đăng ký trực tuyến
+                  </button>
+               </div>
+               <p className="text-[10px] text-cyan-600 font-bold italic mt-2">* Thông tin này dùng để phân loại cách thức công dân thực hiện nghĩa vụ tại địa phương.</p>
             </div>
           )}
 

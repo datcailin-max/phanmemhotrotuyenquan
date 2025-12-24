@@ -59,37 +59,8 @@ const StatusFields = ({ formData, isReadOnly, handleChange }: any) => {
         
         {/* Trường hợp Danh sách 3: Đăng ký lần đầu */}
         {s === RecruitmentStatus.FIRST_TIME_REGISTRATION && (
-          <div className="space-y-4">
-            <label className="block text-[10px] font-black text-cyan-800 uppercase mb-2 flex items-center gap-1">
-              <UserPlus size={14}/> Hình thức đăng ký Nghĩa vụ quân sự
-            </label>
-            <div className="flex gap-4">
-              <button 
-                type="button"
-                onClick={() => handleChange('details.registrationMethod', 'DIRECT')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all font-black uppercase text-xs ${
-                  formData.details.registrationMethod === 'DIRECT' 
-                    ? 'bg-cyan-600 border-cyan-700 text-white shadow-md' 
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-200'
-                }`}
-                disabled={isReadOnly}
-              >
-                <User size={16}/> Trực tiếp
-              </button>
-              <button 
-                type="button"
-                onClick={() => handleChange('details.registrationMethod', 'ONLINE')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all font-black uppercase text-xs ${
-                  formData.details.registrationMethod === 'ONLINE' 
-                    ? 'bg-blue-600 border-blue-700 text-white shadow-md' 
-                    : 'bg-white border-gray-200 text-gray-400 hover:border-blue-200'
-                }`}
-                disabled={isReadOnly}
-              >
-                <Globe size={16}/> Trực tuyến
-              </button>
-            </div>
-            <p className="text-[9px] text-cyan-600 font-bold italic">* Phân loại cách thức công dân thực hiện nghĩa vụ đăng ký tại địa phương.</p>
+          <div className="p-2 text-center">
+            <p className="text-xs font-bold text-cyan-700 italic">Vui lòng kiểm tra "Hình thức đăng ký" đã chọn ở phía trên cùng của biểu mẫu.</p>
           </div>
         )}
 

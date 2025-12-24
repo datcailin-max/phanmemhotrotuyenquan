@@ -17,7 +17,8 @@ const BulkVillageRenameModal: React.FC<BulkVillageRenameModalProps> = ({ recruit
   // Lấy danh sách các thôn/ấp duy nhất hiện có trong dữ liệu
   const existingVillages = useMemo(() => {
     const villages = recruits.map(r => r.address.village).filter(v => !!v);
-    return Array.from(new Set(villages)).sort((a, b) => a.localeCompare(b));
+    // Fix: Explicitly type sort parameters as strings to resolve 'localeCompare' error on 'unknown' type
+    return Array.from(new Set(villages)).sort((a: string, b: string) => a.localeCompare(b));
   }, [recruits]);
 
   // Tính số lượng công dân sẽ bị ảnh hưởng

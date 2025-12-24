@@ -45,7 +45,8 @@ const recruitSchema = new mongoose.Schema({
     partyEntryDate: String,
     gifted: String,
     familyComposition: String,
-    personalComposition: String
+    personalComposition: String,
+    registrationMethod: String // Bổ sung trường này để lưu 'DIRECT' hoặc 'ONLINE'
   },
   family: {
     father: {
@@ -71,6 +72,7 @@ const recruitSchema = new mongoose.Schema({
   defermentReason: String,
   defermentProof: String, // Văn bản chứng minh (cho lý do chính sách)
   enlistmentUnit: String,
+  enlistmentDate: String,
   enlistmentType: String, // 'OFFICIAL' or 'RESERVE'
   recruitmentYear: { type: Number, required: true },
   attachments: [{
