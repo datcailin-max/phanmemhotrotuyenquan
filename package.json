@@ -2,7 +2,7 @@
 {
   "name": "phan-mem-tuyen-quan",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,7 @@
     "@google/genai": "latest",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "lucide-react": "latest",
+    "lucide-react": "^0.471.0",
     "mongoose": "^8.9.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
