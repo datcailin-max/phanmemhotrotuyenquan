@@ -114,6 +114,23 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
+    case 'TT50':
+    case 'KTC_SUB1':
+    case 'KTC_SUB2':
+      return (
+        <div className="flex items-center justify-center gap-1">
+          <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
+          <button 
+            onClick={() => onOpenTT50Modal?.(recruit)} 
+            className="p-1 text-slate-600 hover:bg-slate-50 rounded" 
+            title="Cập nhật lý do KTC, CGNN (TT50)"
+          >
+            <BookX size={16}/>
+          </button>
+          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', previousStatus: recruit.status, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Khôi phục về Nguồn"><Undo2 size={16}/></button>
+          <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
+        </div>
+      );
     case 'PRE_CHECK':
       return (
         <div className="flex items-center justify-center gap-1">

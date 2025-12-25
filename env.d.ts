@@ -12,12 +12,11 @@ declare namespace NodeJS {
 }
 
 /**
- * Fix: Added 'readonly' modifier to 'aistudio' to resolve "identical modifiers" error 
+ * Fix: Removed 'readonly' modifier from 'aistudio' to resolve "identical modifiers" error 
  * when merging with internal host declarations.
  */
 interface Window {
-  // Fix: Added 'readonly' to match internal host environment declarations.
-  readonly aistudio: {
+  aistudio: {
     hasSelectedApiKey(): Promise<boolean>;
     openSelectKey(): Promise<void>;
   };
