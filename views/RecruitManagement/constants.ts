@@ -30,7 +30,7 @@ export const TABS = [
   { id: 'FINAL_OFFICIAL', label: '10.1. DANH SÁCH CHÍNH THỨC', status: null, color: 'bg-green-500', lightColor: 'bg-green-50', borderColor: 'border-green-500', textColor: 'text-green-800', icon: Flag, isSub: true, parentId: 'FINAL' },
   { id: 'FINAL_RESERVE', label: '10.2. DANH SÁCH DỰ BỊ', status: null, color: 'bg-teal-500', lightColor: 'bg-teal-50', borderColor: 'border-teal-500', textColor: 'text-teal-800', icon: Tent, isSub: true, parentId: 'FINAL' },
   { id: 'ENLISTED', label: '11. DS LỆNH NHẬP NGŨ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', lightColor: 'bg-red-50', borderColor: 'border-red-600', textColor: 'text-red-900', icon: Flag },
-  { id: 'REMOVED', label: '12. DS LOẠI KHỔI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
+  { id: 'REMOVED', label: '12. DS LOẠI KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
   { id: 'REMAINING', label: '13. DS NGUỒN CÒN LẠI', status: null, color: 'bg-teal-600', lightColor: 'bg-teal-50', borderColor: 'border-teal-500', textColor: 'text-teal-900', icon: Layers },
   { id: 'NEXT_YEAR_SOURCE', label: '14. NGUỒN CỦA NĂM SAU', status: null, color: 'bg-cyan-600', lightColor: 'bg-cyan-50', borderColor: 'border-cyan-600', textColor: 'text-cyan-900', icon: Calendar },
   { id: 'DELETED_LIST', label: '15. DS ĐÃ XÓA', status: [RecruitmentStatus.DELETED], color: 'bg-black', lightColor: 'bg-gray-200', borderColor: 'border-black', textColor: 'text-gray-900', icon: Trash2 },
