@@ -12,7 +12,9 @@ export const getStatusLabel = (status: RecruitmentStatus) => {
         case RecruitmentStatus.EXEMPT_REGISTRATION: return 'Miễn ĐK';
         case RecruitmentStatus.FIRST_TIME_REGISTRATION: return 'ĐK Lần đầu';
         case RecruitmentStatus.SOURCE: return 'Nguồn';
-        case RecruitmentStatus.NOT_SELECTED_TT50: return 'Không tuyển (TT50)';
+        case RecruitmentStatus.NOT_SELECTED_TT50: return 'KTC, CGNN';
+        case RecruitmentStatus.KTC_KHONG_TUYEN_CHON: return 'Không tuyển chọn';
+        case RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU: return 'Chưa gọi nhập ngũ';
         case RecruitmentStatus.PRE_CHECK_PASSED: return 'Đạt sơ tuyển';
         case RecruitmentStatus.PRE_CHECK_FAILED: return 'Không đạt sơ tuyển';
         case RecruitmentStatus.MED_EXAM_PASSED: return 'Đạt';
@@ -21,7 +23,7 @@ export const getStatusLabel = (status: RecruitmentStatus) => {
         case RecruitmentStatus.ENLISTED: return 'Nhập ngũ';
         case RecruitmentStatus.DEFERRED: return 'Tạm hoãn';
         case RecruitmentStatus.EXEMPTED: return 'Miễn gọi';
-        case RecruitmentStatus.REMOVED_FROM_SOURCE: return 'Đã loại';
+        case RecruitmentStatus.REMOVED_FROM_SOURCE: return 'Đưa ra khỏi nguồn';
         case RecruitmentStatus.DELETED: return 'Đã xóa';
         default: return status;
     }
@@ -41,6 +43,9 @@ export const getStatusColor = (status: RecruitmentStatus) => {
             return 'bg-amber-50 text-amber-700 border-amber-200';
         case RecruitmentStatus.FIRST_TIME_REGISTRATION:
             return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+        case RecruitmentStatus.KTC_KHONG_TUYEN_CHON:
+        case RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU:
+            return 'bg-slate-100 text-slate-700 border-slate-300';
         case RecruitmentStatus.DELETED:
             return 'bg-gray-100 text-gray-500 border-gray-300 line-through';
         default:

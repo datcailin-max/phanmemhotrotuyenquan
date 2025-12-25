@@ -13,7 +13,9 @@ export const useRecruitActions = (
 ) => {
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [showReasonModal, setShowReasonModal] = useState(false);
+  const [showTT50Modal, setShowTT50Modal] = useState(false); // Modal mới cho DS 5
   const [reasonModalConfig, setReasonModalConfig] = useState<{ recruit: Recruit, type: 'DEFERRED' | 'EXEMPTED' } | null>(null);
+  const [tt50Recruit, setTt50Recruit] = useState<Recruit | null>(null); // Recruit mục tiêu cho DS 5
   const [recruitToRemove, setRecruitToRemove] = useState<Recruit | null>(null);
   const [removeReason, setRemoveReason] = useState('');
   const [failureReasons, setFailureReasons] = useState<Record<string, string>>({});
@@ -70,6 +72,28 @@ export const useRecruitActions = (
     }
   };
 
+  // Xử lý áp dụng lý do cho DS 5 (KTC, CGNN)
+  const handleApplyTT50Reason = (reason: string, reasonIndex: number) => {
+    if (tt50Recruit) {
+      // Index 0-12 -> 5.1 (Không tuyển chọn) | Index 13-16 -> 5.2 (Chưa gọi nhập ngũ)
+      const nextStatus = reasonIndex <= 12 
+        ? RecruitmentStatus.KTC_KHONG_TUYEN_CHON 
+        : RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU;
+
+      onUpdate({
+        ...tt50Recruit,
+        status: nextStatus,
+        defermentReason: reason,
+        previousStatus: tt50Recruit.status,
+        enlistmentType: undefined,
+        enlistmentUnit: undefined,
+        enlistmentDate: undefined
+      });
+      setShowTT50Modal(false);
+      setTt50Recruit(null);
+    }
+  };
+
   const handleHealthGradeSelect = (recruit: Recruit, grade: number) => {
     const isPassed = grade >= 1 && grade <= 3;
     const newStatus = isPassed ? RecruitmentStatus.FINALIZED : RecruitmentStatus.MED_EXAM_FAILED;
@@ -95,7 +119,9 @@ export const useRecruitActions = (
   return {
     showRemoveModal, setShowRemoveModal,
     showReasonModal, setShowReasonModal,
+    showTT50Modal, setShowTT50Modal,
     reasonModalConfig, setReasonModalConfig,
+    tt50Recruit, setTt50Recruit,
     recruitToRemove, setRecruitToRemove,
     removeReason, setRemoveReason,
     failureReasons, setFailureReasons,
@@ -103,6 +129,7 @@ export const useRecruitActions = (
     handleConfirmRemove,
     handleOpenReasonModal,
     handleApplyReason,
+    handleApplyTT50Reason,
     handleHealthGradeSelect,
     handleUpdateFailureReason
   };

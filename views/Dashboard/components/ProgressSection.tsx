@@ -24,14 +24,14 @@ export default function ProgressSection({ stats, onNavigate }: any) {
              <Card title="2. MIỄN ĐK" count={stats.countExemptReg} icon={Shield} color="bg-slate-500" onClick={() => onNavigate('EXEMPT_REG')} />
              <Card title="3. ĐK LẦN ĐẦU" count={stats.countFirstTime} icon={UserPlus} color="bg-cyan-600" onClick={() => onNavigate('FIRST_TIME_REG')} />
              <Card title="4. TỔNG NGUỒN" count={stats.countTotalSource} icon={Users} color="bg-gray-600" onClick={() => onNavigate('ALL')} />
-             <Card title="5. KHÔNG TUYỂN (TT50)" count={stats.countTT50} icon={BookX} color="bg-slate-600" onClick={() => onNavigate('TT50')} />
+             <Card title="5. KTC, CGNN" count={stats.countTT50} icon={BookX} color="bg-slate-600" onClick={() => onNavigate('TT50')} />
              <Card title="6. ĐỦ ĐK SƠ TUYỂN" count={stats.ds6_count} icon={ClipboardList} color="bg-blue-600" onClick={() => onNavigate('PRE_CHECK')} detailText={`${stats.countPreCheckPass} Đạt / ${stats.countPreCheckFail} Loại`} />
              <Card title="7. ĐỦ ĐK KHÁM TUYỂN" count={stats.countPreCheckPass} icon={Stethoscope} color="bg-indigo-600" onClick={() => onNavigate('MED_EXAM')} detailText={`${stats.countMedPass} Đạt / ${stats.countMedFail} Loại`} />
              <Card title="8. TẠM HOÃN" count={stats.countDeferred} icon={PauseCircle} color="bg-amber-600" onClick={() => onNavigate('DEFERRED_LIST')} />
              <Card title="9. MIỄN GỌI NN" count={stats.countExempted} icon={ShieldCheck} color="bg-purple-600" onClick={() => onNavigate('EXEMPTED_LIST')} />
              <Card title="10. CHỐT HỒ SƠ" count={stats.countFinalized} icon={FileSignature} color="bg-green-600" onClick={() => onNavigate('FINAL')} detailText={`${stats.countFinalizedOfficial} CT / ${stats.countFinalizedReserve} DB`} />
              <Card title="11. NHẬP NGŨ" count={stats.countEnlisted} icon={Flag} color="bg-red-600" onClick={() => onNavigate('ENLISTED')} />
-             <Card title="12. LOẠI KHỔI NGUỒN" count={stats.countRemoved} icon={UserX} color="bg-gray-400" onClick={() => onNavigate('REMOVED')} />
+             <Card title="12. ĐƯA RA KHỎI NGUỒN" count={stats.countRemoved} icon={UserX} color="bg-gray-400" onClick={() => onNavigate('REMOVED')} />
              <Card title="13. NGUỒN CÒN LẠI" count={stats.countRemaining} icon={Layers} color="bg-teal-600" onClick={() => onNavigate('REMAINING')} />
              <Card title="14. NGUỒN NĂM SAU" count={stats.countNextYearSource} icon={Calendar} color="bg-cyan-600" onClick={() => onNavigate('NEXT_YEAR_SOURCE')} isLast />
              

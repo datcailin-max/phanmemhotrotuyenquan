@@ -64,6 +64,18 @@ export const useRecruitFilters = (
         });
         break;
 
+      case 'TT50':
+        result = result.filter(r => [RecruitmentStatus.NOT_SELECTED_TT50, RecruitmentStatus.KTC_KHONG_TUYEN_CHON, RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU].includes(r.status));
+        break;
+
+      case 'KTC_SUB1':
+        result = result.filter(r => r.status === RecruitmentStatus.KTC_KHONG_TUYEN_CHON);
+        break;
+
+      case 'KTC_SUB2':
+        result = result.filter(r => r.status === RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU);
+        break;
+
       case 'PRE_CHECK':
         // Danh sách 6: Hiển thị DS 4 - (DS 5 + DS 8 + DS 9 + DS 12)
         result = result.filter(r => {
@@ -72,6 +84,8 @@ export const useRecruitFilters = (
             if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.FIRST_TIME_REGISTRATION].includes(r.status)) return false;
             if ([
                 RecruitmentStatus.NOT_SELECTED_TT50, 
+                RecruitmentStatus.KTC_KHONG_TUYEN_CHON,
+                RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU,
                 RecruitmentStatus.DEFERRED, 
                 RecruitmentStatus.EXEMPTED, 
                 RecruitmentStatus.REMOVED_FROM_SOURCE,
@@ -151,7 +165,6 @@ export const useRecruitFilters = (
         // DS 13: Nguồn còn lại (Nguồn sẵn sàng nhưng chưa đi)
         result = result.filter(r => {
             if (checkAge(r, sessionYear) < 18) return false;
-            // Loại bỏ hoàn toàn diện cấm, miễn, và đăng ký lần đầu
             const isRestricted = [
                 RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
                 RecruitmentStatus.EXEMPT_REGISTRATION, 
@@ -160,7 +173,6 @@ export const useRecruitFilters = (
                 RecruitmentStatus.REMOVED_FROM_SOURCE
             ];
             if (isRestricted.includes(r.status)) return false;
-            // Loại bỏ người đã phát lệnh chính thức
             const isEnlistedOfficial = (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL';
             if (isEnlistedOfficial) return false;
             return true;
@@ -168,7 +180,6 @@ export const useRecruitFilters = (
         break;
 
       case 'NEXT_YEAR_SOURCE':
-        // DS 14: NGUỒN CỦA NĂM SAU = (DS 3: Đăng ký lần đầu) + (DS 13: Nguồn còn lại)
         result = result.filter(r => {
             if (r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION) return true;
             const age = checkAge(r, sessionYear);
@@ -188,7 +199,6 @@ export const useRecruitFilters = (
         break;
 
       case 'EXPIRING_LIST':
-        // DS 16: Tổng hợp những người hết thời gian tạm hoãn/án phạt
         result = result.filter(r => {
             const isEduExpired = r.status === RecruitmentStatus.DEFERRED && isExpiredInSession(r.details.educationPeriod);
             const isSentenceExpired = r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInSession(r.details.sentencePeriod);
@@ -197,12 +207,10 @@ export const useRecruitFilters = (
         break;
 
       case 'EXPIRING_EDU':
-        // 16.1: Học xong
         result = result.filter(r => r.status === RecruitmentStatus.DEFERRED && isExpiredInSession(r.details.educationPeriod));
         break;
 
       case 'EXPIRING_SENTENCE':
-        // 16.2: Xong án phạt
         result = result.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInSession(r.details.sentencePeriod));
         break;
 

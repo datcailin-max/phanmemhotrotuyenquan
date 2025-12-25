@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Recruit, User, RecruitmentStatus } from '../types';
 import RecruitForm from '../components/RecruitForm';
 import { 
-  Paperclip, ChevronRight, ChevronLeft, GraduationCap, Flag, HeartPulse, AlertTriangle, Globe, User as UserIcon
+  Paperclip, ChevronRight, ChevronLeft, GraduationCap, Flag, HeartPulse, AlertTriangle, Globe, User as UserIcon, BookOpen, Info
 } from 'lucide-react';
 
 import { TABS, ITEMS_PER_PAGE } from './RecruitManagement/constants';
@@ -18,6 +18,7 @@ import ActionButtons from './RecruitManagement/components/ActionButtons';
 import LegalReasonModal from './RecruitManagement/modals/LegalReasonModal';
 import RemovalModal from './RecruitManagement/modals/RemovalModal';
 import BulkVillageRenameModal from './RecruitManagement/modals/BulkVillageRenameModal';
+import TT50ReasonModal from './RecruitManagement/modals/TT50ReasonModal'; // Import modal mới
 import { useRecruitActions } from './RecruitManagement/hooks/useRecruitActions';
 import { api } from '../api';
 
@@ -210,6 +211,23 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onBulkVillageRename={() => setShowBulkModal(true)}
         />
 
+        {/* THÔNG BÁO QUY ĐỊNH CHO DANH SÁCH 5 */}
+        {activeTabId.startsWith('TT50') || activeTabId.startsWith('KTC_SUB') ? (
+          <div className="mx-6 mt-4 p-4 bg-slate-50 border-l-4 border-slate-400 rounded-r-xl flex items-start gap-4 animate-in slide-in-from-top-2 duration-500">
+             <div className="p-2 bg-slate-200 rounded-lg text-slate-600 shrink-0">
+               <BookOpen size={20} />
+             </div>
+             <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <Info size={12}/> Cơ sở pháp lý thực hiện xét duyệt
+                </p>
+                <p className="text-xs font-bold text-slate-700 leading-relaxed">
+                  Văn bản hợp nhất số 85/VBHN-BQP ngày 18/10/2025 của Bộ Quốc phòng về việc quy định tiêu chuẩn chính trị tuyển chọn công dân vào phục vụ trong môi trường Quân đội nhân dân Việt Nam.
+                </p>
+             </div>
+          </div>
+        ) : null}
+
         <RecruitFilterBar 
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
           filterVillage={filterVillage} setFilterVillage={setFilterVillage}
@@ -316,6 +334,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         onOpenRemoveModal={(r) => { ra.setRecruitToRemove(r); ra.setShowRemoveModal(true); }}
                         onHealthGradeSelect={ra.handleHealthGradeSelect}
                         onUpdateFailureReason={ra.handleUpdateFailureReason}
+                        onOpenTT50Modal={(r) => { ra.setTt50Recruit(r); ra.setShowTT50Modal(true); }} // Prop mới cho TT50
                         isExpiring={expiring}
                       />
                     </td>
@@ -362,6 +381,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           type={ra.reasonModalConfig.type} 
           onClose={() => ra.setShowReasonModal(false)} 
           onApply={ra.handleApplyReason} 
+        />
+      )}
+
+      {ra.showTT50Modal && (
+        <TT50ReasonModal 
+          onClose={() => ra.setShowTT50Modal(false)}
+          onApply={ra.handleApplyTT50Reason}
         />
       )}
 

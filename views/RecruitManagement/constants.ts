@@ -3,7 +3,7 @@ import { RecruitmentStatus } from '../../types';
 import { 
   Users, ClipboardList, Stethoscope, FileSignature, Flag, Calendar, 
   PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, Trash2, 
-  CheckCircle2, XCircle, UserX, Tent, AlertTriangle, GraduationCap, Gavel
+  CheckCircle2, XCircle, UserX, Tent, AlertTriangle, GraduationCap, Gavel, UserMinus, UserSearch
 } from 'lucide-react';
 
 export const ITEMS_PER_PAGE = 10;
@@ -13,7 +13,9 @@ export const TABS = [
   { id: 'EXEMPT_REG', label: '2. DS ĐƯỢC MIỄN ĐK NVQS', status: [RecruitmentStatus.EXEMPT_REGISTRATION], color: 'bg-slate-500', lightColor: 'bg-slate-100', borderColor: 'border-slate-500', textColor: 'text-slate-800', icon: Shield },
   { id: 'FIRST_TIME_REG', label: '3. DS ĐĂNG KÝ NVQS LẦN ĐẦU', status: [RecruitmentStatus.FIRST_TIME_REGISTRATION], color: 'bg-cyan-600', lightColor: 'bg-cyan-50', borderColor: 'border-cyan-600', textColor: 'text-cyan-900', icon: UserPlus },
   { id: 'ALL', label: '4. TOÀN BỘ NGUỒN', status: null, color: 'bg-gray-600', lightColor: 'bg-gray-100', borderColor: 'border-gray-600', textColor: 'text-gray-900', icon: Users },
-  { id: 'TT50', label: '5. DS KHÔNG TUYỂN CHỌN (TT 50)', status: [RecruitmentStatus.NOT_SELECTED_TT50], color: 'bg-slate-600', lightColor: 'bg-slate-200', borderColor: 'border-slate-600', textColor: 'text-slate-900', icon: BookX },
+  { id: 'TT50', label: '5. DS KTC, CGNN', status: [RecruitmentStatus.NOT_SELECTED_TT50, RecruitmentStatus.KTC_KHONG_TUYEN_CHON, RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU], color: 'bg-slate-600', lightColor: 'bg-slate-200', borderColor: 'border-slate-600', textColor: 'text-slate-900', icon: BookX },
+  { id: 'KTC_SUB1', label: '5.1. KHÔNG TUYỂN CHỌN', status: [RecruitmentStatus.KTC_KHONG_TUYEN_CHON], color: 'bg-slate-500', lightColor: 'bg-slate-50', borderColor: 'border-slate-500', textColor: 'text-slate-700', icon: UserMinus, isSub: true, parentId: 'TT50' },
+  { id: 'KTC_SUB2', label: '5.2. CHƯA GỌI NHẬP NGŨ', status: [RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU], color: 'bg-slate-500', lightColor: 'bg-slate-50', borderColor: 'border-slate-500', textColor: 'text-slate-700', icon: UserSearch, isSub: true, parentId: 'TT50' },
   { id: 'PRE_CHECK', label: '6. DS ĐỦ ĐK SƠ TUYỂN', status: null, color: 'bg-blue-600', lightColor: 'bg-blue-50', borderColor: 'border-blue-600', textColor: 'text-blue-900', icon: ClipboardList },
   { id: 'PRE_CHECK_PASS', label: '6.1. DS ĐẠT SƠ TUYỂN', status: [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED], color: 'bg-blue-500', lightColor: 'bg-blue-50', borderColor: 'border-blue-500', textColor: 'text-blue-800', icon: CheckCircle2, isSub: true, parentId: 'PRE_CHECK' },
   { id: 'PRE_CHECK_FAIL', label: '6.2. DS KHÔNG ĐẠT SƠ TUYỂN', status: [RecruitmentStatus.PRE_CHECK_FAILED], color: 'bg-orange-500', lightColor: 'bg-orange-50', borderColor: 'border-orange-500', textColor: 'text-orange-900', icon: XCircle, isSub: true, parentId: 'PRE_CHECK' },
@@ -30,7 +32,7 @@ export const TABS = [
   { id: 'FINAL_OFFICIAL', label: '10.1. DANH SÁCH CHÍNH THỨC', status: null, color: 'bg-green-500', lightColor: 'bg-green-50', borderColor: 'border-green-500', textColor: 'text-green-800', icon: Flag, isSub: true, parentId: 'FINAL' },
   { id: 'FINAL_RESERVE', label: '10.2. DANH SÁCH DỰ BỊ', status: null, color: 'bg-teal-500', lightColor: 'bg-teal-50', borderColor: 'border-teal-500', textColor: 'text-teal-800', icon: Tent, isSub: true, parentId: 'FINAL' },
   { id: 'ENLISTED', label: '11. DS LỆNH NHẬP NGŨ', status: [RecruitmentStatus.ENLISTED], color: 'bg-red-600', lightColor: 'bg-red-50', borderColor: 'border-red-600', textColor: 'text-red-900', icon: Flag },
-  { id: 'REMOVED', label: '12. DS LOẠI KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
+  { id: 'REMOVED', label: '12. DS ĐƯA RA KHỎI NGUỒN', status: [RecruitmentStatus.REMOVED_FROM_SOURCE], color: 'bg-gray-400', lightColor: 'bg-gray-100', borderColor: 'border-gray-400', textColor: 'text-gray-600', icon: UserX },
   { id: 'REMAINING', label: '13. DS NGUỒN CÒN LẠI', status: null, color: 'bg-teal-600', lightColor: 'bg-teal-50', borderColor: 'border-teal-500', textColor: 'text-teal-900', icon: Layers },
   { id: 'NEXT_YEAR_SOURCE', label: '14. NGUỒN CỦA NĂM SAU', status: null, color: 'bg-cyan-600', lightColor: 'bg-cyan-50', borderColor: 'border-cyan-600', textColor: 'text-cyan-900', icon: Calendar },
   { id: 'DELETED_LIST', label: '15. DS ĐÃ XÓA', status: [RecruitmentStatus.DELETED], color: 'bg-black', lightColor: 'bg-gray-200', borderColor: 'border-black', textColor: 'text-gray-900', icon: Trash2 },

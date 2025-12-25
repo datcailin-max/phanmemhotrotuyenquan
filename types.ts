@@ -1,11 +1,12 @@
 
-
 export enum RecruitmentStatus {
   NOT_ALLOWED_REGISTRATION = 'KHONG_DUOC_DANG_KY', // 1. Không được đăng ký NVQS
   EXEMPT_REGISTRATION = 'MIEN_DANG_KY', // 2. Miễn đăng ký NVQS
   FIRST_TIME_REGISTRATION = 'DANG_KY_LAN_DAU', // 3. Đăng ký NVQS lần đầu
   SOURCE = 'NGUON', // 4. Tổng Nguồn công dân (Sẵn sàng nhập ngũ)
-  NOT_SELECTED_TT50 = 'KHONG_TUYEN_CHON_TT50', // Không tuyển chọn, chưa gọi nhập ngũ (TT50)
+  NOT_SELECTED_TT50 = 'KHONG_TUYEN_CHON_TT50', // 5. DS KTC, CGNN (Chung)
+  KTC_KHONG_TUYEN_CHON = 'KTC_KHONG_TUYEN_CHON', // 5.1. Không tuyển chọn
+  KTC_CHUA_GOI_NHAP_NGU = 'KTC_CHUA_GOI_NHAP_NGU', // 5.2. Chưa gọi nhập ngũ
   PRE_CHECK_PASSED = 'SO_KHAM_DAT', // Đạt sơ khám
   PRE_CHECK_FAILED = 'SO_KHAM_KHONG_DAT', // Không đạt sơ khám
   MED_EXAM_PASSED = 'KHAM_TUYEN_DAT', // Đạt khám tuyển
@@ -107,7 +108,7 @@ export interface Recruit {
     politicalStatus: 'None' | 'Doan_Vien' | 'Dang_Vien';
     partyEntryDate?: string;
     gifted?: string;
-    familyComposition?: string; // Mới: Thành phần gia đình
+    familyComposition?: string; // Mới: Thành phân gia đình
     personalComposition?: string; // Mới: Thành phần bản thân
     registrationMethod?: 'DIRECT' | 'ONLINE'; // Mới: Hình thức đăng ký
   };
@@ -153,7 +154,6 @@ export interface ProvincialDispatch {
     timestamp: number;
 }
 
-// Fix: Add ResearchDocument interface to match the model and fixing import error in DocumentsView.tsx
 export interface ResearchDocument {
   id: string;
   title: string;

@@ -16,15 +16,17 @@ interface ActionButtonsProps {
   onUpdate: (r: Recruit) => void;
   onDelete: (id: string) => void;
   onOpenReasonModal: (r: Recruit, type: 'DEFERRED' | 'EXEMPTED') => void;
-  onOpenRemoveModal: (r: Recruit, type: 'DEFERRED' | 'EXEMPTED') => void; // Chỉnh sửa kiểu dữ liệu prop nếu cần, hoặc giữ nguyên
+  onOpenRemoveModal: (r: Recruit, type: 'DEFERRED' | 'EXEMPTED') => void; 
   onHealthGradeSelect: (r: Recruit, grade: number) => void;
   onUpdateFailureReason: (r: Recruit) => void;
-  isExpiring?: boolean; // Prop mới để nhận diện trạng thái hết hạn
+  onOpenTT50Modal?: (r: Recruit) => void; // Thêm prop này
+  isExpiring?: boolean; 
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
   recruit, activeTabId, isReadOnly, failureReasons, setFailureReasons,
   onEdit, onUpdate, onDelete, onOpenReasonModal, onOpenRemoveModal, onHealthGradeSelect, onUpdateFailureReason,
+  onOpenTT50Modal,
   isExpiring = false
 }) => {
   if (isReadOnly) return (
@@ -107,7 +109,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Chỉnh sửa"><FileEdit size={16} /></button>
           <button onClick={() => onOpenReasonModal(recruit, 'DEFERRED')} className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Tạm hoãn (DS 8)"><PauseCircle size={16}/></button>
           <button onClick={() => onOpenReasonModal(recruit, 'EXEMPTED')} className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="Miễn gọi nhập ngũ (DS 9)"><ShieldCheck size={16}/></button>
-          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.NOT_SELECTED_TT50, previousStatus: recruit.status, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} className="p-1 text-slate-600 hover:bg-slate-50 rounded" title="TT 50 (DS 5)"><BookX size={16}/></button>
+          <button onClick={() => onOpenTT50Modal?.(recruit)} className="p-1 text-slate-600 hover:bg-slate-50 rounded" title="KTC, CGNN (DS 5)"><BookX size={16}/></button>
           <button onClick={() => onOpenRemoveModal(recruit, 'DEFERRED')} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="Loại khỏi nguồn (DS 12)"><UserX size={16} /></button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
