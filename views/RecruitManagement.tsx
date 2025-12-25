@@ -55,7 +55,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [advFilterEducation, setAdvFilterEducation] = useState('');
   const [advFilterHealth, setAdvFilterHealth] = useState('');
   const [advFilterPolitical, setAdvFilterPolitical] = useState('');
-  const advancedFilterRef = useRef<HTMLDivElement>(null);
+  const advancedFilterRef = useRef<HTMLDivElement | null>(null);
 
   const isAdmin = user.role === 'ADMIN';
   const isProvinceAdmin = user.role === 'PROVINCE_ADMIN';
