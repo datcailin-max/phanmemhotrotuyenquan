@@ -13,12 +13,17 @@ export const useRecruitActions = (
 ) => {
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [showReasonModal, setShowReasonModal] = useState(false);
-  const [showTT50Modal, setShowTT50Modal] = useState(false); // Modal mới cho DS 5
+  const [showTT50Modal, setShowTT50Modal] = useState(false); 
+  const [showPreCheckFailModal, setShowPreCheckFailModal] = useState(false); // Modal mới cho Loại sơ tuyển
   const [reasonModalConfig, setReasonModalConfig] = useState<{ recruit: Recruit, type: 'DEFERRED' | 'EXEMPTED' } | null>(null);
-  const [tt50Recruit, setTt50Recruit] = useState<Recruit | null>(null); // Recruit mục tiêu cho DS 5
+  const [tt50Recruit, setTt50Recruit] = useState<Recruit | null>(null); 
+  const [preCheckRecruit, setPreCheckRecruit] = useState<Recruit | null>(null); // Recruit đang bị loại sơ tuyển
   const [recruitToRemove, setRecruitToRemove] = useState<Recruit | null>(null);
   const [removeReason, setRemoveReason] = useState('');
   const [failureReasons, setFailureReasons] = useState<Record<string, string>>({});
+  
+  const [enlistmentUnits, setEnlistmentUnits] = useState<Record<string, string>>({});
+  const [enlistmentDates, setEnlistmentDates] = useState<Record<string, string>>({});
 
   const handleExportExcel = (filteredRecruits: Recruit[], activeTabId: string, activeTabLabel: string) => {
     if (filteredRecruits.length === 0) {
@@ -28,13 +33,13 @@ export const useRecruitActions = (
     try {
       const unitName = user.unit.commune || user.unit.province || 'CO_QUAN_CHUYEN_TRACH';
       
-      // Fix: Map activeTabId to valid Template IDs expected by ExcelExportService and pass all 4 required arguments
       let templateId = activeTabId;
       if (activeTabId === 'EXEMPTED_LIST') templateId = 'TEMPLATE_EXEMPTED';
       if (activeTabId === 'DEFERRED_LIST') templateId = 'TEMPLATE_DEFERRED';
       if (activeTabId === 'ALL') templateId = 'TEMPLATE_4';
+      if (activeTabId === 'ENLISTED') templateId = 'TEMPLATE_17A';
 
-      ExcelExportService.exportToTemplate(filteredRecruits, templateId, sessionYear, unitName);
+      ExcelExportService.exportToTemplate(filteredRecruits, templateId, sessionYear, unitName, activeTabLabel);
     } catch (e) {
       console.error("Lỗi xuất Excel:", e);
       alert("Có lỗi khi tạo file Excel. Vui lòng kiểm tra dữ liệu.");
@@ -69,7 +74,7 @@ export const useRecruitActions = (
         status: reasonModalConfig.type === 'DEFERRED' ? RecruitmentStatus.DEFERRED : RecruitmentStatus.EXEMPTED,
         defermentReason: reason,
         previousStatus: reasonModalConfig.recruit.status,
-        enlistmentType: undefined, // Làm sạch dữ liệu nhập ngũ khi hoãn/miễn
+        enlistmentType: undefined,
         enlistmentUnit: undefined,
         enlistmentDate: undefined
       });
@@ -78,10 +83,8 @@ export const useRecruitActions = (
     }
   };
 
-  // Xử lý áp dụng lý do cho DS 5 (KTC, CGNN)
   const handleApplyTT50Reason = (reason: string, reasonIndex: number) => {
     if (tt50Recruit) {
-      // Index 0-12 -> 5.1 (Không tuyển chọn) | Index 13-16 -> 5.2 (Chưa gọi nhập ngũ)
       const nextStatus = reasonIndex <= 12 
         ? RecruitmentStatus.KTC_KHONG_TUYEN_CHON 
         : RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU;
@@ -97,6 +100,19 @@ export const useRecruitActions = (
       });
       setShowTT50Modal(false);
       setTt50Recruit(null);
+    }
+  };
+
+  const handleApplyPreCheckFailReason = (reason: string) => {
+    if (preCheckRecruit) {
+      onUpdate({
+        ...preCheckRecruit,
+        status: RecruitmentStatus.PRE_CHECK_FAILED,
+        defermentReason: reason,
+        previousStatus: preCheckRecruit.status
+      });
+      setShowPreCheckFailModal(false);
+      setPreCheckRecruit(null);
     }
   };
 
@@ -122,21 +138,39 @@ export const useRecruitActions = (
     }
   };
 
+  const handleUpdateEnlistmentInfo = (recruit: Recruit) => {
+    const unit = enlistmentUnits[recruit.id] !== undefined ? enlistmentUnits[recruit.id] : recruit.enlistmentUnit;
+    const date = enlistmentDates[recruit.id] !== undefined ? enlistmentDates[recruit.id] : recruit.enlistmentDate;
+    
+    onUpdate({
+      ...recruit,
+      enlistmentUnit: unit,
+      enlistmentDate: date
+    });
+    alert(`Đã cập nhật thông tin nhập ngũ cho ${recruit.fullName}`);
+  };
+
   return {
     showRemoveModal, setShowRemoveModal,
     showReasonModal, setShowReasonModal,
     showTT50Modal, setShowTT50Modal,
+    showPreCheckFailModal, setShowPreCheckFailModal,
     reasonModalConfig, setReasonModalConfig,
     tt50Recruit, setTt50Recruit,
+    preCheckRecruit, setPreCheckRecruit,
     recruitToRemove, setRecruitToRemove,
     removeReason, setRemoveReason,
     failureReasons, setFailureReasons,
+    enlistmentUnits, setEnlistmentUnits,
+    enlistmentDates, setEnlistmentDates,
     handleExportExcel,
     handleConfirmRemove,
     handleOpenReasonModal,
     handleApplyReason,
     handleApplyTT50Reason,
+    handleApplyPreCheckFailReason,
     handleHealthGradeSelect,
-    handleUpdateFailureReason
+    handleUpdateFailureReason,
+    handleUpdateEnlistmentInfo
   };
 };

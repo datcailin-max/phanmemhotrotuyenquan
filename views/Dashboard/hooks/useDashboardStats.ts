@@ -58,13 +58,23 @@ export const useDashboardStats = ({
         });
         const countTotalSource = ds4_recruits.length;
 
-        const countTT50 = currentYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_SELECTED_TT50).length;
+        // Tính toán chi tiết Danh sách 5
+        const countKTC = currentYearRecruits.filter(r => [RecruitmentStatus.NOT_SELECTED_TT50, RecruitmentStatus.KTC_KHONG_TUYEN_CHON].includes(r.status as RecruitmentStatus)).length;
+        const countCGNN = currentYearRecruits.filter(r => r.status === RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU).length;
+        const countTT50 = countKTC + countCGNN;
+        
         const countDeferred = currentYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED).length;
         const countExempted = currentYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPTED).length;
         const countRemoved = currentYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
 
+        const tt50Statuses = [
+            RecruitmentStatus.NOT_SELECTED_TT50, 
+            RecruitmentStatus.KTC_KHONG_TUYEN_CHON, 
+            RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU
+        ];
+        
         const ds6_count = ds4_recruits.filter(r => 
-            ![RecruitmentStatus.NOT_SELECTED_TT50, RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.REMOVED_FROM_SOURCE].includes(r.status)
+            ![...tt50Statuses, RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.REMOVED_FROM_SOURCE].includes(r.status as RecruitmentStatus)
         ).length;
 
         const countPreCheckPass = currentYearRecruits.filter(r => [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status)).length;
@@ -173,6 +183,7 @@ export const useDashboardStats = ({
         return {
             counts: {
                 countNotAllowed, countExemptReg, countFirstTime, countTotalSource, countTT50,
+                countKTC, countCGNN,
                 countPreCheckPass, countPreCheckFail, countMedPass, countMedFail,
                 countDeferred, countExempted, countFinalized: finalized.length,
                 countFinalizedOfficial: finalized.filter(r => r.enlistmentType === 'OFFICIAL').length,

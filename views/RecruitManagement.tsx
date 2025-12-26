@@ -18,7 +18,8 @@ import ActionButtons from './RecruitManagement/components/ActionButtons';
 import LegalReasonModal from './RecruitManagement/modals/LegalReasonModal';
 import RemovalModal from './RecruitManagement/modals/RemovalModal';
 import BulkVillageRenameModal from './RecruitManagement/modals/BulkVillageRenameModal';
-import TT50ReasonModal from './RecruitManagement/modals/TT50ReasonModal'; // Import modal mới
+import TT50ReasonModal from './RecruitManagement/modals/TT50ReasonModal'; 
+import PreCheckFailModal from './RecruitManagement/modals/PreCheckFailModal'; // Import modal mới
 import { useRecruitActions } from './RecruitManagement/hooks/useRecruitActions';
 import { api } from '../api';
 
@@ -327,6 +328,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         isReadOnly={isReadOnly}
                         failureReasons={ra.failureReasons}
                         setFailureReasons={ra.setFailureReasons}
+                        enlistmentUnits={ra.enlistmentUnits}
+                        setEnlistmentUnits={ra.setEnlistmentUnits}
+                        enlistmentDates={ra.enlistmentDates}
+                        setEnlistmentDates={ra.setEnlistmentDates}
                         onEdit={handleEdit}
                         onUpdate={onUpdate}
                         onDelete={onDelete}
@@ -334,7 +339,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
                         onOpenRemoveModal={(r) => { ra.setRecruitToRemove(r); ra.setShowRemoveModal(true); }}
                         onHealthGradeSelect={ra.handleHealthGradeSelect}
                         onUpdateFailureReason={ra.handleUpdateFailureReason}
-                        onOpenTT50Modal={(r) => { ra.setTt50Recruit(r); ra.setShowTT50Modal(true); }} // Prop mới cho TT50
+                        onUpdateEnlistmentInfo={ra.handleUpdateEnlistmentInfo}
+                        onOpenTT50Modal={(r) => { ra.setTt50Recruit(r); ra.setShowTT50Modal(true); }}
+                        onOpenPreCheckFailModal={(r) => { ra.setPreCheckRecruit(r); ra.setShowPreCheckFailModal(true); }} // Prop cho modal mới
                         isExpiring={expiring}
                       />
                     </td>
@@ -388,6 +395,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
         <TT50ReasonModal 
           onClose={() => ra.setShowTT50Modal(false)}
           onApply={ra.handleApplyTT50Reason}
+        />
+      )}
+
+      {ra.showPreCheckFailModal && (
+        <PreCheckFailModal 
+          recruit={ra.preCheckRecruit}
+          onClose={() => ra.setShowPreCheckFailModal(false)}
+          onApply={ra.handleApplyPreCheckFailReason}
         />
       )}
 

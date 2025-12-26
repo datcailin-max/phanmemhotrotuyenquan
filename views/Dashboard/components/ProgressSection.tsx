@@ -59,7 +59,15 @@ const ProgressSection: React.FC<ProgressSectionProps> = ({ stats, onNavigate }) 
              <Card title="2. MIỄN ĐK" count={stats.countExemptReg} icon={Shield} color="bg-slate-500" onClick={() => onNavigate('EXEMPT_REG')} />
              <Card title="3. ĐK LẦN ĐẦU" count={stats.countFirstTime} icon={UserPlus} color="bg-cyan-600" onClick={() => onNavigate('FIRST_TIME_REG')} />
              <Card title="4. TỔNG NGUỒN" count={stats.countTotalSource} icon={Users} color="bg-gray-600" onClick={() => onNavigate('ALL')} />
-             <Card title="5. KTC, CGNN" count={stats.countTT50} icon={BookX} color="bg-slate-600" onClick={() => onNavigate('TT50')} />
+             
+             <Card 
+                title="5. KTC, CGNN" 
+                count={stats.countTT50} 
+                icon={BookX} 
+                color="bg-slate-600" 
+                onClick={() => onNavigate('TT50')} 
+                detailText={`${stats.countKTC} KTC / ${stats.countCGNN} CGNN`} 
+             />
              
              <Card 
                 title="6. ĐỦ ĐK SƠ TUYỂN" 

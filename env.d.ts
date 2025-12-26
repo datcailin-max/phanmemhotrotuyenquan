@@ -1,9 +1,3 @@
-
-
-
-
-
-
 /**
  * Fix: Removed triple-slash reference to 'vite/client' which was causing a resolution error 
  * in the current environment.
@@ -17,8 +11,8 @@ declare namespace NodeJS {
 }
 
 /**
- * Fix: Restored 'readonly' modifier to 'aistudio' to resolve "identical modifiers" error 
- * when merging with internal host declarations that are readonly.
+ * Fix: Added 'readonly' modifier to 'aistudio' to match internal host declarations
+ * and resolve "identical modifiers" error.
  */
 interface Window {
   readonly aistudio: {

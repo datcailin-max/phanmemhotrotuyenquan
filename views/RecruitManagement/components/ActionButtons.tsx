@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   FileSignature, FileEdit, ArrowUpCircle, Trash2, PauseCircle, ShieldCheck, 
-  BookX, UserX, CheckCircle2, XCircle, Flag, Tent, Undo2, Save, RotateCcw, UserPlus
+  BookX, UserX, CheckCircle2, XCircle, Flag, Tent, Undo2, Save, RotateCcw, UserPlus, Calendar as CalendarIcon, Building2
 } from 'lucide-react';
 import { Recruit, RecruitmentStatus } from '../../../types';
 
@@ -12,6 +12,10 @@ interface ActionButtonsProps {
   isReadOnly: boolean;
   failureReasons: Record<string, string>;
   setFailureReasons: (val: any) => void;
+  enlistmentUnits?: Record<string, string>;
+  setEnlistmentUnits?: (val: any) => void;
+  enlistmentDates?: Record<string, string>;
+  setEnlistmentDates?: (val: any) => void;
   onEdit: (r: Recruit) => void;
   onUpdate: (r: Recruit) => void;
   onDelete: (id: string) => void;
@@ -19,14 +23,20 @@ interface ActionButtonsProps {
   onOpenRemoveModal: (r: Recruit, type: 'DEFERRED' | 'EXEMPTED') => void; 
   onHealthGradeSelect: (r: Recruit, grade: number) => void;
   onUpdateFailureReason: (r: Recruit) => void;
-  onOpenTT50Modal?: (r: Recruit) => void; // Thêm prop này
+  onUpdateEnlistmentInfo?: (r: Recruit) => void;
+  onOpenTT50Modal?: (r: Recruit) => void; 
+  onOpenPreCheckFailModal?: (r: Recruit) => void; // Prop mới cho Loại sơ tuyển
   isExpiring?: boolean; 
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
   recruit, activeTabId, isReadOnly, failureReasons, setFailureReasons,
+  enlistmentUnits = {}, setEnlistmentUnits,
+  enlistmentDates = {}, setEnlistmentDates,
   onEdit, onUpdate, onDelete, onOpenReasonModal, onOpenRemoveModal, onHealthGradeSelect, onUpdateFailureReason,
+  onUpdateEnlistmentInfo,
   onOpenTT50Modal,
+  onOpenPreCheckFailModal,
   isExpiring = false
 }) => {
   if (isReadOnly) return (
@@ -65,22 +75,24 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       });
     }
   };
+
+  const HealthButtons = () => (
+    <div className="flex items-center gap-1">
+      {[1,2,3,4,5,6].map(g => (
+        <button 
+          key={g} 
+          onClick={() => onHealthGradeSelect(recruit, g)}
+          className={`w-7 h-7 rounded text-[10px] font-black border transition-all ${recruit.physical.healthGrade === g ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-indigo-50'}`}
+          title={`Phân loại sức khỏe Loại ${g}`}
+        >
+          {g}
+        </button>
+      ))}
+    </div>
+  );
   
   switch (activeTabId) {
     case 'NOT_ALLOWED_REG':
-      return (
-        <div className="flex items-center justify-center gap-1">
-          <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
-          <button 
-            onClick={handleMoveToFirstTimeReg}
-            className="p-1 text-purple-600 hover:bg-purple-50 rounded" 
-            title="Đưa về Đăng ký lần đầu (DS 3)"
-          >
-            <UserPlus size={16} />
-          </button>
-          <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
-        </div>
-      );
     case 'EXEMPT_REG':
       return (
         <div className="flex items-center justify-center gap-1">
@@ -134,23 +146,18 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
     case 'PRE_CHECK':
       return (
         <div className="flex items-center justify-center gap-1">
+          <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded mr-1" title="Sửa hồ sơ"><FileEdit size={16} /></button>
           <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.PRE_CHECK_PASSED, previousStatus: recruit.status })} className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded text-[10px] font-black uppercase hover:bg-blue-700 transition-all"><CheckCircle2 size={12}/> Đạt sơ khám</button>
-          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.PRE_CHECK_FAILED, previousStatus: recruit.status })} className="flex items-center gap-1 px-2 py-1 bg-orange-600 text-white rounded text-[10px] font-black uppercase hover:bg-orange-700 transition-all"><XCircle size={12}/> Loại sơ khám</button>
+          <button onClick={() => onOpenPreCheckFailModal?.(recruit)} className="flex items-center gap-1 px-2 py-1 bg-orange-600 text-white rounded text-[10px] font-black uppercase hover:bg-orange-700 transition-all"><XCircle size={12}/> Loại sơ khám</button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded ml-1" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
     case 'MED_EXAM':
+    case 'MED_EXAM_PASS':
       return (
-        <div className="flex flex-wrap items-center justify-center gap-1 min-w-[150px]">
-          {[1,2,3,4,5,6].map(g => (
-            <button 
-              key={g} 
-              onClick={() => onHealthGradeSelect(recruit, g)}
-              className={`w-7 h-7 rounded text-[10px] font-black border transition-all ${recruit.physical.healthGrade === g ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-indigo-50'}`}
-            >
-              {g}
-            </button>
-          ))}
+        <div className="flex items-center justify-center gap-2 min-w-[200px]">
+          <button onClick={() => onEdit(recruit)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={18} /></button>
+          <HealthButtons />
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded ml-1" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
@@ -163,10 +170,47 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
+    case 'ENLISTED':
+      return (
+        <div className="flex items-center justify-end gap-2 min-w-[450px]">
+          <button onClick={() => onEdit(recruit)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={18} /></button>
+          
+          <div className="flex items-center gap-1 border-x px-2 border-gray-100">
+            <div className="flex flex-col gap-0.5">
+              <div className="relative">
+                <Building2 size={12} className="absolute left-2 top-2 text-gray-400"/>
+                <input 
+                  className="text-[10px] border border-gray-300 rounded pl-7 pr-2 py-1.5 w-40 font-bold bg-gray-50"
+                  placeholder="Đơn vị nhập ngũ..."
+                  value={enlistmentUnits[recruit.id] !== undefined ? enlistmentUnits[recruit.id] : (recruit.enlistmentUnit || '')}
+                  onChange={(e) => setEnlistmentUnits?.({...enlistmentUnits, [recruit.id]: e.target.value})}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <div className="relative">
+                <CalendarIcon size={12} className="absolute left-2 top-2 text-gray-400"/>
+                <input 
+                  type="date"
+                  className="text-[10px] border border-gray-300 rounded pl-7 pr-2 py-1.5 w-32 font-bold bg-gray-50"
+                  value={enlistmentDates[recruit.id] !== undefined ? enlistmentDates[recruit.id] : (recruit.enlistmentDate || '')}
+                  onChange={(e) => setEnlistmentDates?.({...enlistmentDates, [recruit.id]: e.target.value})}
+                />
+              </div>
+            </div>
+            <button onClick={() => onUpdateEnlistmentInfo?.(recruit)} className="p-2 bg-red-600 text-white rounded hover:bg-red-700 shadow-sm" title="Lưu thông tin lệnh">
+              <Save size={14}/>
+            </button>
+          </div>
+
+          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.FINALIZED, previousStatus: recruit.status })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Hoàn lại bước Chốt hồ sơ"><Undo2 size={16}/></button>
+          <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
+        </div>
+      );
     case 'PRE_CHECK_FAIL':
-    case 'MED_EXAM_FAIL':
       return (
         <div className="flex items-center gap-2">
+          <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
           <input 
             className="text-[11px] border border-gray-300 rounded px-2 py-1 w-32 font-medium"
             placeholder="Ghi lý do loại..."
@@ -174,6 +218,30 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
             onChange={(e) => setFailureReasons({...failureReasons, [recruit.id]: e.target.value})}
           />
           <button onClick={() => onUpdateFailureReason(recruit)} className="p-1.5 bg-military-600 text-white rounded hover:bg-military-700" title="Lưu lý do"><Save size={14}/></button>
+          <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', previousStatus: recruit.status, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Khôi phục về Nguồn"><Undo2 size={16}/></button>
+          <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
+        </div>
+      );
+    case 'MED_EXAM_FAIL':
+      return (
+        <div className="flex items-center justify-end gap-2 min-w-[350px]">
+          <button onClick={() => onEdit(recruit)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={18} /></button>
+          
+          <div className="flex flex-col items-center gap-1 border-x px-2 border-gray-100">
+            <span className="text-[8px] font-black text-gray-400 uppercase">Khám lại</span>
+            <HealthButtons />
+          </div>
+
+          <div className="flex items-center gap-1">
+            <input 
+              className="text-[10px] border border-gray-300 rounded px-2 py-1.5 w-32 font-bold bg-gray-50"
+              placeholder="Ghi lý do loại..."
+              value={failureReasons[recruit.id] !== undefined ? failureReasons[recruit.id] : (recruit.defermentReason || '')}
+              onChange={(e) => setFailureReasons({...failureReasons, [recruit.id]: e.target.value})}
+            />
+            <button onClick={() => onUpdateFailureReason(recruit)} className="p-1.5 bg-military-600 text-white rounded hover:bg-military-700" title="Lưu lý do"><Save size={14}/></button>
+          </div>
+
           <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, defermentReason: '', previousStatus: recruit.status, enlistmentType: undefined, enlistmentUnit: undefined, enlistmentDate: undefined })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Khôi phục về Nguồn"><Undo2 size={16}/></button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
