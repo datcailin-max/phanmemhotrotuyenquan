@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, Users, Menu, ShieldAlert, LogOut, Key, 
-  UserCircle, Share2, HelpCircle, UsersRound 
+  UserCircle, Share2, HelpCircle, UsersRound, FileSpreadsheet 
 } from 'lucide-react';
 import { User } from '../../types';
 
@@ -49,6 +49,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button onClick={() => setActiveTab('communication')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'communication' ? 'bg-white text-military-900 font-bold shadow-lg' : 'text-military-200 hover:bg-military-800'}`}>
           <Share2 size={20} />
           {isOpen && <span className="text-xs font-bold uppercase tracking-wide">Báo cáo & Văn bản</span>}
+        </button>
+
+        {/* MỤC MỚI BỔ SUNG */}
+        <button onClick={() => setActiveTab('report-builder')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'report-builder' ? 'bg-white text-military-900 font-bold shadow-lg' : 'text-military-200 hover:bg-military-800'}`}>
+          <FileSpreadsheet size={20} />
+          {isOpen && <span className="text-xs font-bold uppercase tracking-wide leading-tight">Biểu mẫu báo cáo</span>}
         </button>
         
         {isAdmin && (

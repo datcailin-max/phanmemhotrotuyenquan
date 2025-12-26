@@ -1,4 +1,7 @@
 
+
+
+
 /**
  * Fix: Removed triple-slash reference to 'vite/client' which was causing a resolution error 
  * in the current environment.
@@ -13,7 +16,7 @@ declare namespace NodeJS {
 
 /**
  * Fix: Removed 'readonly' modifier from 'aistudio' to resolve "identical modifiers" error 
- * when merging with internal host declarations.
+ * when merging with internal host declarations that might not be readonly.
  */
 interface Window {
   aistudio: {
@@ -25,7 +28,7 @@ interface Window {
 /**
  * Fix: Updated @google/genai declarations to follow the latest developer guidelines.
  * Replaced deprecated types (SchemaType -> Type) and correctly defined the .text getter
- * on GenerateContentResponse.
+ * on GenerateContentResponse. Added toolConfig and basic Live API support.
  */
 declare module '@google/genai' {
   export enum Type {
@@ -75,6 +78,7 @@ declare module '@google/genai' {
     responseMimeType?: string;
     responseSchema?: any;
     tools?: Tool[];
+    toolConfig?: any;
     thinkingConfig?: { thinkingBudget: number };
   }
 

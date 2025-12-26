@@ -8,6 +8,7 @@ import YearSelection from './views/YearSelection';
 import CommunicationView from './views/CommunicationView';
 import QAView from './views/QAView';
 import AccountManagement from './views/AccountManagement';
+import ReportBuilder from './views/ReportBuilder'; // Import view mới
 import Sidebar from './components/layout/Sidebar';
 import MainHeader from './components/layout/MainHeader';
 import ProfileModal from './components/modals/ProfileModal';
@@ -18,7 +19,7 @@ import { useInitialData } from './hooks/useInitialData';
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [sessionYear, setSessionYear] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'qa' | 'communication' | 'accounts'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'recruits' | 'admin' | 'qa' | 'communication' | 'accounts' | 'report-builder'>('dashboard');
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   
@@ -147,6 +148,15 @@ function App() {
               />
             )}
             {activeTab === 'communication' && <CommunicationView user={user} sessionYear={sessionYear} />}
+            
+            {activeTab === 'report-builder' && (
+              <ReportBuilder 
+                user={user} 
+                recruits={recruits} 
+                sessionYear={sessionYear} 
+              />
+            )}
+
             {activeTab === 'accounts' && user.role === 'ADMIN' && <AccountManagement user={user} />}
             {activeTab === 'qa' && <QAView feedbacks={feedbacks} user={user} />}
         </div>

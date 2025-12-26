@@ -27,8 +27,14 @@ export const useRecruitActions = (
     }
     try {
       const unitName = user.unit.commune || user.unit.province || 'CO_QUAN_CHUYEN_TRACH';
-      const fileName = `Danh_Sach_${activeTabId}_${unitName}_Nam_${sessionYear}.xlsx`;
-      ExcelExportService.exportToTemplate(filteredRecruits, `DANH SÁCH - ${activeTabLabel}`, fileName);
+      
+      // Fix: Map activeTabId to valid Template IDs expected by ExcelExportService and pass all 4 required arguments
+      let templateId = activeTabId;
+      if (activeTabId === 'EXEMPTED_LIST') templateId = 'TEMPLATE_EXEMPTED';
+      if (activeTabId === 'DEFERRED_LIST') templateId = 'TEMPLATE_DEFERRED';
+      if (activeTabId === 'ALL') templateId = 'TEMPLATE_4';
+
+      ExcelExportService.exportToTemplate(filteredRecruits, templateId, sessionYear, unitName);
     } catch (e) {
       console.error("Lỗi xuất Excel:", e);
       alert("Có lỗi khi tạo file Excel. Vui lòng kiểm tra dữ liệu.");

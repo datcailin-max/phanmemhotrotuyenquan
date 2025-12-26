@@ -26,6 +26,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({
           {activeTab === 'dashboard' && 'Bảng điều khiển tổng hợp'}
           {activeTab === 'recruits' && 'Quản lý hồ sơ công dân'}
           {activeTab === 'communication' && 'Trao đổi văn bản chỉ đạo'}
+          {activeTab === 'report-builder' && 'Thiết lập biểu mẫu báo cáo'}
           {activeTab === 'qa' && 'Hệ thống hỗ trợ trực tuyến'}
         </h1>
       </div>
