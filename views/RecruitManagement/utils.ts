@@ -3,7 +3,8 @@ import { Recruit, RecruitmentStatus } from '../../types';
 
 export const checkAge = (r: Recruit, sessionYear: number) => {
   const birthYear = parseInt(r.dob.split('-')[0] || '0');
-  return sessionYear - birthYear;
+  // Năm thực hiện là sessionYear - 1
+  return (sessionYear - 1) - birthYear;
 };
 
 export const getStatusLabel = (status: RecruitmentStatus) => {

@@ -32,7 +32,8 @@ export const useDashboardStats = ({
     }, [recruits, sessionYear, filterProvince, filterCommune, userRole, userUnit]);
 
     const stats = useMemo(() => {
-        const checkAge = (r: Recruit, year: number) => year - parseInt(r.dob.split('-')[0] || '0');
+        // Tuổi được tính cho năm thực hiện (sessionYear - 1)
+        const checkAge = (r: Recruit, year: number) => (year - 1) - parseInt(r.dob.split('-')[0] || '0');
 
         const isExpiredInCurrentSession = (period?: string) => {
             if (!period) return false;
@@ -158,7 +159,8 @@ export const useDashboardStats = ({
             if (userRole === 'EDITOR' || userRole === 'VIEWER') isOurUnit = r.address.province === userUnit?.province && r.address.commune === userUnit?.commune;
             
             if (isOurUnit && ![RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION, RecruitmentStatus.FIRST_TIME_REGISTRATION, RecruitmentStatus.DELETED].includes(r.status)) {
-                const ageAtThatYear = r.recruitmentYear - parseInt(r.dob.split('-')[0] || '0');
+                // Tính tuổi cho năm tuyển chọn ghi trên hồ sơ
+                const ageAtThatYear = (r.recruitmentYear - 1) - parseInt(r.dob.split('-')[0] || '0');
                 if (ageAtThatYear >= 18 && ageAtThatYear <= 27) {
                     yearTrendMap[r.recruitmentYear] = (yearTrendMap[r.recruitmentYear] || 0) + 1;
                 }

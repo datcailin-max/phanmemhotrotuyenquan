@@ -14,14 +14,15 @@ export class RegistrationList01Export {
     if (!excelUtils || !excelWrite) return;
 
     const wb = excelUtils.book_new();
-    const targetBirthYear = sessionYear - 17;
+    // Tuổi 17 tính theo năm thực hiện (sessionYear - 1)
+    const targetBirthYear = (sessionYear - 1) - 17;
 
     // 1. Dữ liệu Meta Header
     const metaInfo = [
-      ['Biểu số: 01/GNN-2025', '', '', `DANH SÁCH CÔNG DÂN NAM ĐỦ 17 TUỔI TRONG NĂM ${sessionYear}`, '', '', ''],
+      ['Biểu số: 01/GNN-2025', '', '', `DANH SÁCH CÔNG DÂN NAM ĐỦ 17 TUỔI TRONG NĂM ${sessionYear - 1}`, '', '', ''],
       ['Khổ biểu: 29,7x21cm', '', '', `(Tính từ ngày..../..../.... Đến..../..../....)`, '', '', ''],
-      ['', '', '', '', '', '', ''], // Dòng trống
-      ['', '', '', '', '', '', ''], // Dòng trống
+      ['', '', '', '', '', '', ''], 
+      ['', '', '', '', '', '', ''], 
     ];
 
     // 2. Header bảng (7 cột chính)
@@ -37,7 +38,7 @@ export class RegistrationList01Export {
       ]
     ];
 
-    // 3. Mapping dữ liệu công dân (Lọc đúng 17 tuổi)
+    // 3. Mapping dữ liệu công dân (Lọc đúng 17 tuổi theo năm thực hiện)
     const filteredRecruits = recruits.filter(r => {
         const birthYear = parseInt(r.dob.split('-')[0] || '0');
         return birthYear === targetBirthYear;
@@ -45,18 +46,12 @@ export class RegistrationList01Export {
 
     const dataRows = filteredRecruits.map((r, index) => {
       return [
-        (index + 1).toString(), // 1
-        // 2: Thông tin cá nhân
+        (index + 1).toString(), 
         `${r.fullName.toUpperCase()}\n${r.fullName.toUpperCase()}\n${r.dob ? r.dob.split('-').reverse().join('/') : '---'}\n${r.citizenId || '---'}`,
-        // 3: Học vấn
         r.details.education,
-        // 4: Địa chỉ
         `${r.address.village}, ${r.address.commune}, ${r.address.province}\n${r.address.street || '---'}\n${r.details.workAddress || '---'}\nBan CHQS ${r.address.commune}`,
-        // 5: Thành phần
         `${r.details.familyComposition || '---'}\n${r.details.personalComposition || '---'}\n${r.details.ethnicity}, ${r.details.religion}`,
-        // 6: CMKT & Gia cảnh
         `${r.details.major || '---'}, ${r.details.job || '---'}\nCó ... anh chị em\nLà con thứ ...`,
-        // 7: Cha mẹ
         `Cha: ${r.family.father.fullName}, ${r.family.father.birthYear}, ${r.family.father.job}\n\nMẹ: ${r.family.mother.fullName}, ${r.family.mother.birthYear}, ${r.family.mother.job}`
       ];
     });
@@ -65,23 +60,21 @@ export class RegistrationList01Export {
     const allData = [...metaInfo, ...tableHeaders, colNums, ...dataRows];
     const ws = excelUtils.aoa_to_sheet(allData);
 
-    // 4. Merges & Widths
     ws['!merges'] = [
-      { s: { r: 0, c: 3 }, e: { r: 0, c: 5 } }, // Tiêu đề chính
-      { s: { r: 1, c: 3 }, e: { r: 1, c: 5 } }, // Dòng thời gian
+      { s: { r: 0, c: 3 }, e: { r: 0, c: 5 } }, 
+      { s: { r: 1, c: 3 }, e: { r: 1, c: 5 } }, 
     ];
 
     ws['!cols'] = [
-      { wch: 5 },   // 1
-      { wch: 30 },  // 2
-      { wch: 15 },  // 3
-      { wch: 35 },  // 4
-      { wch: 25 },  // 5
-      { wch: 25 },  // 6
-      { wch: 45 }   // 7
+      { wch: 5 },   
+      { wch: 30 },  
+      { wch: 15 },  
+      { wch: 35 },  
+      { wch: 25 },  
+      { wch: 25 },  
+      { wch: 45 }   
     ];
 
-    // 5. Styles
     const border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
     const range = excelUtils.decode_range(ws['!ref'] || 'A1:G100');
     
@@ -92,18 +85,15 @@ export class RegistrationList01Export {
         
         ws[addr].s = { font: { name: 'Times New Roman', size: 10 }, alignment: { wrapText: true, vertical: 'top' } };
         
-        // Style cho Header trang
         if (R < 4) {
             ws[addr].s.alignment = { horizontal: C >= 3 ? 'center' : 'left' };
             if (R <= 1) ws[addr].s.font.bold = true;
         } 
-        // Style cho Header bảng (Dòng 5, 6)
         else if (R === 4 || R === 5) {
             ws[addr].s.font.bold = true;
             ws[addr].s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
             ws[addr].s.border = border;
         } 
-        // Style cho Dữ liệu
         else {
             ws[addr].s.border = border;
             if (C === 0 || C === 2) ws[addr].s.alignment.horizontal = 'center';
@@ -111,9 +101,8 @@ export class RegistrationList01Export {
       }
     }
 
-    // Độ cao dòng
     ws['!rows'] = [];
-    ws['!rows'][4] = { hpt: 120 }; // Header chính cao hơn
+    ws['!rows'][4] = { hpt: 120 }; 
 
     excelUtils.book_append_sheet(wb, ws, 'Danh sach 17 tuoi');
     excelWrite(wb, `Danh_Sach_17_Tuoi_Mau_01_${unitName}_${sessionYear}.xlsx`);

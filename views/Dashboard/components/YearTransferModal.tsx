@@ -20,7 +20,7 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
 
   // Logic lọc và tính toán dữ liệu sẽ kết chuyển
   const transferData = useMemo(() => {
-    const checkAge = (r: Recruit, year: number) => year - parseInt(r.dob.split('-')[0] || '0');
+    const checkAge = (r: Recruit, year: number) => (year - 1) - parseInt(r.dob.split('-')[0] || '0');
     
     // 1. Danh sách 1 (Không được đăng ký NVQS)
     const list1 = currentRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION);
@@ -51,8 +51,6 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
     const rawTotalList = [...list1, ...list2, ...list3, ...list13];
     const filteredByAge = rawTotalList.filter(r => {
         const ageInTargetYear = checkAge(r, targetYear);
-        // List 1 và 2 thường là vĩnh viễn nên có thể chuyển hết, hoặc áp dụng trần 27 tuổi tùy quy định địa phương
-        // Ở đây hệ thống giữ lại tất cả những người <= 27 tuổi để đảm bảo nguồn sạch
         return ageInTargetYear <= 27;
     });
 

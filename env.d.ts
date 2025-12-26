@@ -2,6 +2,8 @@
 
 
 
+
+
 /**
  * Fix: Removed triple-slash reference to 'vite/client' which was causing a resolution error 
  * in the current environment.
@@ -15,11 +17,11 @@ declare namespace NodeJS {
 }
 
 /**
- * Fix: Removed 'readonly' modifier from 'aistudio' to resolve "identical modifiers" error 
- * when merging with internal host declarations that might not be readonly.
+ * Fix: Restored 'readonly' modifier to 'aistudio' to resolve "identical modifiers" error 
+ * when merging with internal host declarations that are readonly.
  */
 interface Window {
-  aistudio: {
+  readonly aistudio: {
     hasSelectedApiKey(): Promise<boolean>;
     openSelectKey(): Promise<void>;
   };
@@ -75,7 +77,9 @@ declare module '@google/genai' {
     topP?: number;
     topK?: number;
     maxOutputTokens?: number;
+    // DO NOT set responseMimeType for nano banana series models.
     responseMimeType?: string;
+    // DO NOT set responseSchema for nano banana series models.
     responseSchema?: any;
     tools?: Tool[];
     toolConfig?: any;

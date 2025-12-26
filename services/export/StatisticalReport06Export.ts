@@ -14,7 +14,8 @@ export class StatisticalReport06Export {
     const wb = excelUtils.book_new();
 
     // --- LOGIC TỔNG HỢP DỮ LIỆU ---
-    const getAge = (r: Recruit) => sessionYear - parseInt(r.dob.split('-')[0] || '0');
+    // Tuổi tính theo năm thực hiện (sessionYear - 1)
+    const getAge = (r: Recruit) => (sessionYear - 1) - parseInt(r.dob.split('-')[0] || '0');
     
     // Hàm đếm hồ sơ theo mảng điều kiện
     const countData = (list: Recruit[], filterFn: (r: Recruit) => boolean) => {
@@ -23,7 +24,7 @@ export class StatisticalReport06Export {
 
         if (filtered.length === 0) return row;
 
-        // Cột 2: Tổng dân số nam (Trong ngữ cảnh app là tổng số người trong danh sách đó)
+        // Cột 2: Tổng dân số nam
         row[2] = filtered.length;
         
         // Lọc những người từ 18-27 cho các cột thống kê chi tiết
@@ -34,7 +35,6 @@ export class StatisticalReport06Export {
 
         // Cột 3: Số người từ 18-27
         row[3] = age1827.length;
-        // Cột 4: % (Tính toán sau khi có dòng Tổng cộng) - Ở đây tạm để 0
         
         // Cột 6-15: Tuổi đời (18 -> 27)
         age1827.forEach(r => {
@@ -45,8 +45,6 @@ export class StatisticalReport06Export {
             }
         });
 
-        // Cột 17: Không biết chữ (App chưa quản lý diện này, mặc định 0)
-        
         // Cột 19-23: Tiểu học (Lớp 1-5)
         age1827.forEach(r => {
             const edu = r.details.education;
@@ -157,16 +155,16 @@ export class StatisticalReport06Export {
 
     // Merges
     ws['!merges'] = [
-        { s: { r: 9, c: 0 }, e: { r: 12, c: 0 } }, // Phân tích
-        { s: { r: 9, c: 1 }, e: { r: 12, c: 1 } }, // Tổng dân số
-        { s: { r: 9, c: 2 }, e: { r: 9, c: 3 } }, // Số người 18-27
-        { s: { r: 10, c: 2 }, e: { r: 12, c: 2 } }, // Tổng số
-        { s: { r: 10, c: 3 }, e: { r: 12, c: 3 } }, // %
-        { s: { r: 9, c: 4 }, e: { r: 9, c: 14 } }, // Tuổi đời
-        { s: { r: 9, c: 15 }, e: { r: 9, c: 32 } }, // Trình độ
-        { s: { r: 9, c: 33 }, e: { r: 9, c: 36 } }, // Địa bàn
-        { s: { r: 0, c: 5 }, e: { r: 0, c: 30 } }, // Quốc hiệu
-        { s: { r: 1, c: 5 }, e: { r: 1, c: 30 } }, // Tiêu ngữ
+        { s: { r: 9, c: 0 }, e: { r: 12, c: 0 } }, 
+        { s: { r: 9, c: 1 }, e: { r: 12, c: 1 } }, 
+        { s: { r: 9, c: 2 }, e: { r: 9, c: 3 } }, 
+        { s: { r: 10, c: 2 }, e: { r: 12, c: 2 } }, 
+        { s: { r: 10, c: 3 }, e: { r: 12, c: 3 } }, 
+        { s: { r: 9, c: 4 }, e: { r: 9, c: 14 } }, 
+        { s: { r: 9, c: 15 }, e: { r: 9, c: 32 } }, 
+        { s: { r: 9, c: 33 }, e: { r: 9, c: 36 } }, 
+        { s: { r: 0, c: 5 }, e: { r: 0, c: 30 } }, 
+        { s: { r: 1, c: 5 }, e: { r: 1, c: 30 } }, 
     ];
 
     // Styles

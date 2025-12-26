@@ -51,7 +51,7 @@ export const useRecruitFilters = (
         break;
 
       case 'ALL':
-        // Danh sách 4: Toàn bộ nguồn (>= 18 tuổi, trừ diện 1, 2, 3)
+        // Danh sách 4: Toàn bộ nguồn (>= 18 tuổi tại năm thực hiện)
         result = result.filter(r => {
           if (checkAge(r, sessionYear) < 18) return false;
           if ([
@@ -77,7 +77,6 @@ export const useRecruitFilters = (
         break;
 
       case 'PRE_CHECK':
-        // Danh sách 6: Hiển thị DS 4 - (DS 5 + DS 8 + DS 9 + DS 12)
         result = result.filter(r => {
             const age = checkAge(r, sessionYear);
             if (age < 18) return false;
@@ -162,7 +161,6 @@ export const useRecruitFilters = (
         break;
 
       case 'REMAINING':
-        // DS 13: Nguồn còn lại (Nguồn sẵn sàng nhưng chưa đi)
         result = result.filter(r => {
             if (checkAge(r, sessionYear) < 18) return false;
             const isRestricted = [

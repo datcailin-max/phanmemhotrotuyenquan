@@ -91,7 +91,8 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
 
       // Logic lọc dữ liệu phù hợp với loại danh sách
       if (selectedTemplate === 'TEMPLATE_01' || selectedTemplate === 'TEMPLATE_01A') {
-          const targetBirthYear = sessionYear - 17;
+          // Năm sinh 17 tuổi tính theo năm thực hiện (sessionYear - 1)
+          const targetBirthYear = (sessionYear - 1) - 17;
           dataToExport = currentRecruits.filter(r => {
               const birthYear = parseInt(r.dob.split('-')[0] || '0');
               return birthYear === targetBirthYear && r.status !== RecruitmentStatus.DELETED;
@@ -99,7 +100,7 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
       } else if (selectedTemplate === 'TEMPLATE_PRE_CHECK') {
           dataToExport = currentRecruits.filter(r => {
               const birthYear = parseInt(r.dob.split('-')[0] || '0');
-              const age = sessionYear - birthYear;
+              const age = (sessionYear - 1) - birthYear;
               if (age < 18) return false;
               
               const excludedStatuses = [
@@ -119,7 +120,7 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
       } else if (selectedTemplate === 'TEMPLATE_06') {
           dataToExport = currentRecruits.filter(r => {
               const birthYear = parseInt(r.dob.split('-')[0] || '0');
-              const age = sessionYear - birthYear;
+              const age = (sessionYear - 1) - birthYear;
               return age >= 17 && age <= 27 && r.status !== RecruitmentStatus.DELETED;
           });
       } else if (template?.statusRequired) {
@@ -206,8 +207,9 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 sticky top-8">
             <div className="space-y-6">
                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
-                  <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Năm dữ liệu hiện tại</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Năm tuyển quân hiển thị</p>
                   <p className="text-3xl font-black text-military-800">{sessionYear}</p>
+                  <p className="text-[10px] font-bold text-military-600 mt-1 uppercase italic">(Năm thực hiện: {sessionYear - 1})</p>
                </div>
 
                <div className="space-y-3">
@@ -223,9 +225,9 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
                <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
                   <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
                   <p className="text-[10px] text-blue-800 leading-relaxed font-bold italic">
-                    {selectedTemplate === 'TEMPLATE_17A' 
-                      ? "Hệ thống tự động lọc toàn bộ công dân thuộc Danh sách 11 để lập danh sách gọi nhập ngũ."
-                      : "Hệ thống sẽ tự động quét và tính toán số liệu thống kê chuẩn xác cho mẫu biểu đã chọn."}
+                    {selectedTemplate === 'TEMPLATE_01' || selectedTemplate === 'TEMPLATE_01A'
+                      ? `Hệ thống tự động lọc thanh niên sinh năm ${(sessionYear - 1) - 17} (tức tròn 17 tuổi vào năm thực hiện ${sessionYear - 1}).`
+                      : `Hệ thống tính toán tuổi dựa trên mốc năm thực hiện (${sessionYear - 1}).`}
                   </p>
                </div>
 
