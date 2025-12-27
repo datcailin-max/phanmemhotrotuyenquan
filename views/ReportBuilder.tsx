@@ -8,6 +8,8 @@ import { Recruit, User, RecruitmentStatus, ExcelTemplate } from '../types';
 import { ExcelExportService } from '../services/ExcelExportService';
 import { TemplateExportService } from '../services/TemplateExportService';
 import { api } from '../api';
+import { TABS } from './RecruitManagement/constants';
+import { checkAge } from './RecruitManagement/utils';
 
 interface ReportBuilderProps {
   user: User;
@@ -35,10 +37,10 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
     fetchCustom();
   }, []);
 
-  const currentRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
+  const currentYearRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
 
   const handleExport = async () => {
-    if (currentRecruits.length === 0) {
+    if (currentYearRecruits.length === 0) {
       alert("Không có dữ liệu công dân.");
       return;
     }
@@ -48,15 +50,50 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
       const customTpl = customTemplates.find(t => t.id === selectedTemplateId || t._id === selectedTemplateId);
       
       if (customTpl) {
+        // --- XỬ LÝ LỌC DỮ LIỆU CHO MẪU TÙY BIẾN ---
+        let filteredData = currentYearRecruits;
+
+        // 1. Lọc theo các danh sách nguồn (Source Tabs) được chọn
+        const sourceTabs = customTpl.sourceTabs || [];
+        if (sourceTabs.length > 0) {
+           const allowedStatuses = new Set<string>();
+           sourceTabs.forEach(tabId => {
+              const tabObj = TABS.find(t => t.id === tabId);
+              if (tabObj && tabObj.status) {
+                 tabObj.status.forEach(s => allowedStatuses.add(s));
+              } else if (tabObj && tabId === 'ALL') {
+                 // Logic riêng cho Tab 'Toàn bộ nguồn'
+                 filteredData.filter(r => checkAge(r, sessionYear) >= 18 && r.status !== RecruitmentStatus.DELETED).forEach(r => allowedStatuses.add(r.status));
+              }
+           });
+           
+           if (allowedStatuses.size > 0) {
+              filteredData = filteredData.filter(r => allowedStatuses.has(r.status));
+           }
+        }
+
+        // 2. Lọc theo tuổi 17 (nếu bật)
+        if (customTpl.onlyAge17) {
+           const targetBirthYear = (sessionYear - 1) - 17;
+           filteredData = filteredData.filter(r => parseInt(r.dob?.split('-')[0] || '0') === targetBirthYear);
+        }
+
+        if (filteredData.length === 0) {
+            alert("Không tìm thấy công dân nào khớp với cấu hình danh sách và bộ lọc của mẫu biểu này.");
+            setIsExporting(false);
+            return;
+        }
+
         // --- XUẤT THEO MẪU TÙY BIẾN (INJECTION) ---
-        await TemplateExportService.inject(currentRecruits, customTpl, sessionYear);
+        await TemplateExportService.inject(filteredData, customTpl, sessionYear);
       } else {
         // --- XUẤT THEO MẪU HỆ THỐNG CỐ ĐỊNH ---
         const unitName = user.fullName || user.unit.commune || 'CƠ QUAN QUÂN SỰ';
-        ExcelExportService.exportToTemplate(currentRecruits, selectedTemplateId, sessionYear, unitName);
+        ExcelExportService.exportToTemplate(currentYearRecruits, selectedTemplateId, sessionYear, unitName);
       }
       alert("Đã tạo báo cáo thành công!");
     } catch (e) {
+      console.error(e);
       alert("Đã có lỗi xảy ra khi xuất báo cáo.");
     } finally {
       setIsExporting(false);
@@ -82,7 +119,10 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
               {SYSTEM_TEMPLATES.map((tpl) => (
                 <div key={tpl.id} onClick={() => setSelectedTemplateId(tpl.id)} className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-4 ${selectedTemplateId === tpl.id ? 'border-military-600 bg-military-50/50' : 'border-gray-100 bg-white'}`}>
                   <div className={`p-2 rounded-lg ${selectedTemplateId === tpl.id ? 'bg-military-600 text-white' : 'bg-gray-100 text-gray-400'}`}><tpl.icon size={20} /></div>
-                  <div className="flex-1"><h4 className="text-xs font-black uppercase text-military-900">{tpl.title}</h4></div>
+                  <div className="flex-1">
+                    <h4 className="text-xs font-black uppercase text-military-900">{tpl.title}</h4>
+                    <p className="text-[10px] text-gray-500 mt-1">{tpl.description}</p>
+                  </div>
                   {selectedTemplateId === tpl.id && <CheckCircle2 size={16} className="text-military-600" />}
                 </div>
               ))}
@@ -97,7 +137,12 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
                 {customTemplates.map((tpl) => (
                   <div key={tpl.id || tpl._id} onClick={() => setSelectedTemplateId((tpl._id || tpl.id)!)} className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-4 ${selectedTemplateId === (tpl._id || tpl.id) ? 'border-blue-600 bg-blue-50/50' : 'border-gray-100 bg-white'}`}>
                     <div className={`p-2 rounded-lg ${selectedTemplateId === (tpl._id || tpl.id) ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-400'}`}><Settings2 size={20} /></div>
-                    <div className="flex-1"><h4 className="text-xs font-black uppercase text-blue-900">{tpl.name}</h4></div>
+                    <div className="flex-1">
+                      <h4 className="text-xs font-black uppercase text-blue-900">{tpl.name}</h4>
+                      <p className="text-[9px] text-blue-500 font-bold mt-1 uppercase opacity-60">
+                        Nguồn: {tpl.sourceTabs?.length || 0} DS {tpl.onlyAge17 && "| Chỉ lọc tuổi 17"}
+                      </p>
+                    </div>
                     {selectedTemplateId === (tpl._id || tpl.id) && <CheckCircle2 size={16} className="text-blue-600" />}
                   </div>
                 ))}
@@ -119,7 +164,7 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
                   <Download size={20} /> {isExporting ? 'Đang tạo tệp...' : 'Xuất báo cáo ngay'}
                </button>
                <div className="bg-blue-50 p-4 rounded-2xl mt-6 border border-blue-100">
-                  <p className="text-[10px] text-blue-800 leading-relaxed font-bold italic">Lưu ý: Nếu dùng mẫu tùy chỉnh, dữ liệu sẽ được điền vào đúng vị trí ô bạn đã cấu hình.</p>
+                  <p className="text-[10px] text-blue-800 leading-relaxed font-bold italic">Lưu ý: Dữ liệu xuất ra sẽ dựa trên cấu hình "Nguồn lấy công dân" mà bạn đã thiết lập trong quản lý mẫu biểu.</p>
                </div>
           </div>
         </div>

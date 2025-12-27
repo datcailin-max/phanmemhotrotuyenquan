@@ -3,13 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, Plus, Trash2, Edit3, UploadCloud, Info, 
   Settings2, CheckCircle2, X, AlertTriangle, List, Sparkles, Loader2,
-  Check, XCircle, Type
+  Check, XCircle, Type, Filter, UserSearch
 } from 'lucide-react';
 import { ExcelTemplate, User } from '../types';
 import { api } from '../api';
 import { FIELD_MAPPINGS } from '../services/TemplateExportService';
-import ExcelJS from 'exceljs';
-import { removeVietnameseTones } from '../constants';
+import { TABS } from './RecruitManagement/constants';
 
 interface TemplateManagementProps {
   user: User;
@@ -29,7 +28,10 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   useEffect(() => { fetchTemplates(); }, []);
 
   const handleOpenAdd = () => {
-    setEditingTemplate({ name: '', description: '', startRow: 10, mapping: {} });
+    setEditingTemplate({ 
+      name: '', description: '', startRow: 10, mapping: {}, 
+      sourceTabs: ['ALL'], onlyAge17: false 
+    });
     setShowModal(true);
   };
 
@@ -42,6 +44,17 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const toggleSourceTab = (tabId: string) => {
+    setEditingTemplate(prev => {
+      if (!prev) return null;
+      const current = prev.sourceTabs || [];
+      const next = current.includes(tabId) 
+        ? current.filter(id => id !== tabId)
+        : [...current, tabId];
+      return { ...prev, sourceTabs: next };
+    });
   };
 
   const toggleFieldInMapping = (colIndex: number, fieldKey: string) => {
@@ -102,7 +115,6 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
     
     setIsProcessing(true);
     try {
-      // Chuẩn bị payload sạch để gửi lên server
       const payload = { ...editingTemplate };
       const tplId = payload._id || payload.id;
       
@@ -142,7 +154,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
           <div className="bg-green-100 p-3 rounded-xl text-green-700"><FileSpreadsheet size={32} /></div>
           <div>
             <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Quản lý mẫu biểu chuẩn (Excel Injection)</h2>
-            <p className="text-sm text-gray-500 font-medium italic">Kéo thả hoặc chọn trường thông tin để điền vào file Excel mẫu của bạn</p>
+            <p className="text-sm text-gray-500 font-medium italic">Thiết lập nguồn dữ liệu và vị trí các trường trong file Excel mẫu</p>
           </div>
         </div>
         <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-military-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"><Plus size={18} /> Thêm mẫu mới</button>
@@ -168,12 +180,12 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
             <p className="text-xs text-gray-500 italic mb-4 line-clamp-2">{tpl.description}</p>
             <div className="space-y-2 border-t pt-4">
               <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400">
-                <span>Dòng bắt đầu:</span>
-                <span className="text-military-700">Dòng {tpl.startRow}</span>
+                <span>Nguồn lấy dữ liệu:</span>
+                <span className="text-blue-600 font-black">{tpl.sourceTabs?.length || 0} danh sách</span>
               </div>
               <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400">
-                <span>Số cột cấu hình:</span>
-                <span className="text-blue-600 font-black">{Object.keys(tpl.mapping || {}).length} cột</span>
+                <span>Lọc tuổi 17:</span>
+                <span className={tpl.onlyAge17 ? "text-green-600 font-black" : "text-gray-300"}>{tpl.onlyAge17 ? "BẬT" : "TẮT"}</span>
               </div>
             </div>
           </div>
@@ -182,7 +194,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[110] p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in duration-300">
             <div className="bg-military-800 p-5 flex justify-between items-center text-white shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/10 rounded-lg"><Settings2 size={20}/></div>
@@ -193,32 +205,70 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
 
             <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                <div className="lg:col-span-4 space-y-5">
-                   <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Info size={14} className="text-blue-500"/> Thông tin cơ bản</h4>
-                   <div>
-                     <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên mẫu biểu</label>
-                     <input required type="text" className="w-full border p-2.5 rounded-xl font-bold text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.name || ''} onChange={e => setEditingTemplate(prev => prev ? ({...prev, name: e.target.value}) : null)} placeholder="VD: Danh sách chi tiết gộp dòng" />
-                   </div>
-                   <div>
-                     <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Mô tả chi tiết</label>
-                     <textarea rows={2} className="w-full border p-2.5 rounded-xl text-xs font-medium bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.description || ''} onChange={e => setEditingTemplate(prev => prev ? ({...prev, description: e.target.value}) : null)} placeholder="Ghi chú về mẫu biểu này..." />
-                   </div>
-                   <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 relative overflow-hidden">
-                     <label className="block text-[10px] font-black text-amber-700 uppercase mb-2">1. Tải lên file Excel khung (.xlsx)</label>
-                     <input type="file" accept=".xlsx" onChange={handleFileUpload} className="w-full text-[10px] p-2 bg-white border border-dashed rounded-lg border-amber-300" />
-                     {editingTemplate?.fileData && <p className="mt-2 text-[9px] text-green-600 font-black uppercase flex items-center gap-1"><CheckCircle2 size={12}/> Đã nhận file mẫu</p>}
-                   </div>
-                   <div>
-                     <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">Dòng bắt đầu điền dữ liệu <AlertTriangle size={12} className="text-amber-500"/></label>
-                     <input type="number" className="w-24 border p-2.5 rounded-xl font-black text-center text-military-800 bg-military-50 outline-none focus:ring-2 focus:ring-military-400" value={editingTemplate?.startRow || 10} onChange={e => setEditingTemplate(prev => prev ? ({...prev, startRow: parseInt(e.target.value) || 0}) : null)} />
+                {/* Cột trái: Cấu hình chung & Nguồn */}
+                <div className="lg:col-span-4 space-y-6">
+                   <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 border-b pb-2"><Info size={14} className="text-blue-500"/> 1. Thông tin mẫu & Nguồn</h4>
+                   
+                   <div className="space-y-4">
+                     <div>
+                       <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên mẫu biểu</label>
+                       <input required type="text" className="w-full border p-2.5 rounded-xl font-bold text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.name || ''} onChange={e => setEditingTemplate(prev => prev ? ({...prev, name: e.target.value}) : null)} placeholder="VD: Danh sách 17 tuổi chuẩn (Injection)" />
+                     </div>
+                     
+                     <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                       <label className="block text-[10px] font-black text-amber-700 uppercase mb-2">Tải file Excel khung (.xlsx)</label>
+                       <input type="file" accept=".xlsx" onChange={handleFileUpload} className="w-full text-[10px] p-2 bg-white border border-dashed rounded-lg border-amber-300" />
+                       {editingTemplate?.fileData && <p className="mt-2 text-[9px] text-green-600 font-black uppercase flex items-center gap-1"><CheckCircle2 size={12}/> Đã nhận file mẫu</p>}
+                     </div>
+
+                     {/* PHẦN CHỌN DANH SÁCH NGUỒN */}
+                     <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                        <label className="block text-[10px] font-black text-blue-800 uppercase mb-3 flex items-center gap-1"><Filter size={12}/> Lấy công dân từ các danh sách:</label>
+                        <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                           {TABS.filter(t => !t.isSub).map(tab => (
+                             <label key={tab.id} className="flex items-center gap-2 cursor-pointer group">
+                                <input 
+                                  type="checkbox" 
+                                  className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                                  checked={editingTemplate?.sourceTabs?.includes(tab.id) || false}
+                                  onChange={() => toggleSourceTab(tab.id)}
+                                />
+                                <span className={`text-[10px] font-bold uppercase transition-colors ${editingTemplate?.sourceTabs?.includes(tab.id) ? 'text-blue-900' : 'text-gray-400 group-hover:text-gray-600'}`}>{tab.label}</span>
+                             </label>
+                           ))}
+                        </div>
+                     </div>
+
+                     {/* PHẦN LỌC TUỔI 17 */}
+                     <div className="bg-green-50/50 p-4 rounded-2xl border border-green-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                           <UserSearch size={18} className="text-green-600"/>
+                           <div>
+                              <p className="text-[10px] font-black text-green-800 uppercase">Chế độ lọc tuổi 17</p>
+                              <p className="text-[8px] text-green-600 font-bold uppercase opacity-70">Chỉ lấy những người đủ 17 tuổi</p>
+                           </div>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setEditingTemplate(prev => prev ? ({...prev, onlyAge17: !prev.onlyAge17}) : null)}
+                          className={`w-12 h-6 rounded-full transition-all relative ${editingTemplate?.onlyAge17 ? 'bg-green-600' : 'bg-gray-300'}`}
+                        >
+                           <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editingTemplate?.onlyAge17 ? 'left-7' : 'left-1'}`}></div>
+                        </button>
+                     </div>
+
+                     <div>
+                       <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Dòng bắt đầu điền dữ liệu</label>
+                       <input type="number" className="w-24 border p-2.5 rounded-xl font-black text-center text-military-800 bg-military-50 outline-none focus:ring-2 focus:ring-military-400" value={editingTemplate?.startRow || 10} onChange={e => setEditingTemplate(prev => prev ? ({...prev, startRow: parseInt(e.target.value) || 0}) : null)} />
+                     </div>
                    </div>
                 </div>
 
+                {/* Cột phải: Cấu hình Cột */}
                 <div className="lg:col-span-8 space-y-5">
-                   <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Sparkles size={14} className="text-amber-500"/> Thiết lập cột đa tầng</h4>
-                   <p className="text-[9px] text-gray-500 bg-gray-50 p-3 rounded-xl border border-dashed leading-relaxed italic">Mẹo: Bạn có thể chọn 1 trường nhiều lần hoặc chọn "Văn bản tự nhập" để điền chữ cố định.</p>
+                   <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 border-b pb-2"><Sparkles size={14} className="text-amber-500"/> 2. Thiết lập ánh xạ cột (Mapping)</h4>
                    
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                       {Array.from({ length: 30 }, (_, i) => i + 1).map(colIdx => {
                         const mappingValue = editingTemplate?.mapping?.[colIdx.toString()];
                         const colFields = Array.isArray(mappingValue) ? mappingValue : (mappingValue ? [mappingValue as string] : []);
@@ -228,7 +278,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                           <div key={colIdx} className={`p-4 rounded-2xl border transition-all ${isMapped ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-gray-100 shadow-sm'}`}>
                              <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${isMapped ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-800 text-white'}`}>{String.fromCharCode(64 + colIdx)}</div>
-                                <span className="text-[9px] font-black text-gray-400 uppercase">Cột thứ {colIdx}</span>
+                                <span className="text-[9px] font-black text-gray-400 uppercase">Cột {String.fromCharCode(64 + colIdx)} (Vị trí {colIdx})</span>
                              </div>
                              
                              <div className="flex flex-wrap gap-1.5 mb-3 min-h-[40px]">
@@ -237,7 +287,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                                     <span className="text-[8px] font-black text-blue-700 uppercase line-clamp-1 max-w-[120px]">{getLabelForDisplay(fieldKey)}</span>
                                     <button type="button" onClick={() => removeFieldFromCol(colIdx, fIdx)} className="text-blue-300 hover:text-red-500 transition-colors"><XCircle size={12}/></button>
                                   </div>
-                                )) : <span className="text-[9px] text-gray-300 italic font-bold">Chưa cấu hình</span>}
+                                )) : <span className="text-[9px] text-gray-300 italic font-bold">Chưa gán trường dữ liệu</span>}
                              </div>
 
                              <div className="relative">
@@ -246,7 +296,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                                   value=""
                                   onChange={e => { if(e.target.value) toggleFieldInMapping(colIdx, e.target.value); }}
                                 >
-                                   <option value="">+ Thêm trường / Văn bản...</option>
+                                   <option value="">+ Thêm dữ liệu vào cột...</option>
                                    {FIELD_MAPPINGS.map(m => (
                                      <option key={m.key} value={m.key}>{m.label}</option>
                                    ))}
@@ -263,7 +313,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
               <div className="mt-8 pt-6 border-t flex justify-end gap-3 shrink-0">
                 <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2.5 text-xs font-black text-gray-500 uppercase">Hủy bỏ</button>
                 <button type="submit" disabled={isProcessing} className="px-10 py-2.5 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-2 hover:bg-military-800 transition-all active:scale-95">
-                  {isProcessing ? 'Đang lưu...' : 'Xác nhận lưu mẫu biểu'}
+                  {isProcessing ? 'Đang xử lý...' : 'Xác nhận lưu cấu hình'}
                 </button>
               </div>
             </form>

@@ -128,6 +128,8 @@ export interface ExcelTemplate {
   fileData: string; // Base64 file .xlsx
   startRow: number; // Dòng bắt đầu ghi dữ liệu (VD: 10)
   mapping: Record<string, string | string[]>; // Hỗ trợ mảng các trường thông tin cho một cột
+  sourceTabs?: string[]; // Danh sách các ID Tab nguồn (VD: ['FIRST_TIME_REG', 'ALL'])
+  onlyAge17?: boolean; // Chỉ lấy công dân đủ 17 tuổi
   createdAt?: string;
 }
 
