@@ -52,20 +52,33 @@ export class TemplateExportService {
 
       let currentRow = template.startRow;
 
-      recruits.forEach((r, index) => {
+      // Sắp xếp danh sách theo tên để xuất cho chuyên nghiệp
+      const sortedRecruits = [...recruits].sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+      sortedRecruits.forEach((r, index) => {
+        const row = worksheet.getRow(currentRow);
+        
+        // QUAN TRỌNG: Phá bỏ mọi ô bị Gộp (Merge) tại dòng này trong file mẫu 
+        // để tránh lỗi nhiều người chung 1 ô STT như trong ảnh bạn gửi.
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          if (cell.isMerged) {
+            // Fix: Changed unmergeCells to unMergeCells as suggested by the compiler to resolve error on line 65
+            worksheet.unMergeCells(cell.address);
+          }
+        });
+
         Object.entries(template.mapping).forEach(([colIndex, mappingValue]) => {
           const col = parseInt(colIndex);
           const fieldKeys = Array.isArray(mappingValue) ? mappingValue : [mappingValue];
           
           const lines = fieldKeys.map(fieldKey => {
-            // Xử lý văn bản tự nhập (bắt đầu bằng STATIC:)
             if (fieldKey.startsWith('STATIC:')) {
                 return fieldKey.replace('STATIC:', '');
             }
 
             let val: any = '';
             switch (fieldKey) {
-              case 'STT': val = index + 1; break;
+              case 'STT': val = index + 1; break; // STT luôn tăng theo từng người
               case 'FULL_NAME': val = (r.fullName || '').toUpperCase(); break;
               case 'DOB': val = r.dob ? r.dob.split('-').reverse().join('/') : ''; break;
               case 'AGE': val = checkAge(r, sessionYear); break;
@@ -86,7 +99,6 @@ export class TemplateExportService {
               case 'POLITICAL_STATUS': 
                   val = r.details?.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details?.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng');
                   break;
-              case 'FOREIGN_LANG': val = ''; break;
               case 'HEALTH': val = r.physical?.healthGrade ? `Loại ${r.physical.healthGrade}` : ''; break;
               case 'JOB': val = r.details?.job || ''; break;
               case 'WORK_ADDRESS': val = r.details?.workAddress || ''; break;
@@ -107,22 +119,24 @@ export class TemplateExportService {
             return (val === undefined || val === null) ? '' : val.toString();
           });
 
-          // QUAN TRỌNG: Loại bỏ .filter(v => v !== '') để giữ nguyên số dòng đã cấu hình trong 1 ô.
-          // Nếu dữ liệu trống, dòng đó sẽ để trắng trong ô thay vì dồn các dòng dưới lên.
           const combinedValue = lines.join('\n');
-          const cell = worksheet.getRow(currentRow).getCell(col);
+          const cell = row.getCell(col);
           cell.value = combinedValue;
-          cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+          cell.alignment = { vertical: 'top', horizontal: col === 1 ? 'center' : 'left', wrapText: true };
           
-          cell.font = cell.font || { name: 'Times New Roman', size: 11 };
-          cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+          // Giữ định dạng font chuẩn
+          cell.font = { name: 'Times New Roman', size: 11 };
+          cell.border = { 
+            top: {style:'thin'}, left: {style:'thin'}, 
+            bottom: {style:'thin'}, right: {style:'thin'} 
+          };
         });
         
-        // Thiết lập độ cao dòng tối thiểu để không bị cắt chữ khi có nhiều dòng dữ liệu
+        // Thiết lập độ cao dòng linh hoạt
         const maxLinesInRow = Math.max(...Object.values(template.mapping).map(v => Array.isArray(v) ? v.length : 1));
-        worksheet.getRow(currentRow).height = Math.max(15, maxLinesInRow * 14);
+        row.height = Math.max(25, maxLinesInRow * 15);
         
-        currentRow++;
+        currentRow++; // Nhảy sang dòng tiếp theo cho công dân tiếp theo
       });
 
       const outBuffer = await workbook.xlsx.writeBuffer();
@@ -132,12 +146,13 @@ export class TemplateExportService {
       link.href = url;
       link.download = `Danh_sach_Xuat_Ban_${template.name.replace(/\s+/g, '_')}_${sessionYear}.xlsx`;
       document.body.appendChild(link);
+      link.href = url;
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Lỗi Template Export:", error);
-      alert("Đã xảy ra lỗi khi bơm dữ liệu vào mẫu Excel.");
+      alert("Đã xảy ra lỗi khi bơm dữ liệu vào mẫu Excel. Kiểm tra file mẫu của bạn có bị bảo vệ (Protect) không?");
     }
   }
 }
