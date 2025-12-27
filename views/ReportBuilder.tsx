@@ -1,8 +1,13 @@
 
-import React, { useState } from 'react';
-import { FileSpreadsheet, Download, Filter, FileText, CheckCircle2, ChevronRight, AlertCircle, Info, BarChart3, UserCheck2, ListOrdered, Flag } from 'lucide-react';
-import { Recruit, User, RecruitmentStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { 
+  FileSpreadsheet, Download, Filter, FileText, CheckCircle2, ChevronRight, 
+  AlertCircle, Info, BarChart3, UserCheck2, ListOrdered, Flag, Settings2 
+} from 'lucide-react';
+import { Recruit, User, RecruitmentStatus, ExcelTemplate } from '../types';
 import { ExcelExportService } from '../services/ExcelExportService';
+import { TemplateExportService } from '../services/TemplateExportService';
+import { api } from '../api';
 
 interface ReportBuilderProps {
   user: User;
@@ -10,134 +15,48 @@ interface ReportBuilderProps {
   sessionYear: number;
 }
 
-const REPORT_TEMPLATES = [
-  { 
-    id: 'TEMPLATE_17A', 
-    title: 'Danh sách gọi công dân nhập ngũ (Mẫu 17A)', 
-    description: 'Biểu số 17A/GNN-2025: Danh sách chi tiết công dân đã nhận lệnh và sẵn sàng nhập ngũ (Lấy từ Danh sách 11).',
-    type: 'EXCEL',
-    icon: Flag,
-    statusRequired: [RecruitmentStatus.ENLISTED]
-  },
-  { 
-    id: 'TEMPLATE_01', 
-    title: 'Danh sách công dân nam đủ 17 tuổi trong năm (Mẫu 01)', 
-    description: 'Biểu số 01/GNN-2025: Danh sách chi tiết 7 cột thông tin về thanh niên đủ 17 tuổi (Dùng cho đăng ký lần đầu).',
-    type: 'EXCEL',
-    icon: ListOrdered,
-    statusRequired: null 
-  },
-  { 
-    id: 'TEMPLATE_01A', 
-    title: 'Báo cáo KQ đăng ký NVQS cho nam công dân đủ 17 tuổi (Mẫu 01A)', 
-    description: 'Biểu số 01A/GNN-2025: Thống kê chi tiết kết quả đăng ký cho thanh niên đủ 17 tuổi trong năm.',
-    type: 'EXCEL',
-    icon: UserCheck2,
-    statusRequired: null 
-  },
-  { 
-    id: 'TEMPLATE_06', 
-    title: 'Báo cáo số lượng công dân trong độ tuổi gọi nhập ngũ (Mẫu 06)', 
-    description: 'Biểu số 06/GNN-2025: Thống kê chi tiết 37 cột về số lượng, trình độ, độ tuổi và diện miễn hoãn.',
-    type: 'EXCEL',
-    icon: BarChart3,
-    statusRequired: null 
-  },
-  { 
-    id: 'TEMPLATE_EXEMPTED', 
-    title: 'Danh sách công dân miễn gọi nhập ngũ (Mẫu 16A)', 
-    description: 'Biểu số 16A/GNN-2025: Thống kê chi tiết các công dân thuộc diện miễn gọi nhập ngũ theo Luật.',
-    type: 'EXCEL',
-    icon: FileText,
-    statusRequired: [RecruitmentStatus.EXEMPTED]
-  },
-  { 
-    id: 'TEMPLATE_DEFERRED', 
-    title: 'Danh sách công dân tạm hoãn NVQS (Mẫu 16B)', 
-    description: 'Biểu số 16B/GNN-2025: Thống kê chi tiết các công dân thuộc diện tạm hoãn nhập ngũ.',
-    type: 'EXCEL',
-    icon: FileText,
-    statusRequired: [RecruitmentStatus.DEFERRED]
-  },
-  { 
-    id: 'TEMPLATE_PRE_CHECK', 
-    title: 'Danh sách công dân đủ ĐK gọi sơ tuyển (Mẫu 16C)', 
-    description: 'Biểu số 16C/GNN-2025: Danh sách công dân đủ tiêu chuẩn gọi sơ tuyển Nghĩa vụ quân sự và Công an.',
-    type: 'EXCEL',
-    icon: FileText,
-    statusRequired: null 
-  }
+const SYSTEM_TEMPLATES = [
+  { id: 'TEMPLATE_17A', title: 'Danh sách gọi nhập ngũ (Mẫu 17A)', description: 'Biểu số 17A/GNN-2025: Danh sách công dân đã nhận lệnh.', icon: Flag },
+  { id: 'TEMPLATE_01', title: 'Danh sách công dân nam đủ 17 tuổi (Mẫu 01)', description: 'Biểu số 01/GNN-2025: Danh sách chi tiết 7 cột thông tin.', icon: ListOrdered },
+  { id: 'TEMPLATE_01A', title: 'Báo cáo KQ đăng ký 17 tuổi (Mẫu 01A)', description: 'Thống kê kết quả đăng ký cho thanh niên đủ 17 tuổi.', icon: UserCheck2 },
+  { id: 'TEMPLATE_06', title: 'Báo cáo 37 cột (Mẫu 06)', description: 'Thống kê chi tiết số lượng, trình độ, diện miễn hoãn.', icon: BarChart3 },
 ];
 
 const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYear }) => {
-  const [selectedTemplate, setSelectedTemplate] = useState<string>(REPORT_TEMPLATES[0].id);
+  const [customTemplates, setCustomTemplates] = useState<ExcelTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(SYSTEM_TEMPLATES[0].id);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Lọc dữ liệu theo năm làm việc
+  useEffect(() => {
+    const fetchCustom = async () => {
+      const data = await api.getTemplates();
+      setCustomTemplates(data || []);
+    };
+    fetchCustom();
+  }, []);
+
   const currentRecruits = recruits.filter(r => r.recruitmentYear === sessionYear);
 
   const handleExport = async () => {
     if (currentRecruits.length === 0) {
-      alert("Không có dữ liệu công dân trong năm " + sessionYear + " để xuất báo cáo.");
+      alert("Không có dữ liệu công dân.");
       return;
     }
 
     setIsExporting(true);
     try {
-      const template = REPORT_TEMPLATES.find(t => t.id === selectedTemplate);
-      const unitName = user.fullName || user.unit.commune || 'CƠ QUAN QUÂN SỰ';
+      const customTpl = customTemplates.find(t => t.id === selectedTemplateId || t._id === selectedTemplateId);
       
-      let dataToExport = currentRecruits;
-
-      // Logic lọc dữ liệu phù hợp với loại danh sách
-      if (selectedTemplate === 'TEMPLATE_01' || selectedTemplate === 'TEMPLATE_01A') {
-          // Năm sinh 17 tuổi tính theo năm thực hiện (sessionYear - 1)
-          const targetBirthYear = (sessionYear - 1) - 17;
-          dataToExport = currentRecruits.filter(r => {
-              const birthYear = parseInt(r.dob.split('-')[0] || '0');
-              return birthYear === targetBirthYear && r.status !== RecruitmentStatus.DELETED;
-          });
-      } else if (selectedTemplate === 'TEMPLATE_PRE_CHECK') {
-          dataToExport = currentRecruits.filter(r => {
-              const birthYear = parseInt(r.dob.split('-')[0] || '0');
-              const age = (sessionYear - 1) - birthYear;
-              if (age < 18) return false;
-              
-              const excludedStatuses = [
-                  RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
-                  RecruitmentStatus.EXEMPT_REGISTRATION, 
-                  RecruitmentStatus.FIRST_TIME_REGISTRATION,
-                  RecruitmentStatus.NOT_SELECTED_TT50,
-                  RecruitmentStatus.KTC_KHONG_TUYEN_CHON,
-                  RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU,
-                  RecruitmentStatus.DEFERRED,
-                  RecruitmentStatus.EXEMPTED,
-                  RecruitmentStatus.REMOVED_FROM_SOURCE,
-                  RecruitmentStatus.DELETED
-              ];
-              return !excludedStatuses.includes(r.status);
-          });
-      } else if (selectedTemplate === 'TEMPLATE_06') {
-          dataToExport = currentRecruits.filter(r => {
-              const birthYear = parseInt(r.dob.split('-')[0] || '0');
-              const age = (sessionYear - 1) - birthYear;
-              return age >= 17 && age <= 27 && r.status !== RecruitmentStatus.DELETED;
-          });
-      } else if (template?.statusRequired) {
-          dataToExport = currentRecruits.filter(r => template.statusRequired!.includes(r.status));
+      if (customTpl) {
+        // --- XUẤT THEO MẪU TÙY BIẾN (INJECTION) ---
+        await TemplateExportService.inject(currentRecruits, customTpl, sessionYear);
+      } else {
+        // --- XUẤT THEO MẪU HỆ THỐNG CỐ ĐỊNH ---
+        const unitName = user.fullName || user.unit.commune || 'CƠ QUAN QUÂN SỰ';
+        ExcelExportService.exportToTemplate(currentRecruits, selectedTemplateId, sessionYear, unitName);
       }
-
-      if (dataToExport.length === 0) {
-        alert("Danh sách này hiện đang trống, không có dữ liệu để xuất file.");
-        setIsExporting(false);
-        return;
-      }
-
-      ExcelExportService.exportToTemplate(dataToExport, selectedTemplate, sessionYear, unitName);
-      
       alert("Đã tạo báo cáo thành công!");
     } catch (e) {
-      console.error(e);
       alert("Đã có lỗi xảy ra khi xuất báo cáo.");
     } finally {
       setIsExporting(false);
@@ -147,105 +66,61 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
   return (
     <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500 max-w-6xl mx-auto">
       <div className="flex items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-        <div className="bg-military-800 p-4 rounded-2xl text-white shadow-lg">
-          <FileSpreadsheet size={32} />
-        </div>
+        <div className="bg-military-800 p-4 rounded-2xl text-white shadow-lg"><FileSpreadsheet size={32} /></div>
         <div>
-          <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Hệ thống lập báo cáo chuyên nghiệp</h2>
-          <p className="text-sm text-gray-500 font-medium">Tự động kết xuất dữ liệu sang các biểu mẫu chuẩn 2025 của ngành quân sự</p>
+          <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Trung tâm kết xuất báo cáo</h2>
+          <p className="text-sm text-gray-500 font-medium italic">Sử dụng mẫu hệ thống hoặc mẫu tùy chỉnh đã được chuẩn hóa riêng của địa phương</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-            <CheckCircle2 size={14} className="text-green-500" /> Bước 1: Chọn biểu mẫu báo cáo cần thực hiện
-          </h3>
-          
-          <div className="grid grid-cols-1 gap-4">
-            {REPORT_TEMPLATES.map((tpl) => (
-              <div 
-                key={tpl.id}
-                onClick={() => setSelectedTemplate(tpl.id)}
-                className={`p-6 rounded-2xl border-2 transition-all cursor-pointer group relative overflow-hidden ${
-                  selectedTemplate === tpl.id 
-                    ? 'border-military-600 bg-military-50/50 shadow-md' 
-                    : 'border-gray-100 bg-white hover:border-gray-200'
-                }`}
-              >
-                <div className="flex items-start gap-4 relative z-10">
-                  <div className={`p-3 rounded-xl transition-colors ${
-                    selectedTemplate === tpl.id ? 'bg-military-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
-                  }`}>
-                    <tpl.icon size={24} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className={`text-sm font-black uppercase tracking-tight ${selectedTemplate === tpl.id ? 'text-military-900' : 'text-gray-700'}`}>
-                      {tpl.title}
-                    </h4>
-                    <p className="text-xs text-gray-500 font-medium mt-1 leading-relaxed italic">
-                      {tpl.description}
-                    </p>
-                  </div>
-                  <div className={`shrink-0 transition-all ${selectedTemplate === tpl.id ? 'text-military-600 translate-x-0 opacity-100' : 'opacity-0 -translate-x-2'}`}>
-                    <ChevronRight size={20} />
-                  </div>
+          {/* MẪU HỆ THỐNG */}
+          <div>
+            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">Mẫu biểu hệ thống (Chuẩn 2025)</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {SYSTEM_TEMPLATES.map((tpl) => (
+                <div key={tpl.id} onClick={() => setSelectedTemplateId(tpl.id)} className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-4 ${selectedTemplateId === tpl.id ? 'border-military-600 bg-military-50/50' : 'border-gray-100 bg-white'}`}>
+                  <div className={`p-2 rounded-lg ${selectedTemplateId === tpl.id ? 'bg-military-600 text-white' : 'bg-gray-100 text-gray-400'}`}><tpl.icon size={20} /></div>
+                  <div className="flex-1"><h4 className="text-xs font-black uppercase text-military-900">{tpl.title}</h4></div>
+                  {selectedTemplateId === tpl.id && <CheckCircle2 size={16} className="text-military-600" />}
                 </div>
-                {selectedTemplate === tpl.id && (
-                  <div className="absolute top-0 left-0 w-1 h-full bg-military-600"></div>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+
+          {/* MẪU TÙY BIẾN */}
+          {customTemplates.length > 0 && (
+            <div>
+              <h3 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">Mẫu biểu tùy chỉnh (Excel Injection)</h3>
+              <div className="grid grid-cols-1 gap-3">
+                {customTemplates.map((tpl) => (
+                  <div key={tpl.id || tpl._id} onClick={() => setSelectedTemplateId((tpl._id || tpl.id)!)} className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-4 ${selectedTemplateId === (tpl._id || tpl.id) ? 'border-blue-600 bg-blue-50/50' : 'border-gray-100 bg-white'}`}>
+                    <div className={`p-2 rounded-lg ${selectedTemplateId === (tpl._id || tpl.id) ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-400'}`}><Settings2 size={20} /></div>
+                    <div className="flex-1"><h4 className="text-xs font-black uppercase text-blue-900">{tpl.name}</h4></div>
+                    {selectedTemplateId === (tpl._id || tpl.id) && <CheckCircle2 size={16} className="text-blue-600" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-            <Filter size={14} className="text-blue-500" /> Bước 2: Thiết lập & Xuất file
-          </h3>
-
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 sticky top-8">
-            <div className="space-y-6">
-               <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
-                  <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Năm tuyển quân hiển thị</p>
+               <div className="p-4 bg-gray-50 rounded-2xl text-center mb-6">
+                  <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Năm hiển thị</p>
                   <p className="text-3xl font-black text-military-800">{sessionYear}</p>
-                  <p className="text-[10px] font-bold text-military-600 mt-1 uppercase italic">(Năm thực hiện: {sessionYear - 1})</p>
                </div>
-
-               <div className="space-y-3">
-                  <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase">
-                     <span>Hồ sơ khả dụng:</span>
-                     <span className="text-military-700">{currentRecruits.length} hồ sơ</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                     <div className="h-full bg-military-500 w-full animate-pulse"></div>
-                  </div>
-               </div>
-
-               <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex items-start gap-3">
-                  <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-blue-800 leading-relaxed font-bold italic">
-                    {selectedTemplate === 'TEMPLATE_01' || selectedTemplate === 'TEMPLATE_01A'
-                      ? `Hệ thống tự động lọc thanh niên sinh năm ${(sessionYear - 1) - 17} (tức tròn 17 tuổi vào năm thực hiện ${sessionYear - 1}).`
-                      : `Hệ thống tính toán tuổi dựa trên mốc năm thực hiện (${sessionYear - 1}).`}
-                  </p>
-               </div>
-
                <button 
-                  onClick={handleExport}
-                  disabled={isExporting || currentRecruits.length === 0}
-                  className={`w-full py-4 rounded-2xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 ${
-                    isExporting ? 'bg-gray-400 cursor-not-allowed' : 'bg-military-700 text-white hover:bg-military-800'
-                  }`}
+                  onClick={handleExport} disabled={isExporting}
+                  className="w-full py-4 rounded-2xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-3 bg-military-700 text-white hover:bg-military-800 transition-all active:scale-95 disabled:opacity-50"
                >
-                  <Download size={20} />
-                  {isExporting ? 'Đang khởi tạo file...' : 'Tạo danh sách / báo cáo'}
+                  <Download size={20} /> {isExporting ? 'Đang tạo tệp...' : 'Xuất báo cáo ngay'}
                </button>
-
-               <div className="flex items-center gap-2 text-[9px] text-gray-400 font-bold uppercase justify-center mt-4">
-                  <AlertCircle size={12} /> Dữ liệu được bảo mật theo phiên làm việc
+               <div className="bg-blue-50 p-4 rounded-2xl mt-6 border border-blue-100">
+                  <p className="text-[10px] text-blue-800 leading-relaxed font-bold italic">Lưu ý: Nếu dùng mẫu tùy chỉnh, dữ liệu sẽ được điền vào đúng vị trí ô bạn đã cấu hình.</p>
                </div>
-            </div>
           </div>
         </div>
       </div>

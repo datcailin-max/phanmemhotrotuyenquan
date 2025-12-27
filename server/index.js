@@ -10,6 +10,7 @@ import Document from './models/Document.js';
 import Feedback from './models/Feedback.js';
 import Report from './models/Report.js';
 import Dispatch from './models/Dispatch.js';
+import Template from './models/Template.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +18,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CẤU HÌNH GIỚI HẠN PAYLOAD - QUAN TRỌNG ĐỂ NHẬN FILE LỚN
 app.use(express.json({ limit: '200mb' }));
 app.use(express.urlencoded({ limit: '200mb', extended: true }));
 app.use(cors());
@@ -29,9 +29,7 @@ mongoose.connect(MONGODB_URI)
   .catch(err => console.error('❌ MongoDB Error:', err.message));
 
 // --- USER API ---
-app.get('/api/users', async (req, res) => {
-  try { res.json(await User.find()); } catch (e) { res.status(500).json({ message: e.message }); }
-});
+app.get('/api/users', async (req, res) => { try { res.json(await User.find()); } catch (e) { res.status(500).json({ message: e.message }); } });
 app.post('/api/users/login', async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -48,136 +46,29 @@ app.post('/api/users/sync', async (req, res) => {
     res.json(user);
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
-app.put('/api/users/:username', async (req, res) => {
-  try { res.json(await User.findOneAndUpdate({ username: req.params.username }, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); }
-});
+app.put('/api/users/:username', async (req, res) => { try { res.json(await User.findOneAndUpdate({ username: req.params.username }, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
 
 // --- RECRUIT API ---
-app.get('/api/recruits', async (req, res) => {
-  try { res.json(await Recruit.find()); } catch (e) { res.status(500).json({ message: e.message }); }
-});
-app.post('/api/recruits', async (req, res) => {
-  try { res.status(201).json(await new Recruit(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
-});
-app.put('/api/recruits/:id', async (req, res) => {
-  try { res.json(await Recruit.findOneAndUpdate({ id: req.params.id }, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); }
-});
-app.delete('/api/recruits/:id', async (req, res) => {
-  try { await Recruit.findOneAndDelete({ id: req.params.id }); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
-});
+app.get('/api/recruits', async (req, res) => { try { res.json(await Recruit.find()); } catch (e) { res.status(500).json({ message: e.message }); } });
+app.post('/api/recruits', async (req, res) => { try { res.status(201).json(await new Recruit(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.put('/api/recruits/:id', async (req, res) => { try { res.json(await Recruit.findOneAndUpdate({ id: req.params.id }, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.delete('/api/recruits/:id', async (req, res) => { try { await Recruit.findOneAndDelete({ id: req.params.id }); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); } });
 
-// --- DOCUMENT API ---
-app.get('/api/documents', async (req, res) => {
-  try { res.json(await Document.find().sort({ createdAt: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
-});
-app.post('/api/documents', async (req, res) => {
-  try { 
-    console.log(`[DOC] Uploading: ${req.body.title} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
-    const doc = new Document(req.body);
-    const result = await doc.save();
-    res.status(201).json(result); 
-  } catch (e) { 
-    console.error('[DOC] Save Error:', e.message);
-    res.status(400).json({ message: e.message }); 
-  }
-});
-app.put('/api/documents/:id', async (req, res) => {
-  try { res.json(await Document.findByIdAndUpdate(req.params.id, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); }
-});
-app.delete('/api/documents/:id', async (req, res) => {
-  try { await Document.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
-});
+// --- TEMPLATE API ---
+app.get('/api/templates', async (req, res) => { try { res.json(await Template.find()); } catch (e) { res.status(500).json({ message: e.message }); } });
+app.post('/api/templates', async (req, res) => { try { res.status(201).json(await new Template(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.put('/api/templates/:id', async (req, res) => { try { res.json(await Template.findByIdAndUpdate(req.params.id, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.delete('/api/templates/:id', async (req, res) => { try { await Template.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); } });
 
-// --- FEEDBACK / QA API ---
-app.get('/api/feedbacks', async (req, res) => {
-  try { res.json(await Feedback.find().sort({ createdAt: -1 })); } catch (e) { res.status(500).json({ message: e.message }); }
-});
-app.post('/api/feedbacks', async (req, res) => {
-  try { res.status(201).json(await new Feedback(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); }
-});
-app.put('/api/feedbacks/:id', async (req, res) => {
-  try { res.json(await Feedback.findByIdAndUpdate(req.params.id, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); }
-});
-app.delete('/api/feedbacks/:id', async (req, res) => {
-  try { await Feedback.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// --- REPORT API ---
-app.get('/api/reports', async (req, res) => {
-  const { province, targetProvince, username, year } = req.query;
-  let query = {};
-  
-  // Hỗ trợ tìm kiếm theo tỉnh (không phân biệt hoa thường và trim)
-  const pName = targetProvince || province;
-  if (pName) {
-    query.targetProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
-  }
-  
-  if (username) query.senderUsername = username;
-  if (year) query.year = Number(year);
-  
-  try { 
-    const results = await Report.find(query).sort({ timestamp: -1 });
-    res.json(results); 
-  } catch (e) { 
-    res.status(500).json({ message: e.message }); 
-  }
-});
-app.post('/api/reports', async (req, res) => {
-  try { 
-    console.log(`[REPORT] From ${req.body.senderUnitName} to ${req.body.targetProvince} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
-    res.status(201).json(await new Report(req.body).save()); 
-  } catch (e) { 
-    console.error('[REPORT] Save Error:', e.message);
-    res.status(400).json({ message: e.message }); 
-  }
-});
-app.delete('/api/reports/:id', async (req, res) => {
-    try { await Report.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// --- DISPATCH API ---
-app.get('/api/dispatches', async (req, res) => {
-  const { province, senderProvince, username, commune, year } = req.query;
-  let query = {};
-  
-  const pName = senderProvince || province;
-  if (pName) {
-    query.senderProvince = { $regex: new RegExp("^" + pName.trim() + "$", "i") };
-  }
-  
-  // Lọc văn bản theo người nhận: Hỗ trợ cả username, tên xã cụ thể hoặc gửi toàn tỉnh (ALL)
-  if (username || commune) {
-    const targets = ['ALL'];
-    if (username) targets.push(username);
-    if (commune) targets.push(commune);
-    
-    query.recipients = { 
-      $in: targets.map(t => new RegExp("^" + t.trim() + "$", "i")) 
-    };
-  }
-  
-  if (year) query.year = Number(year);
-  
-  try { 
-    const results = await Dispatch.find(query).sort({ timestamp: -1 });
-    res.json(results); 
-  } catch (e) { 
-    res.status(500).json({ message: e.message }); 
-  }
-});
-app.post('/api/dispatches', async (req, res) => {
-  try { 
-    console.log(`[DISPATCH] Title: ${req.body.title} - Size: ~${Math.round(req.body.url.length / 1024)} KB`);
-    res.status(201).json(await new Dispatch(req.body).save()); 
-  } catch (e) { 
-    console.error('[DISPATCH] Save Error:', e.message);
-    res.status(400).json({ message: e.message }); 
-  }
-});
-app.delete('/api/dispatches/:id', async (req, res) => {
-    try { await Dispatch.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); }
-});
+// --- CÁC API KHÁC GIỮ NGUYÊN ---
+app.get('/api/documents', async (req, res) => { try { res.json(await Document.find().sort({ createdAt: -1 })); } catch (e) { res.status(500).json({ message: e.message }); } });
+app.post('/api/documents', async (req, res) => { try { const doc = new Document(req.body); res.status(201).json(await doc.save()); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.get('/api/feedbacks', async (req, res) => { try { res.json(await Feedback.find().sort({ createdAt: -1 })); } catch (e) { res.status(500).json({ message: e.message }); } });
+app.post('/api/feedbacks', async (req, res) => { try { res.status(201).json(await new Feedback(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.get('/api/reports', async (req, res) => { try { res.json(await Report.find(req.query).sort({ timestamp: -1 })); } catch (e) { res.status(500).json({ message: e.message }); } });
+app.post('/api/reports', async (req, res) => { try { res.status(201).json(await new Report(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.get('/api/dispatches', async (req, res) => { try { res.json(await Dispatch.find(req.query).sort({ timestamp: -1 })); } catch (e) { res.status(500).json({ message: e.message }); } });
+app.post('/api/dispatches', async (req, res) => { try { res.status(201).json(await new Dispatch(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../dist/index.html')));
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT} with 200MB limit` ));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT}`));

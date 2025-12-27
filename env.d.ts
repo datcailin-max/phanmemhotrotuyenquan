@@ -11,8 +11,8 @@ declare namespace NodeJS {
 }
 
 /**
- * Fix: Added 'readonly' modifier to 'aistudio' to match internal host declarations
- * and resolve "identical modifiers" error.
+ * Fix: Added 'readonly' modifier to 'aistudio' to resolve the "identical modifiers" error.
+ * This ensures compatibility when merging with the base Window interface declared by the host environment.
  */
 interface Window {
   readonly aistudio: {

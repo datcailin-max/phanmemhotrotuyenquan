@@ -78,20 +78,8 @@ export interface Recruit {
     village: string;
     street?: string;
   };
-  hometown: {
-    province: string;
-    commune: string;
-    village: string;
-  };
-  physical: {
-    height: number;
-    weight: number;
-    chest: number; // Mới: Vòng ngực
-    bmi: number;
-    healthGrade?: number;
-    bloodPressure?: string;
-    note?: string; // Ghi chú sức khỏe
-  };
+  hometown: { province: string; commune: string; village: string; };
+  physical: { height: number; weight: number; chest: number; bmi: number; healthGrade?: number; bloodPressure?: string; note?: string; };
   details: {
     education: string;
     educationPeriod?: string;
@@ -102,15 +90,15 @@ export interface Recruit {
     religion: string;
     maritalStatus: string;
     job: string;
-    workAddress?: string; // Mới: Địa chỉ làm việc
-    gradeGroup?: string; // Mới: Nhóm ngạch
-    salaryLevel?: string; // Mới: Bậc lương
+    workAddress?: string;
+    gradeGroup?: string;
+    salaryLevel?: string;
     politicalStatus: 'None' | 'Doan_Vien' | 'Dang_Vien';
     partyEntryDate?: string;
     gifted?: string;
-    familyComposition?: string; // Mới: Thành phân gia đình
-    personalComposition?: string; // Mới: Thành phần bản thân
-    registrationMethod?: 'DIRECT' | 'ONLINE'; // Mới: Hình thức đăng ký
+    familyComposition?: string;
+    personalComposition?: string;
+    registrationMethod?: 'DIRECT' | 'ONLINE';
   };
   family: {
     father: FamilyMember;
@@ -132,34 +120,17 @@ export interface Recruit {
   updatedAt?: string;
 }
 
-export interface UnitReport {
-    id: string;
-    senderUsername: string;
-    senderUnitName: string;
-    targetProvince: string;
-    title: string;
-    url: string;
-    year: number;
-    timestamp: number;
-}
-
-export interface ProvincialDispatch {
-    id: string;
-    senderUsername: string;
-    senderProvince: string;
-    title: string;
-    url: string;
-    recipients: string[]; // Danh sách username xã nhận, hoặc ['ALL']
-    year: number;
-    timestamp: number;
-}
-
-export interface ResearchDocument {
+export interface ExcelTemplate {
   id: string;
-  title: string;
+  _id?: string;
+  name: string;
   description: string;
-  url: string; // Base64 PDF
-  uploadDate: string;
-  fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER';
-  category: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC';
+  fileData: string; // Base64 file .xlsx
+  startRow: number; // Dòng bắt đầu ghi dữ liệu (VD: 10)
+  mapping: Record<string, string>; // Số thứ tự cột (1, 2, 3...) -> Field Key (FULL_NAME, DOB...)
+  createdAt?: string;
 }
+
+export interface UnitReport { id: string; senderUsername: string; senderUnitName: string; targetProvince: string; title: string; url: string; year: number; timestamp: number; }
+export interface ProvincialDispatch { id: string; senderUsername: string; senderProvince: string; title: string; url: string; recipients: string[]; year: number; timestamp: number; }
+export interface ResearchDocument { id: string; title: string; description: string; url: string; uploadDate: string; fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER'; category: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC'; }
