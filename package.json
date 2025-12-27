@@ -13,6 +13,7 @@
   "dependencies": {
     "@google/genai": "latest",
     "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "lucide-react": "^0.471.0",
     "mongoose": "^8.9.2",
