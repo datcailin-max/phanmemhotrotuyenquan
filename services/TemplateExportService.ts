@@ -15,13 +15,24 @@ export const FIELD_MAPPINGS = [
   { key: 'VILLAGE', label: 'Thôn / Ấp / Tổ dân phố' },
   { key: 'COMMUNE', label: 'Xã / Phường' },
   { key: 'PROVINCE', label: 'Tỉnh / Thành phố' },
-  { key: 'EDUCATION', label: 'Trình độ văn hóa & CMKT' },
-  { key: 'POLITICAL', label: 'Chất lượng chính trị (Đảng, Đoàn)' },
+  { key: 'RESIDENCE_FULL', label: 'Nơi thường trú của GĐ, bản thân (Địa chỉ đầy đủ)' },
+  { key: 'RESIDENCE_CURRENT', label: 'Nơi ở hiện nay của bản thân (Địa chỉ đầy đủ)' },
+  { key: 'EDUCATION', label: 'Trình độ văn hóa (Lớp.../12)' },
+  { key: 'MAJOR', label: 'Trình độ CMKT (Ngành học)' },
+  { key: 'ETHNICITY_RELIGION', label: 'Dân tộc, tôn giáo' },
+  { key: 'POLITICAL_STATUS', label: 'Đảng / Đoàn' },
+  { key: 'FOREIGN_LANG', label: 'Ngoại ngữ' },
   { key: 'HEALTH', label: 'Sức khỏe đạt loại' },
-  { key: 'JOB', label: 'Nghề nghiệp, nơi làm việc' },
-  { key: 'FAMILY_INFO', label: 'Thông tin Gia đình (Cha, mẹ, vợ con)' },
+  { key: 'JOB', label: 'Nghề nghiệp' },
+  { key: 'WORK_ADDRESS', label: 'Nơi làm việc' },
+  { key: 'FAMILY_COMP', label: 'Thành phần gia đình' },
+  { key: 'PERSONAL_COMP', label: 'Thành phần bản thân' },
+  { key: 'FATHER_DETAILS', label: 'Họ tên cha, năm sinh, nghề nghiệp' },
+  { key: 'MOTHER_DETAILS', label: 'Họ tên mẹ, năm sinh, nghề nghiệp' },
+  { key: 'WIFE_DETAILS', label: 'Họ tên vợ, năm sinh, nghề nghiệp' },
   { key: 'ENLISTMENT_UNIT', label: 'Đơn vị giao nhận quân' },
-  { key: 'REASON', label: 'Lý do (Miễn, hoãn, KTC...)' }
+  { key: 'REASON', label: 'Lý do (Miễn, hoãn, KTC...)' },
+  { key: 'CUSTOM_TEXT', label: '== VĂN BẢN TỰ NHẬP ==' }
 ];
 
 export class TemplateExportService {
@@ -32,26 +43,26 @@ export class TemplateExportService {
     try {
       const workbook = new ExcelJS.Workbook();
       
-      // 1. Đọc dữ liệu Base64 của file mẫu
       const base64Data = template.fileData.split(';base64,').pop() || '';
       const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
       
       await workbook.xlsx.load(buffer as any);
-
-      const worksheet = workbook.getWorksheet(1); // Mặc định dùng Sheet đầu tiên
+      const worksheet = workbook.getWorksheet(1);
       if (!worksheet) throw new Error("Không tìm thấy Sheet trong file mẫu.");
 
-      // 2. Điền dữ liệu bắt đầu từ dòng cấu hình
       let currentRow = template.startRow;
 
       recruits.forEach((r, index) => {
-        // Duyệt qua mapping của template
         Object.entries(template.mapping).forEach(([colIndex, mappingValue]) => {
           const col = parseInt(colIndex);
           const fieldKeys = Array.isArray(mappingValue) ? mappingValue : [mappingValue];
           
-          // Lấy dữ liệu cho từng field key trong mảng
           const lines = fieldKeys.map(fieldKey => {
+            // Xử lý văn bản tự nhập (bắt đầu bằng STATIC:)
+            if (fieldKey.startsWith('STATIC:')) {
+                return fieldKey.replace('STATIC:', '');
+            }
+
             let val: any = '';
             switch (fieldKey) {
               case 'STT': val = index + 1; break;
@@ -62,17 +73,32 @@ export class TemplateExportService {
               case 'VILLAGE': val = r.address.village; break;
               case 'COMMUNE': val = r.address.commune; break;
               case 'PROVINCE': val = r.address.province; break;
-              case 'EDUCATION': 
-                  const edu = r.details.education;
-                  val = `VH: ${edu.includes('Lớp') ? edu.replace('Lớp ', '') + '/12' : '12/12'}; CMKT: ${r.details.major || 'Không'}`;
+              case 'RESIDENCE_FULL': 
+              case 'RESIDENCE_CURRENT':
+                  val = `${r.address.village}, ${r.address.commune}, ${r.address.province}`;
                   break;
-              case 'POLITICAL': 
+              case 'EDUCATION': 
+                  val = r.details.education.includes('Lớp') ? r.details.education.replace('Lớp ', '') + '/12' : '12/12';
+                  break;
+              case 'MAJOR': val = r.details.major || 'Không'; break;
+              case 'ETHNICITY_RELIGION': val = `${r.details.ethnicity}, ${r.details.religion}`; break;
+              case 'POLITICAL_STATUS': 
                   val = r.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng');
                   break;
+              case 'FOREIGN_LANG': val = '---'; break;
               case 'HEALTH': val = r.physical.healthGrade ? `Loại ${r.physical.healthGrade}` : '---'; break;
-              case 'JOB': val = `${r.details.job || 'Lao động tự do'}\nTại: ${r.details.workAddress || 'Địa phương'}`; break;
-              case 'FAMILY_INFO': 
-                  val = `Cha: ${r.family.father.fullName} (${r.family.father.birthYear})\nMẹ: ${r.family.mother.fullName} (${r.family.mother.birthYear})`;
+              case 'JOB': val = r.details.job || 'Lao động tự do'; break;
+              case 'WORK_ADDRESS': val = r.details.workAddress || 'Địa phương'; break;
+              case 'FAMILY_COMP': val = r.details.familyComposition || 'Bần nông'; break;
+              case 'PERSONAL_COMP': val = r.details.personalComposition || 'Phụ thuộc'; break;
+              case 'FATHER_DETAILS': 
+                  val = `Cha: ${r.family.father.fullName}, ${r.family.father.birthYear}, ${r.family.father.job}`;
+                  break;
+              case 'MOTHER_DETAILS': 
+                  val = `Mẹ: ${r.family.mother.fullName}, ${r.family.mother.birthYear}, ${r.family.mother.job}`;
+                  break;
+              case 'WIFE_DETAILS': 
+                  val = r.family.wife?.fullName ? `Vợ: ${r.family.wife.fullName}, ${r.family.wife.birthYear}, ${r.family.wife.job}` : '';
                   break;
               case 'ENLISTMENT_UNIT': val = r.enlistmentUnit || '---'; break;
               case 'REASON': val = `${getStatusLabel(r.status)}${r.defermentReason ? ': ' + r.defermentReason : ''}`; break;
@@ -80,31 +106,16 @@ export class TemplateExportService {
             return val;
           }).filter(v => v !== '');
 
-          // Nối các dòng bằng ký tự xuống dòng
           const combinedValue = lines.join('\n');
-          
-          const row = worksheet.getRow(currentRow);
-          const cell = row.getCell(col);
+          const cell = worksheet.getRow(currentRow).getCell(col);
           cell.value = combinedValue;
-          
-          // QUAN TRỌNG: Cần wrapText để Excel hiểu ký tự \n là xuống dòng trong ô
-          cell.alignment = { 
-            vertical: 'top', 
-            horizontal: 'left', 
-            wrapText: true 
-          };
-          
+          cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
           cell.font = cell.font || { name: 'Times New Roman', size: 11 };
-          cell.border = {
-            top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
-          };
+          cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
         });
-
-        // Tăng chỉ số dòng cho người tiếp theo
         currentRow++;
       });
 
-      // 3. Xuất file hoàn chỉnh
       const outBuffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([outBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
@@ -115,10 +126,9 @@ export class TemplateExportService {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error("Lỗi Template Export:", error);
-      alert("Đã xảy ra lỗi khi bơm dữ liệu vào mẫu Excel. Vui lòng kiểm tra lại cấu hình mẫu.");
+      alert("Đã xảy ra lỗi khi bơm dữ liệu vào mẫu Excel.");
     }
   }
 }
