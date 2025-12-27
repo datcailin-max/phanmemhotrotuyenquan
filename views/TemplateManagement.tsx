@@ -2,20 +2,42 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, Plus, Trash2, Edit3, UploadCloud, Info, 
-  Settings2, CheckCircle2, ChevronRight, X, AlertTriangle, List 
+  Settings2, CheckCircle2, X, AlertTriangle, List, Sparkles, Loader2
 } from 'lucide-react';
 import { ExcelTemplate, User } from '../types';
 import { api } from '../api';
 import { FIELD_MAPPINGS } from '../services/TemplateExportService';
+import ExcelJS from 'exceljs';
+import { removeVietnameseTones } from '../constants';
 
 interface TemplateManagementProps {
   user: User;
 }
 
+// Bộ từ khóa để nhận diện cột tự động
+const MAPPING_KEYWORDS: Record<string, string[]> = {
+  'STT': ['stt', 'so tt', 'so thu tu'],
+  'FULL_NAME': ['ho ten', 'ho va ten', 'ten khai sinh', 'chu dem'],
+  'DOB': ['ngay sinh', 'ngay thang nam sinh', 'nam sinh'],
+  'AGE': ['tuoi', 'tuoi doi'],
+  'CITIZEN_ID': ['cccd', 'dinh danh', 'can cuoc', 'chung minh'],
+  'VILLAGE': ['thon', 'ap', 'to dan pho', 'khom', 'doi'],
+  'COMMUNE': ['xa', 'phuong', 'thi tran'],
+  'PROVINCE': ['tinh', 'thanh pho'],
+  'EDUCATION': ['van hoa', 'hoc van', 'trinh do', 'cmkt'],
+  'POLITICAL': ['dang', 'doan', 'chinh tri'],
+  'HEALTH': ['suc khoe', 'loai sk', 'phan loai'],
+  'JOB': ['nghe nghiep', 'cong viec', 'noi lam viec'],
+  'FAMILY_INFO': ['cha', 'me', 'gia dinh', 'vo con'],
+  'ENLISTMENT_UNIT': ['don vi', 'giao quan', 'nhan quan'],
+  'REASON': ['ly do', 'dien', 'tam hoan', 'mien']
+};
+
 const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   const [templates, setTemplates] = useState<ExcelTemplate[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<ExcelTemplate> | null>(null);
 
   const fetchTemplates = async () => {
@@ -35,6 +57,58 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
     setShowModal(true);
   };
 
+  const analyzeExcelHeaders = async (file: File) => {
+    setIsAnalyzing(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const arrayBuffer = await file.arrayBuffer();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.getWorksheet(1);
+      if (!worksheet) return;
+
+      let bestHeaderRow = 1;
+      let maxMatches = 0;
+      const detectedMapping: Record<string, string> = {};
+
+      // Quét 15 dòng đầu tiên để tìm dòng tiêu đề tốt nhất
+      for (let i = 1; i <= 15; i++) {
+        const row = worksheet.getRow(i);
+        let currentMatches = 0;
+        const tempMapping: Record<string, string> = {};
+
+        row.eachCell((cell, colNumber) => {
+          const cellValue = removeVietnameseTones(cell.text.toLowerCase());
+          
+          for (const [fieldKey, keywords] of Object.entries(MAPPING_KEYWORDS)) {
+            if (keywords.some(k => cellValue.includes(k))) {
+              tempMapping[colNumber.toString()] = fieldKey;
+              currentMatches++;
+              break;
+            }
+          }
+        });
+
+        if (currentMatches > maxMatches) {
+          maxMatches = currentMatches;
+          bestHeaderRow = i;
+          Object.assign(detectedMapping, tempMapping);
+        }
+      }
+
+      if (maxMatches > 0) {
+        setEditingTemplate(prev => ({
+          ...prev,
+          startRow: bestHeaderRow + 1,
+          mapping: detectedMapping
+        }));
+      }
+    } catch (error) {
+      console.error("Lỗi phân tích file:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -43,6 +117,9 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
         setEditingTemplate(prev => ({ ...prev, fileData: ev.target?.result as string }));
       };
       reader.readAsDataURL(file);
+      
+      // Bắt đầu phân tích tiêu đề cột
+      analyzeExcelHeaders(file);
     }
   };
 
@@ -145,9 +222,10 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[110] p-4 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in duration-300">
             <div className="bg-military-800 p-5 flex justify-between items-center text-white shrink-0">
-              <h3 className="font-black uppercase text-sm tracking-widest flex items-center gap-2">
-                <Settings2 size={20}/> Thiết lập thông số mẫu Excel
-              </h3>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-lg"><Settings2 size={20}/></div>
+                <h3 className="font-black uppercase text-sm tracking-widest">Thiết lập thông số mẫu Excel</h3>
+              </div>
               <button onClick={() => setShowModal(false)}><X size={24}/></button>
             </div>
 
@@ -173,7 +251,13 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                       placeholder="Ghi chú về mục đích sử dụng mẫu biểu này..."
                      />
                    </div>
-                   <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                   <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 relative overflow-hidden">
+                     {isAnalyzing && (
+                       <div className="absolute inset-0 bg-amber-50/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2">
+                          <Loader2 size={24} className="text-amber-600 animate-spin" />
+                          <span className="text-[9px] font-black text-amber-800 uppercase animate-pulse">Đang nhận diện tiêu đề cột...</span>
+                       </div>
+                     )}
                      <label className="block text-[10px] font-black text-amber-700 uppercase mb-2">1. Tải lên file Excel khung (.xlsx)</label>
                      <input type="file" accept=".xlsx" onChange={handleFileUpload} className="w-full text-[10px] p-2 bg-white border border-dashed rounded-lg border-amber-300" />
                      {editingTemplate?.fileData && (
@@ -190,38 +274,42 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                       type="number" className="w-24 border p-2.5 rounded-xl font-black text-center text-military-800 bg-military-50"
                       value={editingTemplate?.startRow} onChange={e => setEditingTemplate({...editingTemplate, startRow: parseInt(e.target.value)})}
                      />
-                     <p className="text-[9px] text-gray-400 mt-1 italic">* Ví dụ: Nếu tiêu đề kết thúc ở dòng 9, hãy nhập là 10.</p>
+                     <p className="text-[9px] text-gray-400 mt-1 italic">* Hệ thống đề xuất dựa trên phân tích dòng tiêu đề.</p>
                    </div>
                 </div>
 
                 <div className="space-y-5">
                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                     <List size={14} className="text-green-500"/> Ánh xạ các cột (Mapping)
+                     <Sparkles size={14} className="text-amber-500"/> Ánh xạ dữ liệu cột
                    </h4>
                    <p className="text-[9px] text-gray-500 bg-gray-50 p-2 rounded border border-dashed leading-relaxed">
-                     Vui lòng xác định số thứ tự cột trong Excel (A=1, B=2, C=3...) và chọn loại dữ liệu tương ứng cần điền vào.
+                     Hệ thống đã tự động nhận diện dựa trên nội dung cột. Vui lòng kiểm tra lại sự chính xác bên dưới.
                    </p>
                    
                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                      {Array.from({ length: 20 }, (_, i) => i + 1).map(colIdx => (
-                        <div key={colIdx} className="flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                           <div className="w-8 h-8 rounded-lg bg-gray-800 text-white flex items-center justify-center font-black text-[10px]">
-                              {String.fromCharCode(64 + colIdx)}
-                           </div>
-                           <div className="flex-1">
-                              <select 
-                                className="w-full text-[10px] font-bold border-none bg-transparent outline-none focus:ring-0 text-gray-700"
-                                value={editingTemplate?.mapping?.[colIdx.toString()] || ''}
-                                onChange={e => updateMapping(colIdx, e.target.value)}
-                              >
-                                 <option value="">-- Bỏ qua cột này --</option>
-                                 {FIELD_MAPPINGS.map(m => (
-                                   <option key={m.key} value={m.key}>{m.label}</option>
-                                 ))}
-                              </select>
-                           </div>
-                        </div>
-                      ))}
+                      {Array.from({ length: 30 }, (_, i) => i + 1).map(colIdx => {
+                        const isMapped = !!editingTemplate?.mapping?.[colIdx.toString()];
+                        return (
+                          <div key={colIdx} className={`flex items-center gap-3 p-2 rounded-xl border transition-all ${isMapped ? 'bg-blue-50/50 border-blue-200' : 'bg-white border-gray-100 shadow-sm'}`}>
+                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] ${isMapped ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'}`}>
+                                {String.fromCharCode(64 + colIdx)}
+                             </div>
+                             <div className="flex-1">
+                                <select 
+                                  className="w-full text-[10px] font-bold border-none bg-transparent outline-none focus:ring-0 text-gray-700"
+                                  value={editingTemplate?.mapping?.[colIdx.toString()] || ''}
+                                  onChange={e => updateMapping(colIdx, e.target.value)}
+                                >
+                                   <option value="">-- Trống --</option>
+                                   {FIELD_MAPPINGS.map(m => (
+                                     <option key={m.key} value={m.key}>{m.label}</option>
+                                   ))}
+                                </select>
+                             </div>
+                             {isMapped && <Sparkles size={12} className="text-blue-400 animate-pulse" />}
+                          </div>
+                        );
+                      })}
                    </div>
                 </div>
               </div>
@@ -230,7 +318,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                 <button type="button" onClick={() => setShowModal(false)} className="px-6 py-2.5 text-xs font-black text-gray-500 uppercase">Hủy bỏ</button>
                 <button 
                   type="submit" disabled={isProcessing}
-                  className="px-10 py-2.5 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"
+                  className="px-10 py-2.5 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-2 hover:bg-military-800 transition-all active:scale-95"
                 >
                   {isProcessing ? 'Đang lưu...' : 'Xác nhận lưu mẫu'}
                 </button>
