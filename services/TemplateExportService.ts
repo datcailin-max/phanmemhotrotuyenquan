@@ -1,3 +1,4 @@
+
 import ExcelJS from 'exceljs';
 import { Recruit, ExcelTemplate } from '../types';
 import { getStatusLabel, checkAge } from '../views/RecruitManagement/utils';
@@ -35,7 +36,6 @@ export class TemplateExportService {
       const base64Data = template.fileData.split(';base64,').pop() || '';
       const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
       
-      // Fix TS2345: Ép kiểu sang any để tương thích giữa Uint8Array (Browser) và Buffer (ExcelJS Types)
       await workbook.xlsx.load(buffer as any);
 
       const worksheet = workbook.getWorksheet(1); // Mặc định dùng Sheet đầu tiên
@@ -45,48 +45,62 @@ export class TemplateExportService {
       let currentRow = template.startRow;
 
       recruits.forEach((r, index) => {
-        // Duyệt qua mapping của template để biết cột nào điền thông tin gì
-        // Mapping là Object: { "1": "STT", "2": "FULL_NAME", ... }
-        Object.entries(template.mapping).forEach(([colIndex, fieldKey]) => {
+        // Duyệt qua mapping của template
+        Object.entries(template.mapping).forEach(([colIndex, mappingValue]) => {
           const col = parseInt(colIndex);
-          let value: any = '';
-
-          // Logic dịch dữ liệu (Mapping field sang value chuẩn quân sự)
-          switch (fieldKey) {
-            case 'STT': value = index + 1; break;
-            case 'FULL_NAME': value = r.fullName.toUpperCase(); break;
-            case 'DOB': value = r.dob ? r.dob.split('-').reverse().join('/') : '---'; break;
-            case 'AGE': value = checkAge(r, sessionYear); break;
-            case 'CITIZEN_ID': value = r.citizenId || ''; break;
-            case 'VILLAGE': value = r.address.village; break;
-            case 'COMMUNE': value = r.address.commune; break;
-            case 'PROVINCE': value = r.address.province; break;
-            case 'EDUCATION': 
-                const edu = r.details.education;
-                value = `VH: ${edu.includes('Lớp') ? edu.replace('Lớp ', '') + '/12' : '12/12'}; CMKT: ${r.details.major || 'Không'}`;
-                break;
-            case 'POLITICAL': 
-                value = r.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên Đảng CSVN' : (r.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên TNCS HCM' : 'Quần chúng');
-                break;
-            case 'HEALTH': value = r.physical.healthGrade ? `Loại ${r.physical.healthGrade}` : '---'; break;
-            case 'JOB': value = `${r.details.job || 'Lao động tự do'}\nTại: ${r.details.workAddress || 'Địa phương'}`; break;
-            case 'FAMILY_INFO': 
-                value = `Cha: ${r.family.father.fullName} (${r.family.father.birthYear})\nMẹ: ${r.family.mother.fullName} (${r.family.mother.birthYear})\nVợ: ${r.family.wife?.fullName || '---'}`;
-                break;
-            case 'ENLISTMENT_UNIT': value = r.enlistmentUnit || '---'; break;
-            case 'REASON': value = `${getStatusLabel(r.status)}${r.defermentReason ? ': ' + r.defermentReason : ''}`; break;
-          }
-
-          const cell = worksheet.getRow(currentRow).getCell(col);
-          cell.value = value;
+          const fieldKeys = Array.isArray(mappingValue) ? mappingValue : [mappingValue];
           
-          // Giữ nguyên format hoặc áp dụng format cơ bản nếu cần (Font Times New Roman)
+          // Lấy dữ liệu cho từng field key trong mảng
+          const lines = fieldKeys.map(fieldKey => {
+            let val: any = '';
+            switch (fieldKey) {
+              case 'STT': val = index + 1; break;
+              case 'FULL_NAME': val = r.fullName.toUpperCase(); break;
+              case 'DOB': val = r.dob ? r.dob.split('-').reverse().join('/') : '---'; break;
+              case 'AGE': val = checkAge(r, sessionYear); break;
+              case 'CITIZEN_ID': val = r.citizenId || ''; break;
+              case 'VILLAGE': val = r.address.village; break;
+              case 'COMMUNE': val = r.address.commune; break;
+              case 'PROVINCE': val = r.address.province; break;
+              case 'EDUCATION': 
+                  const edu = r.details.education;
+                  val = `VH: ${edu.includes('Lớp') ? edu.replace('Lớp ', '') + '/12' : '12/12'}; CMKT: ${r.details.major || 'Không'}`;
+                  break;
+              case 'POLITICAL': 
+                  val = r.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng');
+                  break;
+              case 'HEALTH': val = r.physical.healthGrade ? `Loại ${r.physical.healthGrade}` : '---'; break;
+              case 'JOB': val = `${r.details.job || 'Lao động tự do'}\nTại: ${r.details.workAddress || 'Địa phương'}`; break;
+              case 'FAMILY_INFO': 
+                  val = `Cha: ${r.family.father.fullName} (${r.family.father.birthYear})\nMẹ: ${r.family.mother.fullName} (${r.family.mother.birthYear})`;
+                  break;
+              case 'ENLISTMENT_UNIT': val = r.enlistmentUnit || '---'; break;
+              case 'REASON': val = `${getStatusLabel(r.status)}${r.defermentReason ? ': ' + r.defermentReason : ''}`; break;
+            }
+            return val;
+          }).filter(v => v !== '');
+
+          // Nối các dòng bằng ký tự xuống dòng
+          const combinedValue = lines.join('\n');
+          
+          const cell = worksheet.getRow(currentRow).getCell(col);
+          cell.value = combinedValue;
+          
+          // QUAN TRỌNG: Cần wrapText để Excel hiểu ký tự \n là xuống dòng trong ô
+          cell.alignment = { 
+            vertical: 'top', 
+            horizontal: 'left', 
+            wrapText: true 
+          };
+          
           cell.font = cell.font || { name: 'Times New Roman', size: 11 };
-          cell.alignment = { vertical: 'middle', wrapText: true };
           cell.border = {
             top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
           };
         });
+
+        // Tự động điều chỉnh độ cao dòng dựa trên nội dung (tương đối)
+        worksheet.getRow(currentRow).height = undefined; 
 
         currentRow++;
       });
@@ -97,7 +111,7 @@ export class TemplateExportService {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Bao_cao_theo_mau_${template.name.replace(/\s+/g, '_')}_${sessionYear}.xlsx`;
+      link.download = `Danh_sach_In_An_${template.name.replace(/\s+/g, '_')}_${sessionYear}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

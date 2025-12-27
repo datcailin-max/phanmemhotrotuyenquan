@@ -127,7 +127,7 @@ export interface ExcelTemplate {
   description: string;
   fileData: string; // Base64 file .xlsx
   startRow: number; // Dòng bắt đầu ghi dữ liệu (VD: 10)
-  mapping: Record<string, string>; // Số thứ tự cột (1, 2, 3...) -> Field Key (FULL_NAME, DOB...)
+  mapping: Record<string, string | string[]>; // Hỗ trợ mảng các trường thông tin cho một cột
   createdAt?: string;
 }
 

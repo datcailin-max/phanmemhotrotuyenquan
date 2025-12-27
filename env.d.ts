@@ -1,24 +1,32 @@
+
 /**
  * Fix: Removed triple-slash reference to 'vite/client' which was causing a resolution error 
  * in the current environment.
  */
 
-declare namespace NodeJS {
-  interface ProcessEnv {
-    API_KEY?: string;
-    [key: string]: any;
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      API_KEY?: string;
+      [key: string]: any;
+    }
   }
-}
 
-/**
- * Fix: Removed 'readonly' modifier to resolve the "identical modifiers" error.
- * The 'aistudio' property declaration must match the base environment's modifiers to merge correctly.
- */
-interface Window {
-  aistudio: {
+  /**
+   * Fix: Defined AIStudio interface to match the expected type name in the environment.
+   */
+  interface AIStudio {
     hasSelectedApiKey(): Promise<boolean>;
     openSelectKey(): Promise<void>;
-  };
+  }
+
+  /**
+   * Fix: Updated 'aistudio' to use the 'AIStudio' type and removed 'readonly' 
+   * to match the modifiers of the existing declaration in the environment.
+   */
+  interface Window {
+    aistudio: AIStudio;
+  }
 }
 
 /**
@@ -28,13 +36,37 @@ interface Window {
  */
 declare module '@google/genai' {
   export enum Type {
+    /**
+     * Not specified, should not be used.
+     */
     TYPE_UNSPECIFIED = 'TYPE_UNSPECIFIED',
+    /**
+     * OpenAPI string type
+     */
     STRING = 'STRING',
+    /**
+     * OpenAPI number type
+     */
     NUMBER = 'NUMBER',
+    /**
+     * OpenAPI integer type
+     */
     INTEGER = 'INTEGER',
+    /**
+     * OpenAPI boolean type
+     */
     BOOLEAN = 'BOOLEAN',
+    /**
+     * OpenAPI array type
+     */
     ARRAY = 'ARRAY',
+    /**
+     * OpenAPI object type
+     */
     OBJECT = 'OBJECT',
+    /**
+     * Null type
+     */
     NULL = 'NULL',
   }
 
@@ -126,3 +158,5 @@ declare module 'recharts' {
     export const AreaChart: any;
     export const Area: any;
 }
+
+export {};
