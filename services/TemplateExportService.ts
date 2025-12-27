@@ -1,4 +1,3 @@
-
 import ExcelJS from 'exceljs';
 import { Recruit, ExcelTemplate } from '../types';
 import { getStatusLabel, checkAge } from '../views/RecruitManagement/utils';
@@ -35,7 +34,9 @@ export class TemplateExportService {
       // 1. Đọc dữ liệu Base64 của file mẫu
       const base64Data = template.fileData.split(';base64,').pop() || '';
       const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      await workbook.xlsx.load(buffer);
+      
+      // Fix TS2345: Ép kiểu sang any để tương thích giữa Uint8Array (Browser) và Buffer (ExcelJS Types)
+      await workbook.xlsx.load(buffer as any);
 
       const worksheet = workbook.getWorksheet(1); // Mặc định dùng Sheet đầu tiên
       if (!worksheet) throw new Error("Không tìm thấy Sheet trong file mẫu.");
@@ -44,8 +45,6 @@ export class TemplateExportService {
       let currentRow = template.startRow;
 
       recruits.forEach((r, index) => {
-        const rowData: any = {};
-        
         // Duyệt qua mapping của template để biết cột nào điền thông tin gì
         // Mapping là Object: { "1": "STT", "2": "FULL_NAME", ... }
         Object.entries(template.mapping).forEach(([colIndex, fieldKey]) => {

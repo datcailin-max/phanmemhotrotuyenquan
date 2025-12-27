@@ -11,11 +11,12 @@ declare namespace NodeJS {
 }
 
 /**
- * Fix: Removed 'readonly' modifier to resolve the "identical modifiers" error.
- * This ensures compatibility when merging with the base Window interface declared by the host environment.
+ * Fix: Added 'readonly' modifier to resolve the "identical modifiers" error.
+ * The 'aistudio' property is provided as a readonly global by the environment, 
+ * so our declaration must match its modifiers to merge correctly.
  */
 interface Window {
-  aistudio: {
+  readonly aistudio: {
     hasSelectedApiKey(): Promise<boolean>;
     openSelectKey(): Promise<void>;
   };
