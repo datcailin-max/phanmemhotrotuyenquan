@@ -19,7 +19,6 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   const [templates, setTemplates] = useState<ExcelTemplate[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<ExcelTemplate> | null>(null);
 
   const fetchTemplates = async () => {
@@ -39,7 +38,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setEditingTemplate(prev => ({ ...prev, fileData: ev.target?.result as string }));
+        setEditingTemplate(prev => prev ? ({ ...prev, fileData: ev.target?.result as string }) : null);
       };
       reader.readAsDataURL(file);
     }
@@ -58,31 +57,37 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
 
   const addFieldToCol = (colIndex: number, finalKey: string) => {
     setEditingTemplate(prev => {
-      const currentMapping = { ...(prev?.mapping || {}) };
-      let colFields = Array.isArray(currentMapping[colIndex.toString()]) 
-        ? [...(currentMapping[colIndex.toString()] as string[])]
-        : currentMapping[colIndex.toString()] 
-          ? [currentMapping[colIndex.toString()] as string]
+      if (!prev) return null;
+      const currentMapping = { ...(prev.mapping || {}) };
+      const colKey = colIndex.toString();
+      
+      let colFields = Array.isArray(currentMapping[colKey]) 
+        ? [...(currentMapping[colKey] as string[])]
+        : currentMapping[colKey] 
+          ? [currentMapping[colKey] as string]
           : [];
 
       colFields.push(finalKey);
-      currentMapping[colIndex.toString()] = colFields;
+      currentMapping[colKey] = colFields;
       return { ...prev, mapping: currentMapping };
     });
   };
 
   const removeFieldFromCol = (colIndex: number, fieldIndex: number) => {
     setEditingTemplate(prev => {
-      const currentMapping = { ...(prev?.mapping || {}) };
-      let colFields = Array.isArray(currentMapping[colIndex.toString()]) 
-        ? [...(currentMapping[colIndex.toString()] as string[])]
+      if (!prev) return null;
+      const currentMapping = { ...(prev.mapping || {}) };
+      const colKey = colIndex.toString();
+      
+      let colFields = Array.isArray(currentMapping[colKey]) 
+        ? [...(currentMapping[colKey] as string[])]
         : [];
 
       colFields.splice(fieldIndex, 1);
       if (colFields.length === 0) {
-        delete currentMapping[colIndex.toString()];
+        delete currentMapping[colKey];
       } else {
-        currentMapping[colIndex.toString()] = colFields;
+        currentMapping[colKey] = colFields;
       }
       return { ...prev, mapping: currentMapping };
     });
@@ -90,19 +95,39 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingTemplate?.fileData) { alert("Vui lòng tải lên file mẫu Excel (.xlsx)"); return; }
+    if (!editingTemplate || !editingTemplate.fileData) { 
+      alert("Vui lòng tải lên file mẫu Excel (.xlsx)"); 
+      return; 
+    }
+    
     setIsProcessing(true);
     try {
-      const tplId = editingTemplate._id || editingTemplate.id;
-      if (tplId) { await api.updateTemplate(tplId, editingTemplate); } 
-      else { await api.createTemplate(editingTemplate); }
-      setShowModal(false); fetchTemplates(); alert("Đã lưu mẫu biểu thành công.");
-    } catch (err) { alert("Lỗi khi lưu mẫu biểu."); } 
-    finally { setIsProcessing(false); }
+      // Chuẩn bị payload sạch để gửi lên server
+      const payload = { ...editingTemplate };
+      const tplId = payload._id || payload.id;
+      
+      if (tplId) { 
+        await api.updateTemplate(tplId, payload); 
+      } else { 
+        await api.createTemplate(payload); 
+      }
+      
+      setShowModal(false); 
+      await fetchTemplates(); 
+      alert("Đã lưu mẫu biểu thành công.");
+    } catch (err) { 
+      console.error(err);
+      alert("Lỗi khi lưu mẫu biểu."); 
+    } finally { 
+      setIsProcessing(false); 
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Xóa mẫu biểu này?")) { await api.deleteTemplate(id); fetchTemplates(); }
+    if (window.confirm("Xóa mẫu biểu này?")) { 
+      await api.deleteTemplate(id); 
+      fetchTemplates(); 
+    }
   };
 
   const getLabelForDisplay = (key: string) => {
@@ -117,7 +142,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
           <div className="bg-green-100 p-3 rounded-xl text-green-700"><FileSpreadsheet size={32} /></div>
           <div>
             <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Quản lý mẫu biểu chuẩn (Excel Injection)</h2>
-            <p className="text-sm text-gray-500 font-medium italic">Cho phép thêm nhiều trường giống nhau và văn bản tự nhập</p>
+            <p className="text-sm text-gray-500 font-medium italic">Kéo thả hoặc chọn trường thông tin để điền vào file Excel mẫu của bạn</p>
           </div>
         </div>
         <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-military-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"><Plus size={18} /> Thêm mẫu mới</button>
@@ -172,11 +197,11 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Info size={14} className="text-blue-500"/> Thông tin cơ bản</h4>
                    <div>
                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên mẫu biểu</label>
-                     <input required type="text" className="w-full border p-2.5 rounded-xl font-bold text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.name} onChange={e => setEditingTemplate({...editingTemplate, name: e.target.value})} placeholder="VD: Danh sách chi tiết gộp dòng" />
+                     <input required type="text" className="w-full border p-2.5 rounded-xl font-bold text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.name || ''} onChange={e => setEditingTemplate(prev => prev ? ({...prev, name: e.target.value}) : null)} placeholder="VD: Danh sách chi tiết gộp dòng" />
                    </div>
                    <div>
                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Mô tả chi tiết</label>
-                     <textarea rows={2} className="w-full border p-2.5 rounded-xl text-xs font-medium bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.description} onChange={e => setEditingTemplate({...editingTemplate, description: e.target.value})} placeholder="Ghi chú về mẫu biểu này..." />
+                     <textarea rows={2} className="w-full border p-2.5 rounded-xl text-xs font-medium bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.description || ''} onChange={e => setEditingTemplate(prev => prev ? ({...prev, description: e.target.value}) : null)} placeholder="Ghi chú về mẫu biểu này..." />
                    </div>
                    <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 relative overflow-hidden">
                      <label className="block text-[10px] font-black text-amber-700 uppercase mb-2">1. Tải lên file Excel khung (.xlsx)</label>
@@ -185,7 +210,7 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                    </div>
                    <div>
                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">Dòng bắt đầu điền dữ liệu <AlertTriangle size={12} className="text-amber-500"/></label>
-                     <input type="number" className="w-24 border p-2.5 rounded-xl font-black text-center text-military-800 bg-military-50 outline-none focus:ring-2 focus:ring-military-400" value={editingTemplate?.startRow} onChange={e => setEditingTemplate({...editingTemplate, startRow: parseInt(e.target.value) || 0})} />
+                     <input type="number" className="w-24 border p-2.5 rounded-xl font-black text-center text-military-800 bg-military-50 outline-none focus:ring-2 focus:ring-military-400" value={editingTemplate?.startRow || 10} onChange={e => setEditingTemplate(prev => prev ? ({...prev, startRow: parseInt(e.target.value) || 0}) : null)} />
                    </div>
                 </div>
 

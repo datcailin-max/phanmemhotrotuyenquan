@@ -57,7 +57,18 @@ app.delete('/api/recruits/:id', async (req, res) => { try { await Recruit.findOn
 // --- TEMPLATE API ---
 app.get('/api/templates', async (req, res) => { try { res.json(await Template.find()); } catch (e) { res.status(500).json({ message: e.message }); } });
 app.post('/api/templates', async (req, res) => { try { res.status(201).json(await new Template(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
-app.put('/api/templates/:id', async (req, res) => { try { res.json(await Template.findByIdAndUpdate(req.params.id, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.put('/api/templates/:id', async (req, res) => { 
+  try { 
+    const updateData = { ...req.body };
+    delete updateData._id; // Tránh lỗi Mongoose: Cannot update immutable field _id
+    delete updateData.id;
+    
+    const updated = await Template.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    res.json(updated); 
+  } catch (e) { 
+    res.status(400).json({ message: e.message }); 
+  } 
+});
 app.delete('/api/templates/:id', async (req, res) => { try { await Template.findByIdAndDelete(req.params.id); res.json({ message: 'OK' }); } catch (e) { res.status(500).json({ message: e.message }); } });
 
 // --- CÁC API KHÁC GIỮ NGUYÊN ---
