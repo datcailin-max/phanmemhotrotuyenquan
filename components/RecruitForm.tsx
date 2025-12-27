@@ -71,7 +71,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason || '';
 
-    // 1. Tự động tính BMI
+    // 1. Tự động tính BMI (Vẫn tính nhưng không tự chuyển status cho DS 1,2,3)
     let calculatedBmi = bmi;
     if (height > 0 && weight > 0) {
       const h = height / 100;
@@ -82,11 +82,18 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
       }
     }
 
-    if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(formData.status)) {
+    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn (DS 8) cho DS 1, 2, 3
+    const exemptFromAutoDeferStatus = [
+      RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
+      RecruitmentStatus.EXEMPT_REGISTRATION,
+      RecruitmentStatus.FIRST_TIME_REGISTRATION
+    ];
+    
+    if (exemptFromAutoDeferStatus.includes(formData.status)) {
         return;
     }
 
-    // 2. Logic Tự động Tạm hoãn về Sức khỏe
+    // 2. Logic Tự động Tạm hoãn về Sức khỏe (Chỉ áp dụng từ DS 4 trở đi)
     const isUnderHeight = height > 0 && height < 157;
     const isUnderWeight = weight > 0 && weight < 43;
     const isUnderChest = chest > 0 && chest < 75;
@@ -122,7 +129,14 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason;
 
-    if ([RecruitmentStatus.NOT_ALLOWED_REGISTRATION, RecruitmentStatus.EXEMPT_REGISTRATION].includes(formData.status)) {
+    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn (DS 8) cho DS 1, 2, 3
+    const exemptFromAutoDeferStatus = [
+      RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
+      RecruitmentStatus.EXEMPT_REGISTRATION,
+      RecruitmentStatus.FIRST_TIME_REGISTRATION
+    ];
+
+    if (exemptFromAutoDeferStatus.includes(formData.status)) {
         return;
     }
 
