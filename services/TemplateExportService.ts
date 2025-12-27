@@ -83,7 +83,8 @@ export class TemplateExportService {
           // Nối các dòng bằng ký tự xuống dòng
           const combinedValue = lines.join('\n');
           
-          const cell = worksheet.getRow(currentRow).getCell(col);
+          const row = worksheet.getRow(currentRow);
+          const cell = row.getCell(col);
           cell.value = combinedValue;
           
           // QUAN TRỌNG: Cần wrapText để Excel hiểu ký tự \n là xuống dòng trong ô
@@ -99,9 +100,7 @@ export class TemplateExportService {
           };
         });
 
-        // Tự động điều chỉnh độ cao dòng dựa trên nội dung (tương đối)
-        worksheet.getRow(currentRow).height = undefined; 
-
+        // Tăng chỉ số dòng cho người tiếp theo
         currentRow++;
       });
 

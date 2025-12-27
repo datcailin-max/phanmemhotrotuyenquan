@@ -1,4 +1,5 @@
 
+
 /**
  * Fix: Removed triple-slash reference to 'vite/client' which was causing a resolution error 
  * in the current environment.
@@ -10,22 +11,6 @@ declare global {
       API_KEY?: string;
       [key: string]: any;
     }
-  }
-
-  /**
-   * Fix: Defined AIStudio interface to match the expected type name in the environment.
-   */
-  interface AIStudio {
-    hasSelectedApiKey(): Promise<boolean>;
-    openSelectKey(): Promise<void>;
-  }
-
-  /**
-   * Fix: Updated 'aistudio' to use the 'AIStudio' type and removed 'readonly' 
-   * to match the modifiers of the existing declaration in the environment.
-   */
-  interface Window {
-    aistudio: AIStudio;
   }
 }
 
