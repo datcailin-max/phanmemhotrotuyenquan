@@ -99,6 +99,12 @@ export interface Recruit {
     familyComposition?: string;
     personalComposition?: string;
     registrationMethod?: 'DIRECT' | 'ONLINE';
+    // Bổ sung các trường tự nhập theo yêu cầu mới
+    siblingCount?: string; // Có bao nhiêu anh chị em ruột
+    birthOrder?: string; // Là con thứ mấy trong gia đình
+    parentPolicyStatus?: string; // Cha mẹ là Liệt sĩ, thương bệnh binh...
+    rewards?: string; // Khen thưởng
+    disciplines?: string; // Kỷ luật
   };
   family: {
     father: FamilyMember;

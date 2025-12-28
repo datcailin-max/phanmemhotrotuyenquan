@@ -1,11 +1,18 @@
 
 import React from 'react';
-import { Activity, Globe, Landmark, ShieldAlert, HeartPulse, Briefcase, MapPin, Award, FileEdit } from 'lucide-react';
+import { Activity, Globe, Landmark, ShieldAlert, HeartPulse, Briefcase, MapPin, Award, FileEdit, Star, AlertCircle, Banknote } from 'lucide-react';
 import { EDUCATIONS, ETHNICITIES, RELIGIONS } from '../../constants';
 import { RecruitmentStatus } from '../../types';
 
 const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd }: any) => {
   const isBanned = formData.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
+
+  // Xác định diện danh sách 4 trở đi (Nguồn)
+  const isDS4Up = ![
+    RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
+    RecruitmentStatus.EXEMPT_REGISTRATION,
+    RecruitmentStatus.FIRST_TIME_REGISTRATION
+  ].includes(formData.status);
 
   return (
     <div className="space-y-6">
@@ -110,6 +117,63 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
             readOnly={isReadOnly}
           />
         </div>
+
+        {/* BỔ SUNG: KHEN THƯỞNG, KỶ LUẬT, LƯƠNG (Cho diện 4 trở đi) */}
+        {isDS4Up && (
+          <div className="col-span-2 grid grid-cols-2 gap-4 bg-blue-50/30 p-4 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-bottom-2">
+            <div className="col-span-2 text-[10px] font-black text-blue-800 uppercase tracking-widest flex items-center gap-2 mb-1">
+               <Briefcase size={14}/> Thông tin công tác (Bổ sung cho DS 4)
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">
+                <Star size={12} className="text-amber-500"/> Khen thưởng
+              </label>
+              <input 
+                type="text" placeholder="Hình thức khen thưởng..."
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold bg-white"
+                value={formData.details.rewards || ''}
+                onChange={(e) => handleChange('details.rewards', e.target.value)}
+                readOnly={isReadOnly}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">
+                <AlertCircle size={12} className="text-red-500"/> Kỷ luật
+              </label>
+              <input 
+                type="text" placeholder="Hình thức kỷ luật..."
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold bg-white"
+                value={formData.details.disciplines || ''}
+                onChange={(e) => handleChange('details.disciplines', e.target.value)}
+                readOnly={isReadOnly}
+              />
+            </div>
+            <div className="col-span-2 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">
+                  <Banknote size={12} className="text-green-600"/> Nhóm, ngạch lương
+                </label>
+                <input 
+                  type="text" placeholder="VD: Nhóm A1, Ngạch cán sự..."
+                  className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold bg-white"
+                  value={formData.details.gradeGroup || ''}
+                  onChange={(e) => handleChange('details.gradeGroup', e.target.value)}
+                  readOnly={isReadOnly}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Bậc lương hiện tại</label>
+                <input 
+                  type="text" placeholder="VD: 2.34, 3.00..."
+                  className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold bg-white text-center"
+                  value={formData.details.salaryLevel || ''}
+                  onChange={(e) => handleChange('details.salaryLevel', e.target.value)}
+                  readOnly={isReadOnly}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Thể lực */}
         <div className="col-span-2 space-y-3 bg-military-50/50 p-4 rounded-xl border border-military-100">

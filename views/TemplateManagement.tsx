@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, Plus, Trash2, Edit3, UploadCloud, Info, 
   Settings2, CheckCircle2, X, AlertTriangle, List, Sparkles, Loader2,
-  Check, XCircle, Type, Filter, UserSearch
+  Check, XCircle, Type, Filter, UserSearch, Layers, Zap
 } from 'lucide-react';
 import { ExcelTemplate, User } from '../types';
 import { api } from '../api';
@@ -13,6 +13,31 @@ import { TABS } from './RecruitManagement/constants';
 interface TemplateManagementProps {
   user: User;
 }
+
+const DEFAULT_CATALOG = [
+  { name: '1. Danh sách tuổi 17', sources: ['FIRST_TIME_REG'], only17: true },
+  { name: '2. Danh sách công dân không được ĐK NVQS', sources: ['NOT_ALLOWED_REG'] },
+  { name: '3. Danh sách công dân được miễn ĐK NVQS', sources: ['EXEMPT_REG'] },
+  { name: '4. Danh sách công dân sẵn sàng nhập ngũ', sources: ['ALL'] },
+  { name: '5. Danh sách công dân KTC, CGNN', sources: ['TT50', 'KTC_SUB1', 'KTC_SUB2'] },
+  { name: '6. Danh sách công dân tam hoãn học vấn', sources: ['DEFERRED_EDUCATION'] },
+  { name: '7. Danh sách công dân tam hoãn sức khỏe', sources: ['DEFERRED_HEALTH'] },
+  { name: '8. Danh sách công dân tam hoãn chính sách', sources: ['DEFERRED_POLICY'] },
+  { name: '9. Danh sách công dân tam hoãn DQTT', sources: ['DEFERRED_DQTT'] },
+  { name: '10. Danh sách công dân được miễn gọi NVQS', sources: ['EXEMPTED_LIST'] },
+  { name: '11. Danh sách công dân không đạt sơ tuyển', sources: ['PRE_CHECK_FAIL'] },
+  { name: '12. Danh sách công dân đạt sơ tuyển', sources: ['PRE_CHECK_PASS'] },
+  { name: '13. Danh sách công dân không đạt khám tuyển', sources: ['MED_EXAM_FAIL'] },
+  { name: '14. Danh sách công dân đạt khám tuyển', sources: ['MED_EXAM_PASS'] },
+  { name: '15. Danh sách chốt chính thức', sources: ['FINAL_OFFICIAL'] },
+  { name: '16. Danh sách chốt dự bị', sources: ['FINAL_RESERVE'] },
+  { name: '17. Danh sách nhập ngũ', sources: ['ENLISTED'] },
+  { name: '18. Danh sách gọi công dân nhập ngũ', sources: ['ENLISTED'] },
+  { name: '19. Danh sách công dân đưa ra khỏi nguồn', sources: ['REMOVED'] },
+  { name: '20. Danh sách nguồn còn lại trong năm', sources: ['REMAINING'] },
+  { name: '21. Danh sách nguồn của năm sau', sources: ['NEXT_YEAR_SOURCE'] },
+  { name: '22. Danh sách đã xóa', sources: ['DELETED_LIST'] },
+];
 
 const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   const [templates, setTemplates] = useState<ExcelTemplate[]>([]);
@@ -33,6 +58,35 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
       sourceTabs: ['ALL'], onlyAge17: false 
     });
     setShowModal(true);
+  };
+
+  const handleQuickSeed = async () => {
+    if (!window.confirm("Hệ thống sẽ tự động tạo 22 mẫu biểu trống theo đúng danh mục chuẩn. Bạn có chắc chắn không?")) return;
+    
+    setIsProcessing(true);
+    try {
+      for (const item of DEFAULT_CATALOG) {
+        // Tạo một placeholder base64 tối giản (1 pixel trắng) để thỏa mãn yêu cầu dữ liệu
+        const placeholderBase64 = "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,UEsDBBQAAAAIAAAAIQAAAAAA";
+        
+        await api.createTemplate({
+          name: item.name,
+          description: `Mẫu biểu chuẩn cho ${item.name}`,
+          fileData: placeholderBase64,
+          startRow: 10,
+          mapping: {},
+          sourceTabs: item.sources,
+          onlyAge17: item.only17 || false
+        });
+      }
+      await fetchTemplates();
+      alert("Đã khởi tạo xong 22 mẫu biểu danh mục. Vui lòng nhấp 'Sửa' từng mẫu để tải file Excel thực tế và Mapping.");
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi khi khởi tạo danh mục.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,43 +207,65 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
         <div className="flex items-center gap-4">
           <div className="bg-green-100 p-3 rounded-xl text-green-700"><FileSpreadsheet size={32} /></div>
           <div>
-            <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Quản lý mẫu biểu chuẩn (Excel Injection)</h2>
-            <p className="text-sm text-gray-500 font-medium italic">Thiết lập nguồn dữ liệu và vị trí các trường trong file Excel mẫu</p>
+            <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">Quản lý mẫu biểu (Excel Injection)</h2>
+            <p className="text-sm text-gray-500 font-medium italic">Tùy biến các trường thông tin cho từng loại danh sách xuất ra</p>
           </div>
         </div>
-        <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-military-700 text-white px-6 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"><Plus size={18} /> Thêm mẫu mới</button>
+        <div className="flex gap-2">
+            <button 
+                onClick={handleQuickSeed} 
+                disabled={isProcessing}
+                className="flex items-center gap-2 bg-amber-600 text-white px-5 py-3 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-amber-700 transition-all active:scale-95 disabled:opacity-50"
+            >
+                <Zap size={18} /> Khởi tạo nhanh danh mục (22 mẫu)
+            </button>
+            <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-military-700 text-white px-5 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"><Plus size={18} /> Thêm mẫu biểu</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates.length === 0 ? (
           <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
              <FileSpreadsheet size={48} className="mx-auto text-gray-200 mb-4" />
-             <p className="text-gray-400 font-bold">Chưa có mẫu biểu tùy biến nào được thiết lập.</p>
+             <p className="text-gray-400 font-bold">Chưa có mẫu biểu nào. Hãy nhấp "Khởi tạo nhanh" để bắt đầu.</p>
           </div>
-        ) : templates.map(tpl => (
-          <div key={tpl.id || tpl._id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
-            <div className="flex justify-between items-start mb-4">
-              <div className="p-2 bg-green-50 rounded-lg text-green-600"><FileSpreadsheet size={20}/></div>
-              <div className="flex gap-1">
-                <button onClick={() => { setEditingTemplate(tpl); setShowModal(true); }} className="p-1.5 text-gray-400 hover:text-military-600 transition-colors"><Edit3 size={16}/></button>
-                <button onClick={() => handleDelete((tpl._id || tpl.id)!)} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
+        ) : templates.map(tpl => {
+          const isPlaceholder = tpl.fileData?.includes('UEsDBBQAAAAIAAAAIQAAAAAA');
+          return (
+            <div key={tpl.id || tpl._id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+              <div className={`absolute top-0 left-0 w-1 h-full ${isPlaceholder ? 'bg-amber-400' : 'bg-green-500'}`}></div>
+              <div className="flex justify-between items-start mb-4">
+                <div className={`p-2 rounded-lg ${isPlaceholder ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}><FileSpreadsheet size={20}/></div>
+                <div className="flex gap-1">
+                  <button onClick={() => { setEditingTemplate(tpl); setShowModal(true); }} className="p-1.5 text-gray-400 hover:text-military-600 transition-colors"><Edit3 size={16}/></button>
+                  <button onClick={() => handleDelete((tpl._id || tpl.id)!)} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"><Trash2 size={16}/></button>
+                </div>
+              </div>
+              <h4 className="text-sm font-black text-military-900 uppercase mb-1">{tpl.name}</h4>
+              
+              {isPlaceholder ? (
+                <p className="text-[10px] text-amber-600 font-black uppercase flex items-center gap-1 mt-2 animate-pulse">
+                   <AlertTriangle size={12}/> Chờ tải file mẫu & Mapping
+                </p>
+              ) : (
+                <p className="text-[10px] text-green-600 font-black uppercase flex items-center gap-1 mt-2">
+                   <CheckCircle2 size={12}/> Đã sẵn sàng xuất bản
+                </p>
+              )}
+
+              <div className="space-y-2 border-t pt-4 mt-4">
+                <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400">
+                  <span>Nguồn lấy dữ liệu:</span>
+                  <span className="text-blue-600 font-black">{tpl.sourceTabs?.length || 0} danh sách</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400">
+                  <span>Ánh xạ cột:</span>
+                  <span className="text-military-600 font-black">{Object.keys(tpl.mapping || {}).length} cột</span>
+                </div>
               </div>
             </div>
-            <h4 className="text-sm font-black text-military-900 uppercase mb-1">{tpl.name}</h4>
-            <p className="text-xs text-gray-500 italic mb-4 line-clamp-2">{tpl.description}</p>
-            <div className="space-y-2 border-t pt-4">
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400">
-                <span>Nguồn lấy dữ liệu:</span>
-                <span className="text-blue-600 font-black">{tpl.sourceTabs?.length || 0} danh sách</span>
-              </div>
-              <div className="flex justify-between items-center text-[10px] font-bold uppercase text-gray-400">
-                <span>Lọc tuổi 17:</span>
-                <span className={tpl.onlyAge17 ? "text-green-600 font-black" : "text-gray-300"}>{tpl.onlyAge17 ? "BẬT" : "TẮT"}</span>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showModal && (
@@ -212,40 +288,43 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                    <div className="space-y-4">
                      <div>
                        <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tên mẫu biểu</label>
-                       <input required type="text" className="w-full border p-2.5 rounded-xl font-bold text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.name || ''} onChange={e => setEditingTemplate(prev => prev ? ({...prev, name: e.target.value}) : null)} placeholder="VD: Danh sách 17 tuổi chuẩn (Injection)" />
+                       <input required type="text" className="w-full border p-2.5 rounded-xl font-bold text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-military-50" value={editingTemplate?.name || ''} onChange={e => setEditingTemplate(prev => prev ? ({...prev, name: e.target.value}) : null)} placeholder="VD: Danh sách 17 tuổi chuẩn" />
                      </div>
                      
                      <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
                        <label className="block text-[10px] font-black text-amber-700 uppercase mb-2">Tải file Excel khung (.xlsx)</label>
                        <input type="file" accept=".xlsx" onChange={handleFileUpload} className="w-full text-[10px] p-2 bg-white border border-dashed rounded-lg border-amber-300" />
-                       {editingTemplate?.fileData && <p className="mt-2 text-[9px] text-green-600 font-black uppercase flex items-center gap-1"><CheckCircle2 size={12}/> Đã nhận file mẫu</p>}
+                       {editingTemplate?.fileData && !editingTemplate.fileData.includes('UEsDBBQAAAAIAAAAIQAAAAAA') && (
+                          <p className="mt-2 text-[9px] text-green-600 font-black uppercase flex items-center gap-1"><CheckCircle2 size={12}/> Đã nhận file mẫu thực tế</p>
+                       )}
                      </div>
 
                      {/* PHẦN CHỌN DANH SÁCH NGUỒN */}
                      <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                         <label className="block text-[10px] font-black text-blue-800 uppercase mb-3 flex items-center gap-1"><Filter size={12}/> Lấy công dân từ các danh sách:</label>
-                        <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                           {TABS.filter(t => !t.isSub).map(tab => (
-                             <label key={tab.id} className="flex items-center gap-2 cursor-pointer group">
+                        <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                           {TABS.map(tab => (
+                             <label key={tab.id} className={`flex items-center gap-2 cursor-pointer group ${tab.isSub ? 'ml-4' : ''}`}>
                                 <input 
                                   type="checkbox" 
                                   className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
                                   checked={editingTemplate?.sourceTabs?.includes(tab.id) || false}
                                   onChange={() => toggleSourceTab(tab.id)}
                                 />
-                                <span className={`text-[10px] font-bold uppercase transition-colors ${editingTemplate?.sourceTabs?.includes(tab.id) ? 'text-blue-900' : 'text-gray-400 group-hover:text-gray-600'}`}>{tab.label}</span>
+                                <span className={`text-[10px] font-bold uppercase transition-colors ${editingTemplate?.sourceTabs?.includes(tab.id) ? 'text-blue-900' : 'text-gray-400 group-hover:text-gray-600'}`}>
+                                  {tab.isSub ? '↳ ' : ''}{tab.label}
+                                </span>
                              </label>
                            ))}
                         </div>
                      </div>
 
-                     {/* PHẦN LỌC TUỔI 17 */}
                      <div className="bg-green-50/50 p-4 rounded-2xl border border-green-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                            <UserSearch size={18} className="text-green-600"/>
                            <div>
                               <p className="text-[10px] font-black text-green-800 uppercase">Chế độ lọc tuổi 17</p>
-                              <p className="text-[8px] text-green-600 font-bold uppercase opacity-70">Chỉ lấy những người đủ 17 tuổi</p>
+                              <p className="text-[8px] text-green-600 font-bold uppercase opacity-70">Chỉ lấy người sinh năm {(new Date().getFullYear()) - 17}</p>
                            </div>
                         </div>
                         <button 

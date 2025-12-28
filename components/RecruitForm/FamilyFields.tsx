@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { Users, Heart, ShieldCheck, UserCheck } from 'lucide-react';
+import { Users, Heart, ShieldCheck, UserCheck, Baby, Users2, Medal } from 'lucide-react';
 import { FAMILY_JOBS } from '../../constants';
+import { RecruitmentStatus } from '../../types';
 
 const FamilyFields = ({ formData, isReadOnly, handleChange }: any) => {
   const members = [
@@ -12,6 +13,13 @@ const FamilyFields = ({ formData, isReadOnly, handleChange }: any) => {
 
   const compositionsFamily = ["Bần nông", "Trung nông", "Bần nông (cố nông)", "Trí thức", "Công chức", "Tiểu thương", "Tiểu tư sản", "Địa chủ", "Khác"];
   const compositionsPersonal = ["Phụ thuộc", "Bần nông", "Công nhân", "Trí thức", "Lao động tự do", "Công chức/Viên chức", "Khác"];
+
+  // Xác định xem có phải diện 1, 2, 3 không để hiện các ô tự nhập bổ sung
+  const isDS123 = [
+    RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
+    RecruitmentStatus.EXEMPT_REGISTRATION,
+    RecruitmentStatus.FIRST_TIME_REGISTRATION
+  ].includes(formData.status);
 
   return (
     <div className="space-y-6">
@@ -47,6 +55,47 @@ const FamilyFields = ({ formData, isReadOnly, handleChange }: any) => {
             </select>
          </div>
       </div>
+
+      {/* BỔ SUNG: THÔNG TIN ANH CHỊ EM & CHÍNH SÁCH CHA MẸ (Cho diện 1, 2, 3) */}
+      {isDS123 && (
+        <div className="grid grid-cols-2 gap-4 bg-amber-50/50 p-4 rounded-xl border border-amber-100 animate-in fade-in slide-in-from-top-2">
+           <div className="col-span-2 text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2 mb-1">
+              <Baby size={14}/> Thông tin hoàn cảnh gia đình (Bổ sung cho DS 1,2,3)
+           </div>
+           <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Có bao nhiêu anh, chị, em ruột</label>
+              <input 
+                type="text" placeholder="Nhập số lượng..."
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold bg-white"
+                value={formData.details.siblingCount || ''}
+                onChange={(e) => handleChange('details.siblingCount', e.target.value)}
+                readOnly={isReadOnly}
+              />
+           </div>
+           <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Là con thứ mấy trong gia đình</label>
+              <input 
+                type="text" placeholder="VD: Thứ nhất, Thứ hai..."
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold bg-white"
+                value={formData.details.birthOrder || ''}
+                onChange={(e) => handleChange('details.birthOrder', e.target.value)}
+                readOnly={isReadOnly}
+              />
+           </div>
+           <div className="col-span-2">
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 flex items-center gap-1">
+                 <Medal size={12} className="text-red-600"/> Cha, mẹ là Liệt sĩ, thương, bệnh binh; hạng mấy (nếu có)
+              </label>
+              <textarea 
+                rows={2} placeholder="Nhập chi tiết diện chính sách của cha mẹ (nếu có)..."
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm font-medium bg-white"
+                value={formData.details.parentPolicyStatus || ''}
+                onChange={(e) => handleChange('details.parentPolicyStatus', e.target.value)}
+                readOnly={isReadOnly}
+              />
+           </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         {members.map((m) => (

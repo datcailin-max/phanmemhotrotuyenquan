@@ -18,8 +18,6 @@ interface ReportBuilderProps {
 }
 
 const SYSTEM_TEMPLATES = [
-  { id: 'TEMPLATE_17A', title: 'Danh sách gọi nhập ngũ (Mẫu 17A)', description: 'Biểu số 17A/GNN-2025: Danh sách công dân đã nhận lệnh.', icon: Flag },
-  { id: 'TEMPLATE_01', title: 'Danh sách công dân nam đủ 17 tuổi (Mẫu 01)', description: 'Biểu số 01/GNN-2025: Danh sách chi tiết 7 cột thông tin.', icon: ListOrdered },
   { id: 'TEMPLATE_01A', title: 'Báo cáo KQ đăng ký 17 tuổi (Mẫu 01A)', description: 'Thống kê kết quả đăng ký cho thanh niên đủ 17 tuổi.', icon: UserCheck2 },
   { id: 'TEMPLATE_06', title: 'Báo cáo 37 cột (Mẫu 06)', description: 'Thống kê chi tiết số lượng, trình độ, diện miễn hoãn.', icon: BarChart3 },
 ];
@@ -161,7 +159,7 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
                   onClick={handleExport} disabled={isExporting}
                   className="w-full py-4 rounded-2xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-3 bg-military-700 text-white hover:bg-military-800 transition-all active:scale-95 disabled:opacity-50"
                >
-                  <Download size={20} /> {isExporting ? 'Đang tạo tệp...' : 'Xuất báo cáo ngay'}
+                  <Download size={20} /> {isExporting ? 'Đang tạo tệp...' : 'Xuất file'}
                </button>
                <div className="bg-blue-50 p-4 rounded-2xl mt-6 border border-blue-100">
                   <p className="text-[10px] text-blue-800 leading-relaxed font-bold italic">Lưu ý: Dữ liệu xuất ra sẽ dựa trên cấu hình "Nguồn lấy công dân" mà bạn đã thiết lập trong quản lý mẫu biểu.</p>

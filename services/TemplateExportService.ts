@@ -31,6 +31,14 @@ export const FIELD_MAPPINGS = [
   { key: 'FATHER_DETAILS', label: 'Họ tên cha, năm sinh, nghề nghiệp' },
   { key: 'MOTHER_DETAILS', label: 'Họ tên mẹ, năm sinh, nghề nghiệp' },
   { key: 'WIFE_DETAILS', label: 'Họ tên vợ, năm sinh, nghề nghiệp' },
+  { key: 'SIBLING_COUNT', label: 'Số anh, chị, em ruột' },
+  { key: 'BIRTH_ORDER', label: 'Là con thứ mấy trong gia đình' },
+  { key: 'PARENT_POLICY', label: 'Chính sách cha mẹ (Liệt sĩ, TBB...)' },
+  { key: 'REWARDS', label: 'Khen thưởng' },
+  { key: 'DISCIPLINES', label: 'Kỷ luật' },
+  { key: 'GRADE_GROUP', label: 'Nhóm, ngạch lương' },
+  { key: 'SALARY_LEVEL', label: 'Bậc lương' },
+  { key: 'SALARY_FULL', label: 'Nhóm, ngạch, bậc lương (Đầy đủ)' },
   { key: 'ENLISTMENT_UNIT', label: 'Đơn vị nhập ngũ' },
   { key: 'ENLISTMENT_DATE', label: 'Ngày/tháng/năm nhập ngũ' },
   { key: 'REASON', label: 'Lý do chung (Miễn, hoãn, KTC...)' },
@@ -116,6 +124,14 @@ export class TemplateExportService {
               case 'WIFE_DETAILS': 
                   val = r.family?.wife?.fullName ? `Vợ: ${r.family.wife.fullName}, ${r.family.wife.birthYear || ''}, ${r.family.wife.job || ''}` : '';
                   break;
+              case 'SIBLING_COUNT': val = r.details?.siblingCount || ''; break;
+              case 'BIRTH_ORDER': val = r.details?.birthOrder || ''; break;
+              case 'PARENT_POLICY': val = r.details?.parentPolicyStatus || ''; break;
+              case 'REWARDS': val = r.details?.rewards || ''; break;
+              case 'DISCIPLINES': val = r.details?.disciplines || ''; break;
+              case 'GRADE_GROUP': val = r.details?.gradeGroup || ''; break;
+              case 'SALARY_LEVEL': val = r.details?.salaryLevel || ''; break;
+              case 'SALARY_FULL': val = `${r.details?.gradeGroup || ''} - ${r.details?.salaryLevel || ''}`; break;
               case 'ENLISTMENT_UNIT': val = r.enlistmentUnit || ''; break;
               case 'ENLISTMENT_DATE': val = r.enlistmentDate ? r.enlistmentDate.split('-').reverse().join('/') : ''; break;
               case 'REASON': val = `${getStatusLabel(r.status)}${r.defermentReason ? ': ' + r.defermentReason : ''}`; break;
