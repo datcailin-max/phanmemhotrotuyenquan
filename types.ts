@@ -1,0 +1,151 @@
+
+export enum RecruitmentStatus {
+  NOT_ALLOWED_REGISTRATION = 'KHONG_DUOC_DANG_KY', // 1. Không được đăng ký NVQS
+  EXEMPT_REGISTRATION = 'MIEN_DANG_KY', // 2. Miễn đăng ký NVQS
+  FIRST_TIME_REGISTRATION = 'DANG_KY_LAN_DAU', // 3. Đăng ký NVQS lần đầu
+  SOURCE = 'NGUON', // 4. Tổng Nguồn công dân (Sẵn sàng nhập ngũ)
+  NOT_SELECTED_TT50 = 'KHONG_TUYEN_CHON_TT50', // 5. DS KTC, CGNN (Chung)
+  KTC_KHONG_TUYEN_CHON = 'KTC_KHONG_TUYEN_CHON', // 5.1. Không tuyển chọn
+  KTC_CHUA_GOI_NHAP_NGU = 'KTC_CHUA_GOI_NHAP_NGU', // 5.2. Chưa gọi nhập ngũ
+  PRE_CHECK_PASSED = 'SO_KHAM_DAT', // Đạt sơ khám
+  PRE_CHECK_FAILED = 'SO_KHAM_KHONG_DAT', // Không đạt sơ khám
+  MED_EXAM_PASSED = 'KHAM_TUYEN_DAT', // Đạt khám tuyển
+  MED_EXAM_FAILED = 'KHAM_TUYEN_KHONG_DAT', // Không đạt khám tuyển
+  FINALIZED = 'BINH_CU_CONG_KHAI', // Danh sách bình cử công khai / Chốt hồ sơ
+  ENLISTED = 'NHAP_NGU', // Đã chốt và phát lệnh nhập ngũ
+  DEFERRED = 'TAM_HOAN', // Tạm hoãn
+  EXEMPTED = 'MIEN_KHAM', // Miễn làm NVQS (Khác với miễn đăng ký)
+  REMOVED_FROM_SOURCE = 'LOAI_KHOI_NGUON', // Đã loại khỏi nguồn (Soft delete)
+  DELETED = 'DA_XOA' // 15. Đã xóa (Thùng rác)
+}
+
+export type UserRole = 'ADMIN' | 'EDITOR' | 'VIEWER' | 'PROVINCE_ADMIN';
+
+export interface User {
+  username: string;
+  fullName: string; // Tên đơn vị (VD: Ban CHQS Xã Mỹ Hòa Hưng)
+  personalName?: string; // Họ và tên cán bộ
+  rank?: string; // Cấp bậc
+  position?: string; // Chức vụ
+  email?: string; // Email
+  phoneNumber?: string; // Số điện thoại cán bộ
+  password?: string;
+  role: UserRole;
+  unit: {
+    province: string;
+    commune: string;
+  };
+  isLocked?: boolean; // Mặc định true cho tài khoản mới
+  isApproved?: boolean;
+  isSpecialArea?: boolean; // Mới: Xác nhận địa phương vùng sâu/xa/khó khăn
+  secondaryPassword?: string;
+}
+
+export interface Feedback {
+    id: string;
+    username: string;
+    unitName: string;
+    category: 'HỎI ĐÁP' | 'GÓP Ý' | 'MẬT KHẨU' | 'KHÁC';
+    content: string;
+    timestamp: number;
+    isRead: boolean;
+    reply?: string;
+    replyTimestamp?: number;
+}
+
+export interface FamilyMember {
+  fullName: string;
+  birthYear?: string;
+  job: string;
+  phoneNumber: string;
+}
+
+export interface RecruitAttachment {
+  name: string;
+  url: string;
+  type: string;
+  uploadDate: string;
+}
+
+export interface Recruit {
+  id: string;
+  citizenId: string;
+  fullName: string;
+  dob: string;
+  phoneNumber: string;
+  avatarUrl?: string;
+  address: {
+    province: string;
+    commune: string;
+    village: string;
+    street?: string;
+  };
+  hometown: { province: string; commune: string; village: string; };
+  physical: { height: number; weight: number; chest: number; bmi: number; healthGrade?: number; bloodPressure?: string; note?: string; };
+  details: {
+    education: string;
+    educationPeriod?: string;
+    sentencePeriod?: string; 
+    major?: string;
+    school?: string;
+    ethnicity: string;
+    religion: string;
+    maritalStatus: string;
+    job: string;
+    workAddress?: string;
+    gradeGroup?: string;
+    salaryLevel?: string;
+    politicalStatus: 'None' | 'Doan_Vien' | 'Dang_Vien';
+    partyEntryDate?: string;
+    gifted?: string;
+    familyComposition?: string;
+    personalComposition?: string;
+    registrationMethod?: 'DIRECT' | 'ONLINE';
+    // Bổ sung các trường tự nhập theo yêu cầu mới
+    siblingCount?: string; // Có bao nhiêu anh chị em ruột
+    birthOrder?: string; // Là con thứ mấy trong gia đình
+    parentPolicyStatus?: string; // Cha mẹ là Liệt sĩ, thương bệnh binh...
+    rewards?: string; // Khen thưởng
+    disciplines?: string; // Kỷ luật
+    proposedForSelection?: boolean; // Mới: Đề xuất tuyển chọn cho Lớp 7
+  };
+  family: {
+    father: FamilyMember;
+    mother: FamilyMember;
+    wife?: FamilyMember;
+    children?: string;
+  };
+  status: RecruitmentStatus;
+  previousStatus?: RecruitmentStatus;
+  previousDefermentReason?: string;
+  defermentReason?: string;
+  defermentProof?: string;
+  enlistmentUnit?: string;
+  enlistmentDate?: string;
+  enlistmentType?: 'OFFICIAL' | 'RESERVE';
+  recruitmentYear: number;
+  attachments?: RecruitAttachment[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ExcelTemplate {
+  id: string;
+  _id?: string;
+  name: string;
+  description: string;
+  fileData: string; // Base64 file .xlsx
+  startRow: number; // Dòng bắt đầu ghi dữ liệu (VD: 10)
+  mapping: Record<string, string | string[]>; // Hỗ trợ mảng các trường thông tin cho một cột
+  sourceTabs?: string[]; // Danh sách các ID Tab nguồn
+  onlyAge17?: boolean; // Chỉ lấy công dân đủ 17 tuổi
+  filterAges?: number[]; // Mới: Lọc theo độ tuổi cụ thể (18-27)
+  filterEthnicities?: string[]; // Mới: Lọc theo dân tộc
+  filterReligions?: string[]; // Mới: Lọc theo tôn giáo
+  filterHealthGrades?: number[]; // Mới: Lọc theo loại sức khỏe (1-6)
+  createdAt?: string;
+}
+
+export interface UnitReport { id: string; senderUsername: string; senderUnitName: string; targetProvince: string; title: string; url: string; year: number; timestamp: number; }
+export interface ProvincialDispatch { id: string; senderUsername: string; senderProvince: string; title: string; url: string; recipients: string[]; year: number; timestamp: number; }
+export interface ResearchDocument { id: string; title: string; description: string; url: string; uploadDate: string; fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER'; category: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC' | 'MAU_DANH_SACH' | 'MAU_BAO_CAO' | 'TAI_LIEU_THAM_KHAO'; }
