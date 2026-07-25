@@ -148,4 +148,4 @@ export interface ExcelTemplate {
 
 export interface UnitReport { id: string; senderUsername: string; senderUnitName: string; targetProvince: string; title: string; url: string; year: number; timestamp: number; }
 export interface ProvincialDispatch { id: string; senderUsername: string; senderProvince: string; title: string; url: string; recipients: string[]; year: number; timestamp: number; }
-export interface ResearchDocument { id: string; title: string; description: string; url: string; uploadDate: string; fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER'; category: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC' | 'MAU_DANH_SACH' | 'MAU_BAO_CAO' | 'TAI_LIEU_THAM_KHAO'; }
+export interface ResearchDocument { id: string; title: string; description: string; url: string; uploadDate: string; fileType: 'WORD' | 'PDF' | 'EXCEL' | 'OTHER'; category: 'LUAT' | 'NGHI_DINH' | 'THONG_TU' | 'HUONG_DAN' | 'QUYET_DINH' | 'KHAC' | 'MAU_DANH_SACH' | 'MAU_BAO_CAO' | 'MAU_BIEU' | 'TAI_LIEU_THAM_KHAO'; }

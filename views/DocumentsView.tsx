@@ -15,7 +15,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
   const [documents, setDocuments] = useState<ResearchDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingDocId, setIsFetchingDocId] = useState<string | null>(null);
-  const [selectedFolder, setSelectedFolder] = useState<'MAU_DANH_SACH' | 'MAU_BAO_CAO' | 'TAI_LIEU_THAM_KHAO' | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<'MAU_BIEU' | 'TAI_LIEU_THAM_KHAO' | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Upload modal state
@@ -49,9 +49,10 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
   }, []);
 
   // Helper function to map categories safely (including legacy ones)
-  const getDocFolderCategory = (doc: ResearchDocument): 'MAU_DANH_SACH' | 'MAU_BAO_CAO' | 'TAI_LIEU_THAM_KHAO' => {
-    if (doc.category === 'MAU_DANH_SACH') return 'MAU_DANH_SACH';
-    if (doc.category === 'MAU_BAO_CAO') return 'MAU_BAO_CAO';
+  const getDocFolderCategory = (doc: ResearchDocument): 'MAU_BIEU' | 'TAI_LIEU_THAM_KHAO' => {
+    if (doc.category === 'MAU_DANH_SACH' || doc.category === 'MAU_BAO_CAO' || doc.category === 'MAU_BIEU') {
+      return 'MAU_BIEU';
+    }
     return 'TAI_LIEU_THAM_KHAO'; // Default legacy documents to "Tài liệu tham khảo"
   };
 
@@ -292,7 +293,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
     )
   );
 
-  const countByFolder = (folderKey: 'MAU_DANH_SACH' | 'MAU_BAO_CAO' | 'TAI_LIEU_THAM_KHAO') => {
+  const countByFolder = (folderKey: 'MAU_BIEU' | 'TAI_LIEU_THAM_KHAO') => {
     if (!Array.isArray(documents)) return 0;
     return documents.filter(doc => doc && getDocFolderCategory(doc) === folderKey).length;
   };
@@ -336,10 +337,10 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Folder 1: Mẫu Danh sách */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Folder 1: Mẫu biểu */}
             <div 
-              onClick={() => setSelectedFolder('MAU_DANH_SACH')}
+              onClick={() => setSelectedFolder('MAU_BIEU')}
               className="bg-white rounded-3xl border-2 border-gray-200 hover:border-emerald-500 hover:shadow-xl p-6 transition-all duration-300 cursor-pointer flex flex-col justify-between group h-64 relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-10 -mt-10 opacity-40 group-hover:scale-110 transition-transform duration-300" />
@@ -352,16 +353,16 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
                     Thư mục 1
                   </span>
                   <h3 className="text-base font-black text-military-900 uppercase tracking-tight mt-2.5 group-hover:text-emerald-700 transition-colors">
-                    Mẫu Danh sách
+                    Mẫu biểu
                   </h3>
                   <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">
-                    Các mẫu bảng biểu, danh sách công dân đăng ký, tạm hoãn, miễn NVQS
+                    Các mẫu bảng biểu, danh sách công dân đăng ký, tạm hoãn, miễn NVQS và báo cáo tổng hợp kết quả
                   </p>
                 </div>
               </div>
               <div className="flex items-center justify-between border-t border-gray-100 pt-4 mt-4 relative z-10">
                 <span className="text-xs font-black text-gray-500">
-                  {countByFolder('MAU_DANH_SACH')} tài liệu
+                  {countByFolder('MAU_BIEU')} tài liệu
                 </span>
                 <span className="text-xs font-black text-emerald-600 flex items-center gap-1 group-hover:translate-x-1.5 transition-transform">
                   Mở mục <ChevronRight size={14} />
@@ -369,39 +370,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
               </div>
             </div>
 
-            {/* Folder 2: Mẫu báo cáo */}
-            <div 
-              onClick={() => setSelectedFolder('MAU_BAO_CAO')}
-              className="bg-white rounded-3xl border-2 border-gray-200 hover:border-sky-500 hover:shadow-xl p-6 transition-all duration-300 cursor-pointer flex flex-col justify-between group h-64 relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-10 -mt-10 opacity-40 group-hover:scale-110 transition-transform duration-300" />
-              <div className="space-y-4 relative z-10">
-                <div className="w-14 h-14 bg-sky-50 text-sky-600 rounded-2xl border border-sky-100 flex items-center justify-center shadow-inner">
-                  <FolderOpen size={30} className="group-hover:scale-110 transition-transform" />
-                </div>
-                <div>
-                  <span className="text-[9px] font-black uppercase tracking-widest bg-sky-50 text-sky-700 border border-sky-100 px-2.5 py-1 rounded-full">
-                    Thư mục 2
-                  </span>
-                  <h3 className="text-base font-black text-military-900 uppercase tracking-tight mt-2.5 group-hover:text-sky-700 transition-colors">
-                    Mẫu báo cáo
-                  </h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">
-                    Các mẫu báo cáo tổng hợp, báo cáo nhanh kết quả khám sơ tuyển
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between border-t border-gray-100 pt-4 mt-4 relative z-10">
-                <span className="text-xs font-black text-gray-500">
-                  {countByFolder('MAU_BAO_CAO')} tài liệu
-                </span>
-                <span className="text-xs font-black text-sky-600 flex items-center gap-1 group-hover:translate-x-1.5 transition-transform">
-                  Mở mục <ChevronRight size={14} />
-                </span>
-              </div>
-            </div>
-
-            {/* Folder 3: Tài liệu tham khảo */}
+            {/* Folder 2: Tài liệu tham khảo */}
             <div 
               onClick={() => setSelectedFolder('TAI_LIEU_THAM_KHAO')}
               className="bg-white rounded-3xl border-2 border-gray-200 hover:border-amber-500 hover:shadow-xl p-6 transition-all duration-300 cursor-pointer flex flex-col justify-between group h-64 relative overflow-hidden"
@@ -413,7 +382,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
                 </div>
                 <div>
                   <span className="text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-1 rounded-full">
-                    Thư mục 3
+                    Thư mục 2
                   </span>
                   <h3 className="text-base font-black text-military-900 uppercase tracking-tight mt-2.5 group-hover:text-amber-700 transition-colors">
                     Tài liệu tham khảo
@@ -450,9 +419,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
                 <span>Thư viện</span>
                 <ChevronRight size={12} className="mx-1" />
                 <span className="text-military-900 font-black">
-                  {selectedFolder === 'MAU_DANH_SACH' ? 'Mẫu Danh sách' : 
-                   selectedFolder === 'MAU_BAO_CAO' ? 'Mẫu báo cáo' : 
-                   'Tài liệu tham khảo'}
+                  {selectedFolder === 'MAU_BIEU' ? 'Mẫu biểu' : 'Tài liệu tham khảo'}
                 </span>
               </div>
             </div>
@@ -597,9 +564,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
                   Thư mục đích
                 </label>
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl font-black text-xs text-military-800 uppercase">
-                  {selectedFolder === 'MAU_DANH_SACH' ? '1. Mẫu Danh sách' :
-                   selectedFolder === 'MAU_BAO_CAO' ? '2. Mẫu báo cáo' :
-                   '3. Tài liệu tham khảo'}
+                  {selectedFolder === 'MAU_BIEU' ? '1. Mẫu biểu' : '2. Tài liệu tham khảo'}
                 </div>
               </div>
 

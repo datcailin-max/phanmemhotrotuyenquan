@@ -22,6 +22,7 @@ import TT50ReasonModal from './RecruitManagement/modals/TT50ReasonModal';
 import PreCheckFailModal from './RecruitManagement/modals/PreCheckFailModal'; // Import modal mới
 import DuplicateCheckModal from './RecruitManagement/modals/DuplicateCheckModal';
 import Age17TransferModal from './RecruitManagement/modals/Age17TransferModal';
+import { BulkAvatarModal } from './RecruitManagement/modals/BulkAvatarModal';
 import { useRecruitActions } from './RecruitManagement/hooks/useRecruitActions';
 import { api } from '../api';
 
@@ -45,6 +46,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showAge17Modal, setShowAge17Modal] = useState(false);
+  const [showBulkAvatarModal, setShowBulkAvatarModal] = useState(false);
   const [editingRecruit, setEditingRecruit] = useState<Recruit | undefined>(undefined);
   const [recruits, setRecruits] = useState<Recruit[]>(rawRecruits);
 
@@ -235,6 +237,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onBulkVillageRename={() => setShowBulkModal(true)}
           onCheckDuplicates={() => setShowDuplicateModal(true)}
           onProposeAge17={() => setShowAge17Modal(true)}
+          onBulkAvatarUpload={() => setShowBulkAvatarModal(true)}
         />
 
         {/* THÔNG BÁO QUY ĐỊNH CHO DANH SÁCH 5 */}
@@ -472,6 +475,18 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           sessionYear={sessionYear}
           onClose={() => setShowAge17Modal(false)}
           onTransfer={handleTransferAge17}
+        />
+      )}
+
+      {showBulkAvatarModal && (
+        <BulkAvatarModal 
+          recruits={recruits}
+          sessionYear={sessionYear}
+          onClose={() => setShowBulkAvatarModal(false)}
+          onUpdateRecruit={(updated) => {
+            setRecruits(prev => prev.map(r => r.id === updated.id ? updated : r));
+            onUpdate(updated);
+          }}
         />
       )}
     </div>

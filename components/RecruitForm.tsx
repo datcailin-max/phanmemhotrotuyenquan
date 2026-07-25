@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
-import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt } from 'lucide-react';
+import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt, Trash2 } from 'lucide-react';
 import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
 import { api } from '../api';
 
@@ -349,29 +349,55 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
             <div className="space-y-8">
                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                  <div className="flex flex-col md:flex-row gap-6 mb-8">
-                    <div className="relative shrink-0 mx-auto md:mx-0">
-                       <div className="w-32 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative group">
-                          {isUploadingAvatar ? (
-                            <div className="text-center p-2">
-                               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-military-600 mx-auto"></div>
-                               <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Đang tải...</p>
-                            </div>
-                          ) : formData.avatarUrl ? (
-                            <img src={formData.avatarUrl} className="w-full h-full object-cover" alt="Avatar"/>
-                          ) : (
-                            <div className="text-center p-2">
-                               <Camera size={32} className="mx-auto text-gray-300" />
-                               <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Ảnh chân dung</p>
-                            </div>
-                          )}
-                          {!isReadOnly && !isUploadingAvatar && (
-                            <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white text-[10px] font-black uppercase">
-                               Thay ảnh
-                               <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                    <div className="flex flex-col items-center gap-2 shrink-0 mx-auto md:mx-0">
+                        <div className="w-32 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative group shadow-sm">
+                           {isUploadingAvatar ? (
+                             <div className="text-center p-2">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-military-600 mx-auto"></div>
+                                <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Đang tải...</p>
+                             </div>
+                           ) : formData.avatarUrl ? (
+                             <img src={formData.avatarUrl} className="w-full h-full object-cover" alt="Avatar"/>
+                           ) : (
+                             <div className="text-center p-2">
+                                <Camera size={32} className="mx-auto text-gray-300" />
+                                <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Ảnh chân dung</p>
+                             </div>
+                           )}
+                           {!isReadOnly && !isUploadingAvatar && (
+                             <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-black uppercase p-2 gap-1 text-center">
+                                <Camera size={18} />
+                                <span>{formData.avatarUrl ? 'Thay ảnh mới' : 'Tải ảnh lên'}</span>
+                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                             </label>
+                           )}
+                        </div>
+
+                        {!isReadOnly && !isUploadingAvatar && (
+                          <div className="flex items-center gap-1.5 w-32 mt-1">
+                            <label className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-military-50 text-military-800 hover:bg-military-100 rounded-lg text-[10px] font-black uppercase cursor-pointer border border-military-200 transition-colors text-center">
+                              <Camera size={11} />
+                              <span>{formData.avatarUrl ? 'Thay' : 'Tải'}</span>
+                              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                             </label>
-                          )}
-                       </div>
-                    </div>
+                            {formData.avatarUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm("Xác nhận xóa ảnh chân dung của công dân này?")) {
+                                    handleChange('avatarUrl', '');
+                                  }
+                                }}
+                                className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-[10px] font-black uppercase border border-red-200 transition-colors text-center"
+                                title="Xóa ảnh công dân"
+                              >
+                                <Trash2 size={11} />
+                                <span>Xóa</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                     </div>
 
                     <div className="flex-1 space-y-4">
                        <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-3 flex items-center gap-2 uppercase text-sm mb-4">
