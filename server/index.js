@@ -82,8 +82,12 @@ app.post('/api/upload', async (req, res) => {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
+    // Nếu chưa cấu hình Cloudinary, trả về trực tiếp chuỗi Base64
+    if (typeof file === 'string') {
+      return res.json({ url: file });
+    }
     return res.status(500).json({ 
-      message: 'Cloudinary chưa được cấu hình. Vui lòng thiết lập các biến môi trường CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET trong cài đặt.' 
+      message: 'Cloudinary chưa được cấu hình. Vui lòng thiết lập biến môi trường CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.' 
     });
   }
 
@@ -94,10 +98,19 @@ app.post('/api/upload', async (req, res) => {
       api_secret: apiSecret
     });
 
-    const result = await cloudinary.uploader.upload(file, {
-      resource_type: 'auto',
-      folder: folder || 'tuyenquan'
-    });
+    let result;
+    if (typeof file === 'string' && file.length > 5 * 1024 * 1024) {
+      result = await cloudinary.uploader.upload_large(file, {
+        resource_type: 'auto',
+        folder: folder || 'tuyenquan',
+        chunk_size: 6000000
+      });
+    } else {
+      result = await cloudinary.uploader.upload(file, {
+        resource_type: 'auto',
+        folder: folder || 'tuyenquan'
+      });
+    }
 
     res.json({ url: result.secure_url });
   } catch (error) {

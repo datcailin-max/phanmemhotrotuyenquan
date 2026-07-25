@@ -179,7 +179,7 @@ export const api = {
       }
     }
 
-    // If it is a native File object, use direct client-to-Cloudinary upload for huge files!
+    // If it is a native File object, use direct client-to-Cloudinary upload with chunked support for large files!
     try {
       // 1. Get Cloudinary Signature from our Server
       const sigRes = await fetch(`${API_URL}/cloudinary-signature?folder=${folder || 'tuyenquan'}`);
@@ -191,56 +191,127 @@ export const api = {
       const sigData = await sigRes.json();
       const { signature, timestamp, apiKey, cloudName, folder: resolvedFolder } = sigData;
 
-      // 2. Perform direct upload to Cloudinary via XMLHttpRequest to track exact progress
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
-        
-        xhr.open('POST', uploadUrl, true);
+      const CHUNK_SIZE = 6 * 1024 * 1024; // 6MB per chunk for Cloudinary
 
-        // Track upload progress
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable && onProgress) {
-            const percent = Math.round((event.loaded / event.total) * 100);
-            onProgress(percent);
-          }
-        };
+      if (file.size <= CHUNK_SIZE) {
+        // Single request upload for smaller files
+        return await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+          
+          xhr.open('POST', uploadUrl, true);
 
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
+          // Track upload progress
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && onProgress) {
+              const percent = Math.round((event.loaded / event.total) * 100);
+              onProgress(percent);
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                resolve(response.secure_url || response.url);
+              } catch (e) {
+                reject(new Error('Không thể phân tích phản hồi từ Cloudinary'));
+              }
+            } else {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                reject(new Error(response.error?.message || `Lỗi Cloudinary: HTTP ${xhr.status}`));
+              } catch {
+                reject(new Error(`Lỗi tải lên Cloudinary: HTTP ${xhr.status}`));
+              }
+            }
+          };
+
+          xhr.onerror = () => {
+            reject(new Error('Lỗi kết nối đến Cloudinary'));
+          };
+
+          // Construct FormData payload
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('api_key', apiKey);
+          formData.append('timestamp', timestamp.toString());
+          formData.append('signature', signature);
+          formData.append('folder', resolvedFolder);
+
+          xhr.send(formData);
+        });
+      } else {
+        // Chunked upload (upload_large) for large PDF files (> 6MB)
+        const uniqueUploadId = 'uq_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+        const totalSize = file.size;
+        const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
+
+        let finalUrl = '';
+
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, totalSize);
+          const chunkBlob = file.slice(start, end);
+
+          const responseText = await new Promise<string>((resolveChunk, rejectChunk) => {
+            const xhr = new XMLHttpRequest();
+            const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+
+            xhr.open('POST', uploadUrl, true);
+            xhr.setRequestHeader('X-Unique-Upload-Id', uniqueUploadId);
+            xhr.setRequestHeader('Content-Range', `bytes ${start}-${end - 1}/${totalSize}`);
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable && onProgress) {
+                const loadedSoFar = start + event.loaded;
+                const percent = Math.min(99, Math.round((loadedSoFar / totalSize) * 100));
+                onProgress(percent);
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolveChunk(xhr.responseText);
+              } else {
+                try {
+                  const errJson = JSON.parse(xhr.responseText);
+                  rejectChunk(new Error(errJson.error?.message || `Lỗi chunk ${i + 1}/${totalChunks}: HTTP ${xhr.status}`));
+                } catch {
+                  rejectChunk(new Error(`Lỗi tải chunk ${i + 1}/${totalChunks}: HTTP ${xhr.status}`));
+                }
+              }
+            };
+
+            xhr.onerror = () => rejectChunk(new Error(`Lỗi kết nối mạng khi tải chunk ${i + 1}`));
+
+            const formData = new FormData();
+            formData.append('file', chunkBlob, file.name);
+            formData.append('api_key', apiKey);
+            formData.append('timestamp', timestamp.toString());
+            formData.append('signature', signature);
+            formData.append('folder', resolvedFolder);
+
+            xhr.send(formData);
+          });
+
+          if (i === totalChunks - 1) {
             try {
-              const response = JSON.parse(xhr.responseText);
-              resolve(response.secure_url || response.url);
+              const resJson = JSON.parse(responseText);
+              finalUrl = resJson.secure_url || resJson.url;
             } catch (e) {
-              reject(new Error('Không thể phân tích phản hồi từ Cloudinary'));
-            }
-          } else {
-            try {
-              const response = JSON.parse(xhr.responseText);
-              reject(new Error(response.error?.message || `Lỗi Cloudinary: HTTP ${xhr.status}`));
-            } catch {
-              reject(new Error(`Lỗi tải lên Cloudinary: HTTP ${xhr.status}`));
+              throw new Error('Không thể đọc kết quả URL từ Cloudinary');
             }
           }
-        };
+        }
 
-        xhr.onerror = () => {
-          reject(new Error('Lỗi kết nối đến Cloudinary'));
-        };
-
-        // Construct FormData payload
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('api_key', apiKey);
-        formData.append('timestamp', timestamp.toString());
-        formData.append('signature', signature);
-        formData.append('folder', resolvedFolder);
-
-        xhr.send(formData);
-      });
+        if (onProgress) onProgress(100);
+        if (!finalUrl) throw new Error('Không nhận được liên kết tệp từ Cloudinary');
+        return finalUrl;
+      }
     } catch (err: any) {
-      console.warn('Direct upload to Cloudinary failed, falling back to server upload...', err);
-      // Fallback: Read file as base64 and upload via our server
+      console.warn('Direct upload to Cloudinary failed, attempting server upload fallback...', err);
+      // Fallback: Upload via server endpoint
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -264,19 +335,21 @@ export const api = {
                   const data = JSON.parse(xhr.responseText);
                   resolve(data.url);
                 } catch (e) {
-                  resolve(fileBase64); // Fallback to base64 string
+                  reject(new Error('Lỗi phản hồi từ máy chủ'));
                 }
               } else {
                 try {
-                  const data = JSON.parse(xhr.responseText);
-                  reject(new Error(data.message || 'Lỗi tải lên file'));
+                  const errObj = JSON.parse(xhr.responseText);
+                  reject(new Error(errObj.message || 'Lỗi khi tải tệp lên Cloudinary qua máy chủ'));
                 } catch {
-                  reject(new Error('Lỗi máy chủ khi tải lên file'));
+                  reject(new Error(`Lỗi tải lên tệp: HTTP ${xhr.status}`));
                 }
               }
             };
 
-            xhr.onerror = () => reject(new Error('Lỗi kết nối mạng'));
+            xhr.onerror = () => {
+              reject(new Error('Lỗi kết nối mạng khi tải lên tệp qua máy chủ'));
+            };
             xhr.send(JSON.stringify({ file: fileBase64, folder }));
           } catch (e) {
             reject(e);
