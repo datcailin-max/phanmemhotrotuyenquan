@@ -23,6 +23,7 @@ import PreCheckFailModal from './RecruitManagement/modals/PreCheckFailModal'; //
 import DuplicateCheckModal from './RecruitManagement/modals/DuplicateCheckModal';
 import Age17TransferModal from './RecruitManagement/modals/Age17TransferModal';
 import { BulkAvatarModal } from './RecruitManagement/modals/BulkAvatarModal';
+import { ExcelImportModal } from './RecruitManagement/modals/ExcelImportModal';
 import { useRecruitActions } from './RecruitManagement/hooks/useRecruitActions';
 import { api } from '../api';
 
@@ -47,6 +48,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showAge17Modal, setShowAge17Modal] = useState(false);
   const [showBulkAvatarModal, setShowBulkAvatarModal] = useState(false);
+  const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const [editingRecruit, setEditingRecruit] = useState<Recruit | undefined>(undefined);
   const [recruits, setRecruits] = useState<Recruit[]>(rawRecruits);
 
@@ -238,6 +240,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onCheckDuplicates={() => setShowDuplicateModal(true)}
           onProposeAge17={() => setShowAge17Modal(true)}
           onBulkAvatarUpload={() => setShowBulkAvatarModal(true)}
+          onBulkExcelImport={() => setShowExcelImportModal(true)}
         />
 
         {/* THÔNG BÁO QUY ĐỊNH CHO DANH SÁCH 5 */}
@@ -486,6 +489,22 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onUpdateRecruit={(updated) => {
             setRecruits(prev => prev.map(r => r.id === updated.id ? updated : r));
             onUpdate(updated);
+          }}
+        />
+      )}
+
+      {showExcelImportModal && (
+        <ExcelImportModal 
+          recruits={recruits}
+          activeTabId={activeTabId}
+          sessionYear={sessionYear}
+          currentUser={user}
+          onClose={() => setShowExcelImportModal(false)}
+          onRefresh={async () => {
+            const data = await api.getRecruits();
+            if (data && Array.isArray(data)) {
+              setRecruits(data);
+            }
           }}
         />
       )}

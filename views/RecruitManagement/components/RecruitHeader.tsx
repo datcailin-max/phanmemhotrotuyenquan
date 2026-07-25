@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Download, Plus, Trash2, MapPin, Layers, ArrowRightLeft, Camera } from 'lucide-react';
+import { Download, Plus, Trash2, MapPin, Layers, ArrowRightLeft, Camera, FileSpreadsheet } from 'lucide-react';
 
 interface RecruitHeaderProps {
   activeTab: any;
@@ -14,10 +14,11 @@ interface RecruitHeaderProps {
   onCheckDuplicates?: () => void;
   onProposeAge17?: () => void;
   onBulkAvatarUpload?: () => void;
+  onBulkExcelImport?: () => void;
 }
 
 const RecruitHeader: React.FC<RecruitHeaderProps> = ({ 
-  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onAdd, onDeleteAll, onBulkVillageRename, onCheckDuplicates, onProposeAge17, onBulkAvatarUpload
+  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onAdd, onDeleteAll, onBulkVillageRename, onCheckDuplicates, onProposeAge17, onBulkAvatarUpload, onBulkExcelImport
 }) => {
   return (
     <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white shrink-0 shadow-sm relative z-10">
@@ -34,15 +35,26 @@ const RecruitHeader: React.FC<RecruitHeaderProps> = ({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 flex-wrap md:flex-nowrap">
+        {/* Nút Nhập dữ liệu tự động từ Excel */}
+        {!isReadOnly && onBulkExcelImport && (
+           <button 
+             onClick={onBulkExcelImport}
+             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-xl font-black uppercase text-xs shadow-md hover:bg-emerald-800 transition-all active:scale-95"
+             title="Nhập dữ liệu công dân tự động từ tệp Excel (Thêm mới & Cập nhật theo CCCD)"
+           >
+             <FileSpreadsheet size={18} /> Nhập từ Excel
+           </button>
+        )}
+
         {/* Nút Chèn ảnh công dân hàng loạt theo số CCCD */}
         {!isReadOnly && onBulkAvatarUpload && (
            <button 
              onClick={onBulkAvatarUpload}
-             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-black uppercase text-xs shadow-md hover:bg-emerald-700 transition-all active:scale-95"
+             className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white rounded-xl font-black uppercase text-xs shadow-md hover:bg-teal-700 transition-all active:scale-95"
              title="Tải lên và tự động gán ảnh công dân theo số CCCD (Cú pháp file: TÊN-SỐCCCD)"
            >
-             <Camera size={18} /> Chèn ảnh hàng loạt
+             <Camera size={18} /> Chèn ảnh
            </button>
         )}
 
