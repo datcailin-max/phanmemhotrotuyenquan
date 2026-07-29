@@ -9,35 +9,11 @@ import { ExcelTemplate, User } from '../types';
 import { api } from '../api';
 import { FIELD_MAPPINGS } from '../services/TemplateExportService';
 import { TABS } from './RecruitManagement/constants';
-import { ETHNICITIES, RELIGIONS } from '../constants';
+import { ETHNICITIES, RELIGIONS, DEFAULT_CATALOG } from '../constants';
 
 interface TemplateManagementProps {
   user: User;
 }
-
-const DEFAULT_CATALOG = [
-  { name: '1. Danh sách tuổi 17', sources: ['FIRST_TIME_REG'], only17: true },
-  { name: '2. Danh sách công dân không được ĐK NVQS', sources: ['NOT_ALLOWED_REG'] },
-  { name: '3. Danh sách công dân được miễn ĐK NVQS', sources: ['EXEMPT_REG'] },
-  { name: '4. Danh sách công dân sẵn sàng nhập ngũ', sources: ['ALL'] },
-  { name: '5. Danh sách công dân không tuyển chọn', sources: ['KTC_SUB1'] },
-  { name: '6. Danh sách công dân chưa gọi nhập ngũ', sources: ['KTC_SUB2'] },
-  { name: '7. Danh sách công dân tạm hoãn học văn', sources: ['DEFERRED_EDUCATION'] },
-  { name: '8. Danh sách công dân tạm hoãn sức khỏe', sources: ['DEFERRED_HEALTH'] },
-  { name: '9. Danh sách công dân tạm hoãn chính sách', sources: ['DEFERRED_POLICY'] },
-  { name: '10. Danh sách công dân tạm hoãn DQTT', sources: ['DEFERRED_DQTT'] },
-  { name: '11. Danh sách công dân được miễn gọi NVQS', sources: ['EXEMPTED_LIST'] },
-  { name: '12. Danh sách công dân không đạt sơ tuyển', sources: ['PRE_CHECK_FAIL'] },
-  { name: '13. Danh sách công dân đạt sơ tuyển', sources: ['PRE_CHECK_PASS'] },
-  { name: '14. Danh sách công dân không đạt khám tuyển', sources: ['MED_EXAM_FAIL'] },
-  { name: '15. Danh sách công dân đạt khám tuyển', sources: ['MED_EXAM_PASS'] },
-  { name: '16. Danh sách chốt chính thức', sources: ['FINAL_OFFICIAL'] },
-  { name: '17. Danh sách chốt dự bị', sources: ['FINAL_RESERVE'] },
-  { name: '18. Danh sách gọi công dân nhập ngũ', sources: ['ENLISTED'] },
-  { name: '19. Danh sách công dân đưa ra khỏi nguồn', sources: ['REMOVED'] },
-  { name: '20. Danh sách nguồn còn lại trong năm', sources: ['REMAINING'] },
-  { name: '21. Danh sách nguồn của năm sau', sources: ['NEXT_YEAR_SOURCE'] },
-];
 
 const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   const [templates, setTemplates] = useState<ExcelTemplate[]>([]);

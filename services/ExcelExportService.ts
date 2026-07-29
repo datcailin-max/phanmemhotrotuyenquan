@@ -1,6 +1,8 @@
 
 import { Recruit } from '../types';
-import { isRecruitInTab } from '../views/RecruitManagement/utils';
+import { isRecruitInTab, checkAge } from '../views/RecruitManagement/utils';
+import { api } from '../api';
+import { TemplateExportService } from './TemplateExportService';
 import { ExemptionListExport } from './export/ExemptionListExport';
 import { DefermentListExport } from './export/DefermentListExport';
 import { PreCheckListExport } from './export/PreCheckListExport';
@@ -15,9 +17,9 @@ import { GenericListExport } from './export/GenericListExport';
  */
 export class ExcelExportService {
   /**
-   * Xuất danh sách theo template cụ thể
+   * Xuất danh sách theo template cụ thể hoặc theo Tab được chọn
    */
-  public static exportToTemplate(
+  public static async exportToTemplate(
     recruits: Recruit[], 
     templateId: string, 
     sessionYear: number, 
@@ -25,6 +27,47 @@ export class ExcelExportService {
     listLabel: string = "Danh sách chi tiết"
   ) {
     try {
+      // 1. Kiểm tra mẫu tùy biến được cấu hình bởi cán bộ/admin
+      const customTemplates = await api.getTemplates();
+      const customTpl = customTemplates?.find(t => 
+        t.id === templateId || 
+        t._id === templateId || 
+        (t.sourceTabs && t.sourceTabs.includes(templateId)) ||
+        (t.name && listLabel && t.name.toLowerCase().includes(listLabel.toLowerCase()))
+      );
+
+      const hasValidCustomFile = customTpl?.fileData && 
+        customTpl.fileData.length > 500 && 
+        Object.keys(customTpl.mapping || {}).length > 0;
+
+      if (customTpl && hasValidCustomFile) {
+        let filteredData = recruits.filter(r => isRecruitInTab(r, templateId, sessionYear));
+        if (customTpl.sourceTabs && customTpl.sourceTabs.length > 0) {
+          filteredData = recruits.filter(r => customTpl.sourceTabs!.some(tabId => isRecruitInTab(r, tabId, sessionYear)));
+        }
+
+        if (customTpl.onlyAge17) {
+          const targetBirthYear = (sessionYear - 1) - 17;
+          filteredData = filteredData.filter(r => parseInt(r.dob?.split('-')[0] || '0') === targetBirthYear);
+        }
+        if (customTpl.filterAges && customTpl.filterAges.length > 0) {
+          filteredData = filteredData.filter(r => customTpl.filterAges!.includes(checkAge(r, sessionYear)));
+        }
+        if (customTpl.filterEthnicities && customTpl.filterEthnicities.length > 0) {
+          filteredData = filteredData.filter(r => customTpl.filterEthnicities!.includes(r.details.ethnicity));
+        }
+        if (customTpl.filterReligions && customTpl.filterReligions.length > 0) {
+          filteredData = filteredData.filter(r => customTpl.filterReligions!.includes(r.details.religion));
+        }
+        if (customTpl.filterHealthGrades && customTpl.filterHealthGrades.length > 0) {
+          filteredData = filteredData.filter(r => r.physical.healthGrade && customTpl.filterHealthGrades!.includes(r.physical.healthGrade));
+        }
+
+        await TemplateExportService.inject(filteredData, customTpl, sessionYear);
+        return;
+      }
+
+      // 2. Xuất theo các mẫu định sẵn hoặc Generic
       switch (templateId) {
         case 'TEMPLATE_EXEMPTED':
           ExemptionListExport.export(
@@ -79,8 +122,6 @@ export class ExcelExportService {
           break;
         
         default:
-          // Nếu templateId là một mã Tab (ví dụ DEFERRED_HEALTH, DEFERRED_EDUCATION, DEFERRED_POLICY, v.v.)
-          // Hoặc tên mẫu tự định nghĩa, ta lọc công dân theo đúng tiêu chí của Tab đó
           const filteredRecruits = recruits.filter(r => isRecruitInTab(r, templateId, sessionYear));
           GenericListExport.export(filteredRecruits, sessionYear, unitName, listLabel);
           break;
