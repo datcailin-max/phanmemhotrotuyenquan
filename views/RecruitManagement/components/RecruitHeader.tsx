@@ -15,10 +15,11 @@ interface RecruitHeaderProps {
   onProposeAge17?: () => void;
   onBulkAvatarUpload?: () => void;
   onBulkExcelImport?: () => void;
+  onExportCurrentList?: () => void;
 }
 
 const RecruitHeader: React.FC<RecruitHeaderProps> = ({ 
-  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onAdd, onDeleteAll, onBulkVillageRename, onCheckDuplicates, onProposeAge17, onBulkAvatarUpload, onBulkExcelImport
+  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onAdd, onDeleteAll, onBulkVillageRename, onCheckDuplicates, onProposeAge17, onBulkAvatarUpload, onBulkExcelImport, onExportCurrentList
 }) => {
   return (
     <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white shrink-0 shadow-sm relative z-10">
@@ -36,6 +37,17 @@ const RecruitHeader: React.FC<RecruitHeaderProps> = ({
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0 flex-wrap md:flex-nowrap">
+        {/* Nút Xuất danh sách Excel hiện tại */}
+        {onExportCurrentList && (
+           <button 
+             onClick={onExportCurrentList}
+             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-black uppercase text-xs shadow-md hover:bg-blue-700 transition-all active:scale-95"
+             title="Xuất file Excel cho danh sách công dân đang hiển thị"
+           >
+             <Download size={18} /> Xuất Excel
+           </button>
+        )}
+
         {/* Nút Nhập dữ liệu tự động từ Excel */}
         {!isReadOnly && onBulkExcelImport && (
            <button 

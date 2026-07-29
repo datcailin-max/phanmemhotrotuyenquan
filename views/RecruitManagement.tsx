@@ -25,6 +25,7 @@ import Age17TransferModal from './RecruitManagement/modals/Age17TransferModal';
 import { BulkAvatarModal } from './RecruitManagement/modals/BulkAvatarModal';
 import { ExcelImportModal } from './RecruitManagement/modals/ExcelImportModal';
 import { useRecruitActions } from './RecruitManagement/hooks/useRecruitActions';
+import { ExcelExportService } from '../services/ExcelExportService';
 import { api } from '../api';
 
 interface RecruitManagementProps {
@@ -241,6 +242,10 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onProposeAge17={() => setShowAge17Modal(true)}
           onBulkAvatarUpload={() => setShowBulkAvatarModal(true)}
           onBulkExcelImport={() => setShowExcelImportModal(true)}
+          onExportCurrentList={() => {
+            const unitName = user.fullName || user.unit?.commune || 'CƠ QUAN QUÂN SỰ';
+            ExcelExportService.exportToTemplate(filteredRecruits, activeTabId, sessionYear, unitName, activeTab.label);
+          }}
         />
 
         {/* THÔNG BÁO QUY ĐỊNH CHO DANH SÁCH 5 */}

@@ -8,7 +8,7 @@ import { ExcelExportService } from '../services/ExcelExportService';
 import { TemplateExportService } from '../services/TemplateExportService';
 import { api } from '../api';
 import { TABS } from './RecruitManagement/constants';
-import { checkAge } from './RecruitManagement/utils';
+import { checkAge, isRecruitInTab } from './RecruitManagement/utils';
 
 interface ReportBuilderProps {
   user: User;
@@ -53,15 +53,9 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
         // 1. Lọc theo danh sách nguồn
         const sourceTabs = customTpl.sourceTabs || [];
         if (sourceTabs.length > 0) {
-           const allowedStatuses = new Set<string>();
-           sourceTabs.forEach(tabId => {
-              const tabObj = TABS.find(t => t.id === tabId);
-              if (tabObj && tabObj.status) tabObj.status.forEach(s => allowedStatuses.add(s));
-              else if (tabId === 'ALL') {
-                 filteredData.filter(r => checkAge(r, sessionYear) >= 18 && r.status !== RecruitmentStatus.DELETED).forEach(r => allowedStatuses.add(r.status));
-              }
-           });
-           if (allowedStatuses.size > 0) filteredData = filteredData.filter(r => allowedStatuses.has(r.status));
+           filteredData = filteredData.filter(r => 
+             sourceTabs.some(tabId => isRecruitInTab(r, tabId, sessionYear))
+           );
         }
 
         // 2. Lọc theo tuổi 17 (Cố định năm)
