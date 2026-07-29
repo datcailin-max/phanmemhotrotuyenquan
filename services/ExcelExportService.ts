@@ -41,28 +41,10 @@ export class ExcelExportService {
         Object.keys(customTpl.mapping || {}).length > 0;
 
       if (customTpl && hasValidCustomFile) {
-        let filteredData = recruits.filter(r => isRecruitInTab(r, templateId, sessionYear));
-        if (customTpl.sourceTabs && customTpl.sourceTabs.length > 0) {
-          filteredData = recruits.filter(r => customTpl.sourceTabs!.some(tabId => isRecruitInTab(r, tabId, sessionYear)));
+        let filteredData = recruits;
+        if (filteredData.length === 0) {
+          filteredData = recruits.filter(r => isRecruitInTab(r, templateId, sessionYear));
         }
-
-        if (customTpl.onlyAge17) {
-          const targetBirthYear = (sessionYear - 1) - 17;
-          filteredData = filteredData.filter(r => parseInt(r.dob?.split('-')[0] || '0') === targetBirthYear);
-        }
-        if (customTpl.filterAges && customTpl.filterAges.length > 0) {
-          filteredData = filteredData.filter(r => customTpl.filterAges!.includes(checkAge(r, sessionYear)));
-        }
-        if (customTpl.filterEthnicities && customTpl.filterEthnicities.length > 0) {
-          filteredData = filteredData.filter(r => customTpl.filterEthnicities!.includes(r.details.ethnicity));
-        }
-        if (customTpl.filterReligions && customTpl.filterReligions.length > 0) {
-          filteredData = filteredData.filter(r => customTpl.filterReligions!.includes(r.details.religion));
-        }
-        if (customTpl.filterHealthGrades && customTpl.filterHealthGrades.length > 0) {
-          filteredData = filteredData.filter(r => r.physical.healthGrade && customTpl.filterHealthGrades!.includes(r.physical.healthGrade));
-        }
-
         await TemplateExportService.inject(filteredData, customTpl, sessionYear);
         return;
       }
@@ -71,7 +53,7 @@ export class ExcelExportService {
       switch (templateId) {
         case 'TEMPLATE_EXEMPTED':
           ExemptionListExport.export(
-            recruits.filter(r => isRecruitInTab(r, 'EXEMPTED_LIST', sessionYear)), 
+            recruits.length > 0 ? recruits : recruits.filter(r => isRecruitInTab(r, 'EXEMPTED_LIST', sessionYear)), 
             sessionYear, 
             unitName
           );
@@ -79,7 +61,7 @@ export class ExcelExportService {
         
         case 'TEMPLATE_DEFERRED':
           DefermentListExport.export(
-            recruits.filter(r => isRecruitInTab(r, 'DEFERRED_LIST', sessionYear)), 
+            recruits.length > 0 ? recruits : recruits.filter(r => isRecruitInTab(r, 'DEFERRED_LIST', sessionYear)), 
             sessionYear, 
             unitName
           );
@@ -87,7 +69,7 @@ export class ExcelExportService {
 
         case 'TEMPLATE_PRE_CHECK':
           PreCheckListExport.export(
-            recruits.filter(r => isRecruitInTab(r, 'PRE_CHECK', sessionYear)), 
+            recruits.length > 0 ? recruits : recruits.filter(r => isRecruitInTab(r, 'PRE_CHECK', sessionYear)), 
             sessionYear, 
             unitName
           );
@@ -99,7 +81,7 @@ export class ExcelExportService {
 
         case 'TEMPLATE_01A':
           RegistrationResult01AExport.export(
-            recruits.filter(r => isRecruitInTab(r, 'FIRST_TIME_REG', sessionYear)), 
+            recruits.length > 0 ? recruits : recruits.filter(r => isRecruitInTab(r, 'FIRST_TIME_REG', sessionYear)), 
             sessionYear, 
             unitName
           );
@@ -107,7 +89,7 @@ export class ExcelExportService {
 
         case 'TEMPLATE_01':
           RegistrationList01Export.export(
-            recruits.filter(r => isRecruitInTab(r, 'FIRST_TIME_REG', sessionYear)), 
+            recruits.length > 0 ? recruits : recruits.filter(r => isRecruitInTab(r, 'FIRST_TIME_REG', sessionYear)), 
             sessionYear, 
             unitName
           );
@@ -115,15 +97,14 @@ export class ExcelExportService {
 
         case 'TEMPLATE_17A':
           EnlistmentList17AExport.export(
-            recruits.filter(r => isRecruitInTab(r, 'ENLISTED', sessionYear)), 
+            recruits.length > 0 ? recruits : recruits.filter(r => isRecruitInTab(r, 'ENLISTED', sessionYear)), 
             sessionYear, 
             unitName
           );
           break;
         
         default:
-          const filteredRecruits = recruits.filter(r => isRecruitInTab(r, templateId, sessionYear));
-          GenericListExport.export(filteredRecruits, sessionYear, unitName, listLabel);
+          GenericListExport.export(recruits, sessionYear, unitName, listLabel);
           break;
       }
     } catch (error) {

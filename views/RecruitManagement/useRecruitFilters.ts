@@ -72,8 +72,11 @@ export const useRecruitFilters = (
         const age = checkAge(r, sessionYear);
         if (filterAgeRange === 'under18') return age < 18;
         if (filterAgeRange === '18-24') return age >= 18 && age <= 24;
+        if (filterAgeRange === '18-27') return age >= 18 && age <= 27;
         if (filterAgeRange === '25-27') return age >= 25 && age <= 27;
         if (filterAgeRange === 'over27') return age > 27;
+        const exactAge = Number(filterAgeRange);
+        if (!isNaN(exactAge) && exactAge > 0) return age === exactAge;
         return true;
       });
     }

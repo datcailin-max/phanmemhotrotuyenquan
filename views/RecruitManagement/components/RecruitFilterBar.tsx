@@ -72,10 +72,18 @@ const RecruitFilterBar: React.FC<RecruitFilterBarProps> = ({
                   onChange={(e) => setFilterAgeRange(e.target.value)}
                 >
                   <option value="">-- Tất cả độ tuổi --</option>
-                  <option value="under18">Dưới 18 tuổi</option>
-                  <option value="18-24">Từ 18 - 24 tuổi</option>
-                  <option value="25-27">Từ 25 - 27 tuổi</option>
-                  <option value="over27">Trên 27 tuổi</option>
+                  <optgroup label="Lọc theo từng tuổi (16 - 28 tuổi)">
+                    {Array.from({ length: 13 }, (_, i) => 16 + i).map(age => (
+                      <option key={age} value={age.toString()}>{age} tuổi</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Lọc theo nhóm tuổi">
+                    <option value="under18">Dưới 18 tuổi</option>
+                    <option value="18-27">Từ 18 đến 27 tuổi (Độ tuổi nhập ngũ)</option>
+                    <option value="18-24">Từ 18 đến 24 tuổi</option>
+                    <option value="25-27">Từ 25 đến 27 tuổi</option>
+                    <option value="over27">Trên 27 tuổi</option>
+                  </optgroup>
                 </select>
               </div>
               <div>
