@@ -141,10 +141,20 @@ export class TemplateExportService {
             return (val === undefined || val === null) ? '' : val.toString();
           });
 
-          const combinedValue = lines.join('\n');
+          const validLines = lines.map(l => l.trim()).filter(Boolean);
+          let combinedValue: string = '';
+          if (validLines.length > 0) {
+            // Nếu có từ 1 dòng trở lên và không phải cột STT, thêm gạch đầu dòng `- `
+            if (col > 1) {
+              combinedValue = validLines.map(l => l.startsWith('-') ? l : `- ${l}`).join('\n');
+            } else {
+              combinedValue = validLines.join('\n');
+            }
+          }
+
           const cell = row.getCell(col);
           cell.value = combinedValue;
-          cell.alignment = { vertical: 'top', horizontal: col === 1 ? 'center' : 'left', wrapText: true };
+          cell.alignment = { vertical: 'middle', horizontal: col === 1 ? 'center' : 'left', wrapText: true };
           
           cell.font = { name: 'Times New Roman', size: 11 };
           cell.border = { 

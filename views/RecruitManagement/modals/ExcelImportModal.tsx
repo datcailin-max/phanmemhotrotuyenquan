@@ -114,8 +114,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     }
   };
 
-  // Tải mẫu Excel nhập chuẩn
-  const handleDownloadTemplate = () => {
+  // Tải mẫu Excel 1: Đăng ký lần đầu (Tuổi 17) - Biểu 01/GNN-2025
+  const handleDownloadTemplate17 = () => {
     const XLSXLib: any = XLSX;
     const utils = XLSXLib?.utils || XLSXLib?.default?.utils;
     const writeFile = XLSXLib?.writeFile || XLSXLib?.default?.writeFile;
@@ -126,66 +126,129 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     }
 
     const templateData = [
-      ["DANH SÁCH CÔNG DÂN NHẬP NGHŨ / ĐĂNG KÝ NVQS"],
-      [`Năm tuyển chọn: ${sessionYear} - Đơn vị: ${currentUser?.unit?.commune || 'Mỹ Hòa Hưng'}`],
-      [""], // Dòng trống
+      ["Biểu số: 01/GNN-2025", "", "", `DANH SÁCH CÔNG DÂN NAM ĐỦ 17 TUỔI TRONG NĂM ${sessionYear}`, "", "", "", ""],
+      ["Khổ biểu: 29,7x21cm", "", "", "(Tính từ ngày..../..../.... Đến..../..../....)", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
       [
-        "STT", 
-        "Họ và tên (*)", 
-        "Ngày sinh (*)", 
-        "Số CCCD (*)", 
-        "Thôn/Ấp/Tổ dân phố", 
-        "Địa chỉ thường trú", 
-        "Trình độ văn hóa", 
-        "Chuyên môn kỹ thuật", 
-        "Sức khỏe (1-6)", 
-        "Lý do hoãn/miễn/Ghi chú"
+        "Số\nTT", 
+        "- Họ, chữ đệm tên khai sinh\n- Họ, chữ đệm tên thường dùng\n- Ngày tháng năm sinh\n- Số Thẻ căn cước/CCCD", 
+        "Trình độ văn hóa tốt nghiệp phổ thông (lớp.../12); đang học...", 
+        "- Nơi thường trú của gđ, bản thân\n- Nơi ở hiện nay của bản thân\n- Nơi làm việc (nếu có)\n- Nơi đăng ký NVQS tại...", 
+        "- Thành phần gia đình\n- Thành phần bản thân\n- Dân tộc, tôn giáo", 
+        "- Trình độ CMKT, học nghề gì? Làm việc gì?\n- Có... anh chị em ruột\n- Là con thứ... trong gđ", 
+        "- Họ tên cha, năm sinh, nghề nghiệp\n- Họ tên mẹ, năm sinh, nghề nghiệp", 
+        "GHI CHÚ"
+      ],
+      [1, 2, 3, 4, 5, 6, 7, 8],
+      [
+        1,
+        "- BẾ ĐĂNG KHÔI\n- BẾ ĐĂNG KHÔI\n- 09/12/2008\n- 040208017552",
+        "- 11/12",
+        "- thôn Lộc Thái 3, Xã Lộc Ninh, Đồng Nai\n- thôn Lộc Thái 3, Xã Lộc Ninh, Đồng Nai\n- Ban CHQS Xã Lộc Ninh",
+        "- Trung nông\n- Phụ thuộc\n- Kinh, Không",
+        "- Học sinh",
+        "- Cha: Bế Đăng Tuấn, 1980, NV ngân hàng\n- Mẹ: Võ Thị Kiều Oanh, 1982, NV ngân hàng",
+        "- ĐK Lần đầu"
       ],
       [
-        1, 
-        "Nguyễn Văn A", 
-        "15/05/2005", 
-        "038205001234", 
-        "Ấp Mỹ An", 
-        "Xã Mỹ Hòa Hưng, TP Long Xuyên", 
-        "12/12", 
-        "Đại học CNTT", 
-        1, 
-        "Đang học Đại học"
-      ],
-      [
-        2, 
-        "Trần Văn B", 
-        "20/10/2006", 
-        "038206005678", 
-        "Ấp Mỹ Khánh", 
-        "Xã Mỹ Hòa Hưng, TP Long Xuyên", 
-        "12/12", 
-        "Không", 
-        2, 
-        ""
+        2,
+        "- BÙI ĐIỀN TƯỜNG\n- BÙI ĐIỀN TƯỜNG\n- 22/03/2008\n- 070208002346",
+        "- 11/12",
+        "- thôn Lộc Thuận 9, Xã Lộc Ninh, Đồng Nai\n- thôn Lộc Thuận 9, Xã Lộc Ninh, Đồng Nai\n- Ban CHQS Xã Lộc Ninh",
+        "- Trung nông\n- Phụ thuộc\n- Kinh, Không",
+        "- Học sinh",
+        "- Cha: Bùi Điền Du, 1978, Làm vườn\n- Mẹ: Trần Thị Kim Phương, 1980, Làm vườn",
+        "- ĐK Lần đầu"
       ]
     ];
 
     const ws = utils.aoa_to_sheet(templateData);
-
     ws['!cols'] = [
       { wch: 6 },  // STT
-      { wch: 25 }, // Họ tên
-      { wch: 15 }, // Ngày sinh
-      { wch: 18 }, // CCCD
-      { wch: 20 }, // Thôn/Ấp
-      { wch: 35 }, // Thường trú
-      { wch: 18 }, // Trình độ VH
+      { wch: 30 }, // Họ tên / DOB / CCCD
+      { wch: 20 }, // Trình độ VH
+      { wch: 35 }, // Nơi trú
+      { wch: 22 }, // Thành phần
       { wch: 22 }, // CMKT
-      { wch: 15 }, // Sức khỏe
+      { wch: 45 }, // Thân nhân
+      { wch: 20 }  // Ghi chú
+    ];
+
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Mau_01_DK_Lan_Dau");
+    writeFile(wb, `Excel_Mau_01_Dang_Ky_Lan_Dau_17_Tuoi_${sessionYear}.xlsx`);
+  };
+
+  // Tải mẫu Excel 2: Danh sách nguồn tuyển quân & các danh sách còn lại - Mẫu Biểu số 16B/16A
+  const handleDownloadTemplateSource = () => {
+    const XLSXLib: any = XLSX;
+    const utils = XLSXLib?.utils || XLSXLib?.default?.utils;
+    const writeFile = XLSXLib?.writeFile || XLSXLib?.default?.writeFile;
+
+    if (!utils || !writeFile) {
+      alert("Không thể khởi tạo thư viện Excel!");
+      return;
+    }
+
+    const templateData = [
+      ["Biểu số: 16B/GNN-2025", "", "", `DANH SÁCH NGUỒN CÔNG DÂN TUYỂN QUÂN NĂM ${sessionYear}`, "", "", "", "", ""],
+      ["Khổ biểu: 29,7x21cm", "", "", `Đơn vị: ${currentUser?.unit?.commune || 'Mỹ Hòa Hưng'}`, "", "", "", "", ""],
+      ["", "", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", "", ""],
+      [
+        "Số TT", 
+        "- Họ, chữ đệm và tên khai sinh\n- Họ, chữ đệm và tên thường dùng\n- Ngày, tháng, năm sinh\n- Số thẻ căn cước/CCCD", 
+        "- Nghề nghiệp\n- Nơi làm việc\n- Nhóm, ngạch, bậc lương", 
+        "- Nơi thường trú của gia đình; bản thân\n- Nơi ở hiện nay của bản thân\n- Nơi làm việc (nếu có)", 
+        "- Thành phần gia đình\n- Thành phần bản thân\n- Dân tộc, tôn giáo", 
+        "- Trình độ văn hóa, CMKT\n- Ngoại ngữ\n- Đảng, đoàn", 
+        "- Họ và tên cha, năm sinh, nghề nghiệp\n- Họ và tên mẹ, năm sinh, nghề nghiệp\n- Họ và tên vợ (chồng), năm sinh, nghề nghiệp", 
+        "- Khen thưởng\n- Kỷ luật\n- Sức khỏe", 
+        "GHI CHÚ"
+      ],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      [
+        1, 
+        "- BÀNH THỤC MINH\n- BÀNH THỤC MINH\n- 28/01/2007\n- 070207010085", 
+        "- Công nhân", 
+        "- Tổ 1 Khu phố Ninh Phú, Xã Lộc Ninh, Đồng Nai\n- Tổ 1 Khu phố Ninh Phú, Xã Lộc Ninh, Đồng Nai", 
+        "- Bần nông\n- Phụ thuộc\n- Kinh, Không", 
+        "- 12/12\n- Đoàn viên", 
+        "- Cha: Bành Mỹ Bình, 1975, Làm nông\n- Mẹ: Tiêu Hòa, 1978, Buôn bán", 
+        "- Sức khỏe: Loại 1", 
+        "- Tạm hoãn: 9."
+      ],
+      [
+        2, 
+        "- NGUYỄN VĂN A\n- NGUYỄN VĂN A\n- 15/05/2005\n- 038205001234", 
+        "- Sinh viên", 
+        "- Ấp Mỹ An, Xã Mỹ Hòa Hưng, TP Long Xuyên", 
+        "- Nông dân\n- Phụ thuộc\n- Kinh, Không", 
+        "- 12/12\n- Cao đẳng CNTT\n- Đoàn viên", 
+        "- Cha: Nguyễn Văn B, 1972, Làm nông\n- Mẹ: Trần Thị C, 1975, Nội trợ", 
+        "- Sức khỏe: Loại 2", 
+        "- Tạm hoãn học tập"
+      ]
+    ];
+
+    const ws = utils.aoa_to_sheet(templateData);
+    ws['!cols'] = [
+      { wch: 6 },  // STT
+      { wch: 30 }, // Họ tên / DOB / CCCD
+      { wch: 22 }, // Nghề nghiệp
+      { wch: 35 }, // Địa chỉ
+      { wch: 22 }, // Thành phần
+      { wch: 22 }, // Trình độ
+      { wch: 45 }, // Thân nhân
+      { wch: 22 }, // Khen thưởng / SK
       { wch: 25 }  // Ghi chú
     ];
 
     const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "DanhSachCongDan");
-
-    writeFile(wb, `Excel_Mau_Nhap_Cong_Dan_${sessionYear}.xlsx`);
+    utils.book_append_sheet(wb, ws, "Mau_Nguon_Tuyen_Quan");
+    writeFile(wb, `Excel_Mau_Danh_Sach_Nguon_Tuyen_Quan_${sessionYear}.xlsx`);
   };
 
   // Tải báo cáo lỗi Excel chi tiết cho cán bộ
@@ -955,22 +1018,32 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
           
           {/* Hướng dẫn & Tải Mẫu Excel */}
-          <div className="bg-blue-50/80 border border-blue-200 p-4 rounded-2xl flex items-center justify-between gap-4">
+          <div className="bg-blue-50/80 border border-blue-200 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <HelpCircle size={22} className="text-blue-700 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-black uppercase text-blue-950">Quy trình kiểm tra dữ liệu nghiêm ngặt:</p>
+                <p className="text-xs font-black uppercase text-blue-950">Mẫu file nhập dữ liệu theo từng loại danh sách:</p>
                 <p className="text-[11px] text-blue-800 mt-0.5 leading-relaxed">
-                  Hệ thống tự động phân tách thông tin công dân chính chủ với thông tin thân nhân (Cha, Mẹ, Vợ), kiểm tra lỗi vỡ font tiếng Việt, số CCCD sai định dạng và xuất tệp Excel Báo cáo Lỗi để cán bộ dễ dàng chỉnh sửa.
+                  Danh sách <b>Đăng ký lần đầu (Đủ 17 tuổi)</b> sử dụng Mẫu Biểu 01. Các danh sách còn lại (Nguồn tuyển quân, Tạm hoãn, Miễn...) sử dụng Mẫu Danh sách nguồn. Tải mẫu bên cạnh:
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-3.5 py-2.5 bg-blue-600 text-white rounded-xl font-black text-xs uppercase shadow hover:bg-blue-700 active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
-            >
-              <Download size={14} /> Tải Mẫu Excel
-            </button>
+            <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+              <button
+                onClick={handleDownloadTemplate17}
+                className="flex-1 md:flex-initial px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                title="Mẫu Biểu 01 - Dành cho Danh sách Đăng ký lần đầu (Tuổi 17)"
+              >
+                <Download size={13} /> Mẫu Đăng Ký Lần Đầu (17 Tuổi)
+              </button>
+              <button
+                onClick={handleDownloadTemplateSource}
+                className="flex-1 md:flex-initial px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                title="Mẫu Danh sách nguồn tuyển quân - Dành cho các danh sách khác"
+              >
+                <Download size={13} /> Mẫu Danh Sách Nguồn & Khác
+              </button>
+            </div>
           </div>
 
           {/* Khu vực Chọn File */}

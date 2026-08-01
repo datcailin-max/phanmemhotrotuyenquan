@@ -22,7 +22,10 @@ export const DEFAULT_CATALOG = [
   { id: 'CAT_16', name: '16. Danh sách chốt chính thức', sources: ['FINAL_OFFICIAL'] },
   { id: 'CAT_17', name: '17. Danh sách chốt dự bị', sources: ['FINAL_RESERVE'] },
   { id: 'CAT_18', name: '18. Danh sách gọi công dân nhập ngũ', sources: ['ENLISTED'] },
-  { id: 'CAT_19', name: '19. Danh sách công dân đưa ra khỏi nguồn', sources: ['REMOVED'] },
+  { id: 'CAT_19', name: '19. Danh sách công dân đưa ra khỏi nguồn (Chung)', sources: ['REMOVED'] },
+  { id: 'CAT_19_1', name: '19.1. Danh sách công dân đang học tại các trường trong quân đội', sources: ['REMOVED_MILITARY_SCHOOL'] },
+  { id: 'CAT_19_2', name: '19.2. Danh sách công dân chuyển khẩu', sources: ['REMOVED_TRANSFERRED'] },
+  { id: 'CAT_19_3', name: '19.3. Danh sách công dân đưa ra khỏi nguồn lý do khác', sources: ['REMOVED_OTHER'] },
   { id: 'CAT_20', name: '20. Danh sách nguồn còn lại trong năm', sources: ['REMAINING'] },
   { id: 'CAT_21', name: '21. Danh sách nguồn của năm sau', sources: ['NEXT_YEAR_SOURCE'] },
 ];

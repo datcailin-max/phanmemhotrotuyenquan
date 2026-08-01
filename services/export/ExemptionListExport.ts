@@ -38,17 +38,32 @@ export class ExemptionListExport {
       ]
     ];
 
+    const formatBullet = (items: (string | undefined | null)[]) => {
+      const valid = items.map(i => (i || '').trim()).filter(Boolean);
+      if (valid.length === 0) return '- ---';
+      return valid.map(i => i.startsWith('-') ? i : `- ${i}`).join('\n');
+    };
+
     // 3. Mapping dữ liệu công dân vào các cột
     const dataRows = recruits.map((r, index) => {
+      const political = r.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng');
+      const dobStr = r.dob ? r.dob.split('-').reverse().join('/') : '---';
+      const addrStr1 = `${r.address.village}, ${r.address.commune}, ${r.address.province}`;
+      const addrStr2 = r.address.street || addrStr1;
+      
+      const fatherStr = r.family.father?.fullName ? `Cha: ${r.family.father.fullName}${r.family.father.birthYear ? ' (' + r.family.father.birthYear + ')' : ''}${r.family.father.job ? ', ' + r.family.father.job : ''}` : '';
+      const motherStr = r.family.mother?.fullName ? `Mẹ: ${r.family.mother.fullName}${r.family.mother.birthYear ? ' (' + r.family.mother.birthYear + ')' : ''}${r.family.mother.job ? ', ' + r.family.mother.job : ''}` : '';
+      const wifeStr = r.family.wife?.fullName ? `Vợ: ${r.family.wife.fullName}${r.family.wife.birthYear ? ' (' + r.family.wife.birthYear + ')' : ''}` : '';
+
       return [
         (index + 1).toString(), // A: STT
-        `${r.fullName.toUpperCase()}\n${r.fullName.toUpperCase()}\n${r.dob ? new Date(r.dob).toLocaleDateString('vi-VN') : '---'}\nCCCD: ${r.citizenId || '---'}`, // B: Thông tin cá nhân
-        `${r.details.job || 'Lao động tự do'}\n${r.details.workAddress || 'Tại địa phương'}\n${r.details.gradeGroup || '---'} - ${r.details.salaryLevel || '---'}`, // C: Nghề nghiệp
-        `${r.address.village}, ${r.address.commune}, ${r.address.province}\n${r.address.street || 'Không'}\n${r.details.workAddress || '---'}`, // D: Địa chỉ
-        `${r.details.familyComposition || 'Bần nông'}\n${r.details.personalComposition || 'Phụ thuộc'}\n${r.details.ethnicity}, ${r.details.religion}`, // E: Thành phần
-        `${r.details.education}\nNgoại ngữ: ---\n${r.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng')}`, // F: Trình độ
-        `Cha: ${r.family.father.fullName} (${r.family.father.birthYear}), ${r.family.father.job}\nMẹ: ${r.family.mother.fullName} (${r.family.mother.birthYear}), ${r.family.mother.job}\nVợ: ${r.family.wife?.fullName || '---'}`, // G: Gia đình
-        r.defermentReason || 'Chưa xác định' // H: Lý do miễn
+        formatBullet([r.fullName.toUpperCase(), r.fullName.toUpperCase(), dobStr, `CCCD: ${r.citizenId || '---'}`]),
+        formatBullet([r.details.job, r.details.workAddress, (r.details.gradeGroup || r.details.salaryLevel) ? `${r.details.gradeGroup || ''} - ${r.details.salaryLevel || ''}` : '']),
+        formatBullet([addrStr1, addrStr2, r.details.workAddress]),
+        formatBullet([r.details.familyComposition || 'Bần nông', r.details.personalComposition || 'Phụ thuộc', `${r.details.ethnicity || 'Kinh'}, ${r.details.religion || 'Không'}`]),
+        formatBullet([r.details.education, 'Ngoại ngữ: ---', political]),
+        formatBullet([fatherStr, motherStr, wifeStr]),
+        formatBullet([r.defermentReason || 'Chưa xác định'])
       ];
     });
 
@@ -75,7 +90,7 @@ export class ExemptionListExport {
     ];
 
     // 6. Áp dụng Style
-    const commonStyle = { font: { name: 'Times New Roman', size: 10 }, alignment: { wrapText: true, vertical: 'top' } };
+    const commonStyle = { font: { name: 'Times New Roman', size: 10 }, alignment: { wrapText: true, vertical: 'center', horizontal: 'left' } };
     const borderStyle = { 
         top: { style: 'thin' }, bottom: { style: 'thin' }, 
         left: { style: 'thin' }, right: { style: 'thin' } 

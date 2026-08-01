@@ -165,6 +165,26 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
     case 'REMOVED':
       return r.status === RecruitmentStatus.REMOVED_FROM_SOURCE;
 
+    case 'REMOVED_MILITARY_SCHOOL': {
+      if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+      const reasonMil = (r.defermentReason || '').toLowerCase();
+      return reasonMil.includes('quân đội') || reasonMil.includes('trường qđ') || reasonMil.includes('học qđ') || reasonMil.includes('sĩ quan');
+    }
+
+    case 'REMOVED_TRANSFERRED': {
+      if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+      const reasonTrans = (r.defermentReason || '').toLowerCase();
+      return reasonTrans.includes('chuyển khẩu') || reasonTrans.includes('chuyển hộ khẩu') || reasonTrans.includes('chuyển đi') || reasonTrans.includes('chuyển nơi ở');
+    }
+
+    case 'REMOVED_OTHER': {
+      if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+      const reasonOther = (r.defermentReason || '').toLowerCase();
+      const isMil = reasonOther.includes('quân đội') || reasonOther.includes('trường qđ') || reasonOther.includes('học qđ') || reasonOther.includes('sĩ quan');
+      const isTrans = reasonOther.includes('chuyển khẩu') || reasonOther.includes('chuyển hộ khẩu') || reasonOther.includes('chuyển đi') || reasonOther.includes('chuyển nơi ở');
+      return !isMil && !isTrans;
+    }
+
     case 'REMAINING':
       if (!isTotalSource(r, sessionYear)) return false;
       if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;

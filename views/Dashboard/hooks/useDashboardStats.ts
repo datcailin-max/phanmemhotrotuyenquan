@@ -75,6 +75,20 @@ export const useDashboardStats = ({
         const countDeferred = activeYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED).length;
         const countExempted = activeYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPTED).length;
         const countRemoved = activeYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
+        
+        const countRemovedMilitary = activeYearRecruits.filter(r => {
+            if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+            const reason = (r.defermentReason || '').toLowerCase();
+            return reason.includes('quân đội') || reason.includes('trường qđ') || reason.includes('học qđ') || reason.includes('sĩ quan');
+        }).length;
+
+        const countRemovedTransferred = activeYearRecruits.filter(r => {
+            if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
+            const reason = (r.defermentReason || '').toLowerCase();
+            return reason.includes('chuyển khẩu') || reason.includes('chuyển hộ khẩu') || reason.includes('chuyển đi') || reason.includes('chuyển nơi ở');
+        }).length;
+
+        const countRemovedOther = countRemoved - countRemovedMilitary - countRemovedTransferred;
 
         const tt50Statuses = [
             RecruitmentStatus.NOT_SELECTED_TT50, 
@@ -198,7 +212,7 @@ export const useDashboardStats = ({
                 countDeferred, countExempted, countFinalized: finalized.length,
                 countFinalizedOfficial: finalized.filter(r => r.enlistmentType === 'OFFICIAL').length,
                 countFinalizedReserve: finalized.filter(r => r.enlistmentType === 'RESERVE').length,
-                countEnlisted, countRemoved, countRemaining, countNextYearSource,
+                countEnlisted, countRemoved, countRemovedMilitary, countRemovedTransferred, countRemovedOther, countRemaining, countNextYearSource,
                 ds6_count,
                 expiringCount: expiringEdu.length + expiringSentence.length,
                 expiringEduCount: expiringEdu.length,

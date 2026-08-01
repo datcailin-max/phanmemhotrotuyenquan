@@ -38,27 +38,32 @@ export class DefermentListExport {
       ]
     ];
 
+    const formatBullet = (items: (string | undefined | null)[]) => {
+      const valid = items.map(i => (i || '').trim()).filter(Boolean);
+      if (valid.length === 0) return '- ---';
+      return valid.map(i => i.startsWith('-') ? i : `- ${i}`).join('\n');
+    };
+
     // 3. Ánh xạ dữ liệu công dân (Mapping data)
     const dataRows = recruits.map((r, index) => {
-      // Định dạng thông tin Đảng/Đoàn
       const political = r.details.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng');
+      const dobStr = r.dob ? r.dob.split('-').reverse().join('/') : '---';
+      const addrStr1 = `${r.address.village}, ${r.address.commune}, ${r.address.province}`;
+      const addrStr2 = r.address.street || addrStr1;
       
+      const fatherStr = r.family.father?.fullName ? `Cha: ${r.family.father.fullName}${r.family.father.birthYear ? ' (' + r.family.father.birthYear + ')' : ''}${r.family.father.job ? ', ' + r.family.father.job : ''}` : '';
+      const motherStr = r.family.mother?.fullName ? `Mẹ: ${r.family.mother.fullName}${r.family.mother.birthYear ? ' (' + r.family.mother.birthYear + ')' : ''}${r.family.mother.job ? ', ' + r.family.mother.job : ''}` : '';
+      const wifeStr = r.family.wife?.fullName ? `Vợ/Chồng: ${r.family.wife.fullName}${r.family.wife.birthYear ? ' (' + r.family.wife.birthYear + ')' : ''}` : '';
+
       return [
         (index + 1).toString(), // Cột A: STT
-        // Cột B: Thông tin cá nhân gộp
-        `${r.fullName.toUpperCase()}\n${r.fullName.toUpperCase()}\n${r.dob ? new Date(r.dob).toLocaleDateString('vi-VN') : '---'}\nCCCD: ${r.citizenId || '---'}`, 
-        // Cột C: Nghề nghiệp
-        `${r.details.job || 'Lao động tự do'}\n${r.details.workAddress || 'Tại địa phương'}\n${r.details.gradeGroup || '---'} - ${r.details.salaryLevel || '---'}`, 
-        // Cột D: Địa chỉ
-        `${r.address.village}, ${r.address.commune}, ${r.address.province}\n${r.address.street || 'Không'}\n${r.details.workAddress || '---'}`, 
-        // Cột E: Thành phần
-        `${r.details.familyComposition || 'Bần nông'}\n${r.details.personalComposition || 'Phụ thuộc'}\n${r.details.ethnicity}, ${r.details.religion}`, 
-        // Cột F: Trình độ
-        `${r.details.education}\nNgoại ngữ: ---\n${political}`, 
-        // Cột G: Thông tin gia đình gộp
-        `Cha: ${r.family.father.fullName} (${r.family.father.birthYear || '---'}), ${r.family.father.job}\nMẹ: ${r.family.mother.fullName} (${r.family.mother.birthYear || '---'}), ${r.family.mother.job}\nVợ/Chồng: ${r.family.wife?.fullName || '---'}`, 
-        // Cột H: Lý do tạm hoãn
-        r.defermentReason || 'Chưa xác định' 
+        formatBullet([r.fullName.toUpperCase(), r.fullName.toUpperCase(), dobStr, `CCCD: ${r.citizenId || '---'}`]), 
+        formatBullet([r.details.job, r.details.workAddress, (r.details.gradeGroup || r.details.salaryLevel) ? `${r.details.gradeGroup || ''} - ${r.details.salaryLevel || ''}` : '']), 
+        formatBullet([addrStr1, addrStr2, r.details.workAddress]), 
+        formatBullet([r.details.familyComposition || 'Bần nông', r.details.personalComposition || 'Phụ thuộc', `${r.details.ethnicity || 'Kinh'}, ${r.details.religion || 'Không'}`]), 
+        formatBullet([r.details.education, 'Ngoại ngữ: ---', political]), 
+        formatBullet([fatherStr, motherStr, wifeStr]), 
+        formatBullet([r.defermentReason || 'Chưa xác định']) 
       ];
     });
 
@@ -87,7 +92,7 @@ export class DefermentListExport {
     // 6. Áp dụng Style chuẩn quân sự
     const commonStyle = { 
         font: { name: 'Times New Roman', size: 10 }, 
-        alignment: { wrapText: true, vertical: 'top', horizontal: 'left' } 
+        alignment: { wrapText: true, vertical: 'center', horizontal: 'left' } 
     };
     const headerTableStyle = {
         font: { name: 'Times New Roman', size: 10, bold: true },
@@ -100,7 +105,7 @@ export class DefermentListExport {
     };
     const dataCellStyle = {
         font: { name: 'Times New Roman', size: 10 },
-        alignment: { wrapText: true, vertical: 'top', horizontal: 'left' },
+        alignment: { wrapText: true, vertical: 'center', horizontal: 'left' },
         border: { 
             top: { style: 'thin' }, bottom: { style: 'thin' }, 
             left: { style: 'thin' }, right: { style: 'thin' } 

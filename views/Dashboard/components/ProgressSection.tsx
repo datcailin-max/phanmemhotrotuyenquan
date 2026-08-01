@@ -99,7 +99,14 @@ const ProgressSection: React.FC<ProgressSectionProps> = ({ stats, onNavigate }) 
              />
              
              <Card title="11. NHẬP NGŨ" count={stats.countEnlisted} icon={Flag} color="bg-red-600" onClick={() => onNavigate('ENLISTED')} />
-             <Card title="12. ĐƯA RA KHỎI NGUỒN" count={stats.countRemoved} icon={UserX} color="bg-gray-400" onClick={() => onNavigate('REMOVED')} />
+             <Card 
+                title="12. ĐƯA RA KHỎI NGUỒN" 
+                count={stats.countRemoved} 
+                icon={UserX} 
+                color="bg-gray-400" 
+                onClick={() => onNavigate('REMOVED')} 
+                detailText={`${stats.countRemovedMilitary || 0} Tr.QĐ / ${stats.countRemovedTransferred || 0} Chuyển HK / ${stats.countRemovedOther || 0} Khác`}
+             />
              <Card title="13. NGUỒN CÒN LẠI" count={stats.countRemaining} icon={Layers} color="bg-teal-600" onClick={() => onNavigate('REMAINING')} />
              <Card title="14. NGUỒN NĂM SAU" count={stats.countNextYearSource} icon={Calendar} color="bg-cyan-600" onClick={() => onNavigate('NEXT_YEAR_SOURCE')} isLast />
              

@@ -39,28 +39,37 @@ export class EnlistmentList17AExport {
       ]
     ];
 
+    const formatBullet = (items: (string | undefined | null)[]) => {
+      const valid = items.map(i => (i || '').trim()).filter(Boolean);
+      if (valid.length === 0) return '- ---';
+      return valid.map(i => i.startsWith('-') ? i : `- ${i}`).join('\n');
+    };
+
     // 3. Logic "Dịch" dữ liệu (Mapping) sang thuật ngữ chuyên ngành
     const dataRows = recruits.map((r, index) => {
-      // Dịch Chính trị
       let politicalStr = 'Quần chúng';
       if (r.details.politicalStatus === 'Dang_Vien') politicalStr = 'Đảng viên Đảng CSVN';
       if (r.details.politicalStatus === 'Doan_Vien') politicalStr = 'Đoàn viên TNCS HCM';
 
-      // Dịch Học vấn
-      const eduStr = `VH: ${r.details.education.includes('Lớp') ? r.details.education.replace('Lớp ', '') + '/12' : '12/12'}\nCMKT: ${r.details.major || 'Không'}`;
-      
-      // Dịch Gia đình & Con cái
-      const familyStr = `Cha: ${r.family.father.fullName} (${r.family.father.birthYear || '---'})\nMẹ: ${r.family.mother.fullName} (${r.family.mother.birthYear || '---'})\nVợ: ${r.family.wife?.fullName || 'Chưa có'}\nCon: ${r.family.children || 'Chưa có'}`;
+      const dobStr = r.dob ? r.dob.split('-').reverse().join('/') : '---';
+      const addrStr1 = `${r.address.village}, ${r.address.commune}`;
+      const addrStr2 = r.address.province;
+      const regStr = `Ban CHQS ${r.address.commune}`;
+
+      const fatherStr = r.family.father?.fullName ? `Cha: ${r.family.father.fullName}${r.family.father.birthYear ? ' (' + r.family.father.birthYear + ')' : ''}` : '';
+      const motherStr = r.family.mother?.fullName ? `Mẹ: ${r.family.mother.fullName}${r.family.mother.birthYear ? ' (' + r.family.mother.birthYear + ')' : ''}` : '';
+      const wifeStr = `Vợ: ${r.family.wife?.fullName || 'Chưa có'}`;
+      const childStr = `Con: ${r.family.children || 'Chưa có'}`;
 
       return [
         (index + 1).toString(),
-        `${r.fullName.toUpperCase()}\n${r.fullName.toUpperCase()}\n${r.dob ? r.dob.split('-').reverse().join('/') : '---'}\n${r.citizenId || '---'}`,
-        `${r.details.job || 'Lao động tự do'}\n${r.details.workAddress || 'Tại địa phương'}\n${r.details.gradeGroup || '---'}-${r.details.salaryLevel || '---'}`,
-        `${r.address.village}, ${r.address.commune}\n${r.address.province}\nBan CHQS ${r.address.commune}`,
-        `${r.details.familyComposition || 'Bần nông'}\n${r.details.personalComposition || 'Phụ thuộc'}\n${r.details.ethnicity}, ${r.details.religion}\nLoại ${r.physical.healthGrade || '---'}`,
-        `${eduStr}\nNgoại ngữ: ---\n${politicalStr}`,
-        familyStr,
-        r.enlistmentUnit || '---'
+        formatBullet([r.fullName.toUpperCase(), r.fullName.toUpperCase(), dobStr, r.citizenId || '---']),
+        formatBullet([r.details.job, r.details.workAddress, (r.details.gradeGroup || r.details.salaryLevel) ? `${r.details.gradeGroup || ''}-${r.details.salaryLevel || ''}` : '']),
+        formatBullet([addrStr1, addrStr2, regStr]),
+        formatBullet([r.details.familyComposition || 'Bần nông', r.details.personalComposition || 'Phụ thuộc', `${r.details.ethnicity || 'Kinh'}, ${r.details.religion || 'Không'}`, `Loại ${r.physical.healthGrade || '---'}`]),
+        formatBullet([`VH: ${r.details.education?.includes('Lớp') ? r.details.education.replace('Lớp ', '') + '/12' : (r.details.education || '12/12')}`, `CMKT: ${r.details.major || 'Không'}`, 'Ngoại ngữ: ---', politicalStr]),
+        formatBullet([fatherStr, motherStr, wifeStr, childStr]),
+        formatBullet([r.enlistmentUnit || '---'])
       ];
     });
 
@@ -86,7 +95,7 @@ export class EnlistmentList17AExport {
         
         ws[addr].s = { 
           font: { name: 'Times New Roman', size: 11 }, 
-          alignment: { wrapText: true, vertical: 'top' } 
+          alignment: { wrapText: true, vertical: 'center', horizontal: 'left' } 
         };
         
         if (R < 5) {
