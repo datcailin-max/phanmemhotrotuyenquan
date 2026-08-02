@@ -137,7 +137,7 @@ app.post('/api/users/sync', async (req, res) => {
     res.json(user);
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
-app.put('/api/users/:username', async (req, res) => { try { res.json(await User.findOneAndUpdate({ username: req.params.username }, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.put('/api/users/:username', async (req, res) => { try { const updateData = { ...req.body }; delete updateData._id; res.json(await User.findOneAndUpdate({ username: req.params.username }, updateData, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
 
 // --- RECRUIT API ---
 app.get('/api/recruits', async (req, res) => { try { res.json(await Recruit.find()); } catch (e) { res.status(500).json({ message: e.message }); } });
@@ -174,7 +174,7 @@ app.post('/api/recruits/bulk', async (req, res) => {
   }
 });
 app.post('/api/recruits', async (req, res) => { try { res.status(201).json(await new Recruit(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
-app.put('/api/recruits/:id', async (req, res) => { try { res.json(await Recruit.findOneAndUpdate({ id: req.params.id }, req.body, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.put('/api/recruits/:id', async (req, res) => { try { const updateData = { ...req.body }; delete updateData._id; res.json(await Recruit.findOneAndUpdate({ id: req.params.id }, updateData, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
 app.delete('/api/recruits/year/:year', async (req, res) => {
   try {
     const year = Number(req.params.year);

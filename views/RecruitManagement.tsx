@@ -179,7 +179,15 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     return RecruitmentStatus.SOURCE;
   }, [activeTabId]);
 
-  const handleSave = (data: Recruit) => { onUpdate(data); setShowForm(false); };
+  const handleSave = (data: Recruit) => { 
+    setRecruits(prev => {
+      const exists = prev.some(r => r.id === data.id);
+      if (exists) return prev.map(r => r.id === data.id ? data : r);
+      return [...prev, data];
+    });
+    onUpdate(data); 
+    setShowForm(false); 
+  };
 
   const handleDeleteAllTrash = async () => {
     if (filteredRecruits.length === 0) {

@@ -28,8 +28,31 @@ export const api = {
   getRecruits: async () => { if (isDemoMode()) return getLocal('demo_recruits'); try { const res = await fetch(`${API_URL}/recruits`); const data = await res.json(); return Array.isArray(data) ? data : []; } catch { return []; } },
   createRecruit: async (d: any) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); const newData = { ...d, createdAt: new Date().toISOString() }; list.push(newData); setLocal('demo_recruits', list); return newData; }
     try { const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return res.ok ? await res.json() : null; } catch { return null; } },
-  updateRecruit: async (d: any) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); const index = list.findIndex((r: any) => r.id === d.id); if (index > -1) { list[index] = { ...d, updatedAt: new Date().toISOString() }; setLocal('demo_recruits', list); return list[index]; } return null; }
-    try { const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return res.ok ? await res.json() : null; } catch { return null; } },
+  updateRecruit: async (d: any) => { 
+    if (isDemoMode()) { 
+      const list = getLocal('demo_recruits'); 
+      const index = list.findIndex((r: any) => r.id === d.id); 
+      const updatedItem = { ...d, updatedAt: new Date().toISOString() };
+      if (index > -1) { 
+        list[index] = updatedItem; 
+      } else {
+        list.push(updatedItem);
+      }
+      setLocal('demo_recruits', list); 
+      return updatedItem; 
+    }
+    try { 
+      const payload = { ...d };
+      delete payload._id;
+      const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+      if (res.ok) return await res.json();
+      console.error("Lỗi khi cập nhật công dân:", res.status, await res.text());
+      return d;
+    } catch (e) { 
+      console.error("Lỗi kết nối khi cập nhật công dân:", e);
+      return d; 
+    } 
+  },
   deleteRecruit: async (id: string) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); setLocal('demo_recruits', list.filter((r: any) => r.id !== id)); return true; } try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; } },
   deleteYearData: async (year: number) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); setLocal('demo_recruits', list.filter((r: any) => r.recruitmentYear !== year)); return true; } try { const res = await fetch(`${API_URL}/recruits/year/${year}`, { method: 'DELETE' }); return res.ok; } catch { return false; } },
 
@@ -220,7 +243,11 @@ export const api = {
             } else {
               try {
                 const response = JSON.parse(xhr.responseText);
-                reject(new Error(response.error?.message || `Lỗi Cloudinary: HTTP ${xhr.status}`));
+                let errMsg = response.error?.message || `Lỗi Cloudinary: HTTP ${xhr.status}`;
+                if (errMsg.includes('File size too large')) {
+                  errMsg = `Dung lượng tệp "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn 10MB của gói Cloudinary miễn phí. Vui lòng nén tệp PDF (ví dụ dùng ilovepdf.com) xuống dưới 10MB trước khi tải lên.`;
+                }
+                reject(new Error(errMsg));
               } catch {
                 reject(new Error(`Lỗi tải lên Cloudinary: HTTP ${xhr.status}`));
               }
@@ -276,7 +303,11 @@ export const api = {
               } else {
                 try {
                   const errJson = JSON.parse(xhr.responseText);
-                  rejectChunk(new Error(errJson.error?.message || `Lỗi chunk ${i + 1}/${totalChunks}: HTTP ${xhr.status}`));
+                  let errMsg = errJson.error?.message || `Lỗi chunk ${i + 1}/${totalChunks}: HTTP ${xhr.status}`;
+                  if (errMsg.includes('File size too large')) {
+                    errMsg = `Dung lượng tệp "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn 10MB của gói Cloudinary miễn phí. Vui lòng nén tệp PDF (ví dụ dùng ilovepdf.com) xuống dưới 10MB trước khi tải lên.`;
+                  }
+                  rejectChunk(new Error(errMsg));
                 } catch {
                   rejectChunk(new Error(`Lỗi tải chunk ${i + 1}/${totalChunks}: HTTP ${xhr.status}`));
                 }
