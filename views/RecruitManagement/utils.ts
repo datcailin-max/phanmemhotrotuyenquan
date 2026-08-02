@@ -2,6 +2,110 @@
 import { Recruit, RecruitmentStatus } from '../../types';
 import { LEGAL_DEFERMENT_REASONS } from '../../constants';
 
+export const isMilitarySchoolRecruit = (r: {
+  defermentReason?: string;
+  legalReason?: string;
+  notes?: string;
+  details?: {
+    workAddress?: string;
+    major?: string;
+    note?: string;
+    job?: string;
+  };
+}): boolean => {
+  const textParts = [
+    r.defermentReason,
+    r.legalReason,
+    r.notes,
+    r.details?.workAddress,
+    r.details?.major,
+    r.details?.note,
+    r.details?.job
+  ].filter(Boolean);
+
+  const combinedText = textParts.join(' ').toLowerCase();
+  if (!combinedText.trim()) return false;
+
+  const militaryKeywords = [
+    'quân đội', 'quan doi', 'trường qđ', 'truong qd', 'học qđ', 'hoc qd', 'trường qd', 'học qd',
+    'sĩ quan', 'si quan', ' sq ', 'sq.', 'sqlq', 'sqtt', 'sqcb', 'sqph', 'sqpb', 'sqđc', 'sqktqs', 'sqkq', 'sqttg', 'sqcq',
+    'quốc phòng', 'quoc phong',
+    'khoa học quân sự', 'khoa hoc quan su', 'khqs',
+    'kỹ thuật quân sự', 'ky thuat quan su', 'ktqs',
+    'nghệ thuật quân đội', 'nghe thuat quan doi',
+    'quân y', 'quan y',
+    'hải quân', 'hai quan',
+    'phòng không', 'phong khong', 'pkkq', 'pk-kq',
+    'không quân', 'khong quan',
+    'biên phòng', 'bien phong',
+    'tăng - thiết giáp', 'tăng thiết giáp', 'tang thiet giap', 'ttg',
+    'công binh', 'cong binh',
+    'phòng hóa', 'phong hoa',
+    'pháo binh', 'phao binh',
+    'đặc công', 'dac cong',
+    'lục quân', 'luc quan',
+    'hậu cần', 'hau can',
+    'trần quốc tuấn', 'tran quoc tuan',
+    'nguyễn huệ', 'nguyen hue',
+    'trần đại nghĩa', 'tran dai nghia',
+    'đại học chính trị', 'dai hoc chinh tri',
+    'học viện chính trị', 'hoc vien chinh tri',
+    'học viện quốc phòng', 'hoc vien quoc phong',
+    'học viện lục quân', 'hoc vien luc quan',
+    'học viện hậu cần', 'hoc vien hau can',
+    'học viện quân y', 'hoc vien quan y',
+    'học viện khoa học quân sự', 'hoc vien khoa hoc quan su',
+    'học viện hải quân', 'hoc vien hai quan',
+    'học viện phòng không', 'hoc vien phong khong',
+    'học viện biên phòng', 'hoc vien bien phong',
+    'hv quốc phòng', 'hv quoc phong',
+    'hv chính trị', 'hv chinh tri',
+    'hv lục quân', 'hv luc quan',
+    'hv kỹ thuật quân sự', 'hv ky thuat quan su',
+    'hv hậu cần', 'hv hau can',
+    'hv quân y', 'hv quan y',
+    'hv khoa học quân sự', 'hv khoa hoc quan su',
+    'hv hải quân', 'hv hai quan',
+    'hv phòng không', 'hv phong khong',
+    'hv biên phòng', 'hv bien phong'
+  ];
+
+  return militaryKeywords.some(kw => combinedText.includes(kw));
+};
+
+export const isTransferredRecruit = (r: {
+  defermentReason?: string;
+  legalReason?: string;
+  notes?: string;
+  details?: {
+    workAddress?: string;
+    note?: string;
+  };
+}): boolean => {
+  const textParts = [
+    r.defermentReason,
+    r.legalReason,
+    r.notes,
+    r.details?.workAddress,
+    r.details?.note
+  ].filter(Boolean);
+
+  const combinedText = textParts.join(' ').toLowerCase();
+
+  return (
+    combinedText.includes('chuyển khẩu') ||
+    combinedText.includes('chuyển hộ khẩu') ||
+    combinedText.includes('chuyển đi') ||
+    combinedText.includes('chuyển nơi ở') ||
+    combinedText.includes('chuyen khau') ||
+    combinedText.includes('chuyen ho khau') ||
+    combinedText.includes('chuyen di') ||
+    combinedText.includes('chuyen noi o') ||
+    combinedText.includes('cắt hộ khẩu') ||
+    combinedText.includes('cat ho khau')
+  );
+};
+
 export const checkAge = (r: Recruit, sessionYear: number) => {
   const birthYear = parseInt(r.dob?.split('-')[0] || '0');
   // Năm thực hiện là sessionYear - 1
@@ -167,22 +271,17 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
 
     case 'REMOVED_MILITARY_SCHOOL': {
       if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-      const reasonMil = (r.defermentReason || '').toLowerCase();
-      return reasonMil.includes('quân đội') || reasonMil.includes('trường qđ') || reasonMil.includes('học qđ') || reasonMil.includes('sĩ quan');
+      return isMilitarySchoolRecruit(r);
     }
 
     case 'REMOVED_TRANSFERRED': {
       if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-      const reasonTrans = (r.defermentReason || '').toLowerCase();
-      return reasonTrans.includes('chuyển khẩu') || reasonTrans.includes('chuyển hộ khẩu') || reasonTrans.includes('chuyển đi') || reasonTrans.includes('chuyển nơi ở');
+      return !isMilitarySchoolRecruit(r) && isTransferredRecruit(r);
     }
 
     case 'REMOVED_OTHER': {
       if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-      const reasonOther = (r.defermentReason || '').toLowerCase();
-      const isMil = reasonOther.includes('quân đội') || reasonOther.includes('trường qđ') || reasonOther.includes('học qđ') || reasonOther.includes('sĩ quan');
-      const isTrans = reasonOther.includes('chuyển khẩu') || reasonOther.includes('chuyển hộ khẩu') || reasonOther.includes('chuyển đi') || reasonOther.includes('chuyển nơi ở');
-      return !isMil && !isTrans;
+      return !isMilitarySchoolRecruit(r) && !isTransferredRecruit(r);
     }
 
     case 'REMAINING':

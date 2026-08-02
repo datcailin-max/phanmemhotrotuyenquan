@@ -1,6 +1,7 @@
 
 import { useMemo } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../../../types';
+import { isMilitarySchoolRecruit, isTransferredRecruit } from '../../RecruitManagement/utils';
 
 interface UseDashboardStatsProps {
     recruits: Recruit[];
@@ -78,14 +79,12 @@ export const useDashboardStats = ({
         
         const countRemovedMilitary = activeYearRecruits.filter(r => {
             if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-            const reason = (r.defermentReason || '').toLowerCase();
-            return reason.includes('quân đội') || reason.includes('trường qđ') || reason.includes('học qđ') || reason.includes('sĩ quan');
+            return isMilitarySchoolRecruit(r);
         }).length;
 
         const countRemovedTransferred = activeYearRecruits.filter(r => {
             if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-            const reason = (r.defermentReason || '').toLowerCase();
-            return reason.includes('chuyển khẩu') || reason.includes('chuyển hộ khẩu') || reason.includes('chuyển đi') || reason.includes('chuyển nơi ở');
+            return !isMilitarySchoolRecruit(r) && isTransferredRecruit(r);
         }).length;
 
         const countRemovedOther = countRemoved - countRemovedMilitary - countRemovedTransferred;

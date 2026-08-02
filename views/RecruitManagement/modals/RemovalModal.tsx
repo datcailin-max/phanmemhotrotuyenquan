@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserX, GraduationCap, MapPin, Edit3 } from 'lucide-react';
+import { isMilitarySchoolRecruit, isTransferredRecruit } from '../utils';
 
 interface RemovalModalProps {
   reason: string;
@@ -17,10 +18,9 @@ const RemovalModal: React.FC<RemovalModalProps> = ({ reason, setReason, onClose,
       setReason('Đang học tại các trường trong quân đội');
       setSelectedOption('MILITARY');
     } else {
-      const lower = reason.toLowerCase();
-      if (lower.includes('quân đội') || lower.includes('trường qđ') || lower.includes('học qđ') || lower.includes('sĩ quan')) {
+      if (isMilitarySchoolRecruit({ defermentReason: reason })) {
         setSelectedOption('MILITARY');
-      } else if (lower.includes('chuyển khẩu') || lower.includes('chuyển hộ khẩu') || lower.includes('chuyển đi')) {
+      } else if (isTransferredRecruit({ defermentReason: reason })) {
         setSelectedOption('TRANSFER');
       } else {
         setSelectedOption('OTHER');
