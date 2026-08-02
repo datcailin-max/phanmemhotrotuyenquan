@@ -40,8 +40,8 @@ export class DefermentListExport {
 
     const formatBullet = (items: (string | undefined | null)[]) => {
       const valid = items.map(i => (i || '').trim()).filter(Boolean);
-      if (valid.length === 0) return '- ---';
-      return valid.map(i => i.startsWith('-') ? i : `- ${i}`).join('\n');
+      if (valid.length === 0) return '---';
+      return valid.join('\n');
     };
 
     // 3. Ánh xạ dữ liệu công dân (Mapping data)

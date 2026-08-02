@@ -144,12 +144,7 @@ export class TemplateExportService {
           const validLines = lines.map(l => l.trim()).filter(Boolean);
           let combinedValue: string = '';
           if (validLines.length > 0) {
-            // Nếu có từ 1 dòng trở lên và không phải cột STT, thêm gạch đầu dòng `- `
-            if (col > 1) {
-              combinedValue = validLines.map(l => l.startsWith('-') ? l : `- ${l}`).join('\n');
-            } else {
-              combinedValue = validLines.join('\n');
-            }
+            combinedValue = validLines.join('\n');
           }
 
           const cell = row.getCell(col);
