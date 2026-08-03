@@ -134,10 +134,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
              </div>
              <h1 className="text-2xl font-black uppercase tracking-wider leading-tight text-yellow-400">HTTQ 4.0</h1>
              
-             <div className="mt-4 pt-3 border-t border-military-700/50 flex flex-col items-center gap-1">
+             <div className="mt-4 pt-3 border-t border-military-700/50 flex flex-col items-center gap-1.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-military-100">
+                  Tác giả & Kỹ thuật: <span className="text-yellow-300 font-black">Đại úy Thới Hạ Sang</span>
+                </p>
                 <div className="flex items-center gap-1.5 text-amber-400">
-                  <Phone size={12} />
-                  <span className="text-[10px] font-black uppercase tracking-tighter">Hỗ trợ phê duyệt: 0334 429 954</span>
+                  <Phone size={13} />
+                  <span className="text-xs font-black uppercase tracking-tight">Hỗ trợ phê duyệt: 0334 429 954</span>
                 </div>
              </div>
         </div>
@@ -247,10 +250,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <button onClick={handleUnitConfirm} className="w-full bg-military-700 text-white py-3 rounded-md font-bold uppercase text-sm shadow-xl hover:bg-military-800 active:scale-95 transition-all">Xác nhận đơn vị</button>
                 </div>
             )}
-        </div>
-        
-        <div className="bg-gray-50 p-4 border-t border-gray-100 text-center">
-            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Tác giả & Kỹ thuật: Đại úy Thới Hạ Sang</p>
         </div>
       </div>
     </div>
