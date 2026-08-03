@@ -29,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-4 flex items-center justify-between border-b border-military-800 h-16 shrink-0 overflow-hidden bg-military-950">
         <span className="font-bold flex items-center gap-2 shrink-0">
           <img src={logoQuanDoi} className="w-6 h-6 object-contain shrink-0 animate-pulse" alt="logo" />
-          {isOpen && <span className="text-sm font-black uppercase tracking-tight truncate">Quản lý Tuyển quân</span>}
+          {isOpen && <span className="text-base font-black uppercase tracking-wider text-yellow-400 truncate">HTTQ 4.0</span>}
         </span>
         <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg hover:bg-military-800 transition-colors text-military-300"><Menu size={20} /></button>
       </div>

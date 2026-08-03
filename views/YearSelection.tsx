@@ -112,7 +112,7 @@ const YearSelection: React.FC<YearSelectionProps> = ({ onSelectYear, currentUser
       </div>
       
       <div className="absolute bottom-4 text-military-400 text-[10px] font-bold uppercase text-center z-10 tracking-widest px-4 leading-relaxed">
-        Phần mềm hỗ trợ công tác tuyển chọn, gọi công dân nhập ngũ
+        PHẦN MỀM HTTQ 4.0
       </div>
     </div>
   );

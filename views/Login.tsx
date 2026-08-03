@@ -132,8 +132,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-yellow-500 shadow-lg overflow-hidden p-1">
                 <img src={logoQuanDoi} className="w-full h-full object-contain" alt="logo" />
              </div>
-             <h1 className="text-lg font-bold uppercase tracking-wide leading-tight px-4">Phần mềm hỗ trợ công tác tuyển chọn, gọi công dân nhập ngũ</h1>
-             <p className="text-military-200 text-[10px] mt-2 uppercase tracking-widest italic opacity-80">Hệ thống quản lý nguồn và gọi nhập ngũ số</p>
+             <h1 className="text-2xl font-black uppercase tracking-wider leading-tight text-yellow-400">HTTQ 4.0</h1>
              
              <div className="mt-4 pt-3 border-t border-military-700/50 flex flex-col items-center gap-1">
                 <div className="flex items-center gap-1.5 text-amber-400">
