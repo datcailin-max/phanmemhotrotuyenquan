@@ -98,14 +98,15 @@ export class TemplateExportService {
               case 'PROVINCE': val = r.address?.province || ''; break;
               case 'RESIDENCE_FULL': 
               case 'RESIDENCE_CURRENT':
-                  val = `${r.address?.village || ''}, ${r.address?.commune || ''}, ${r.address?.province || ''}`;
-                  if (val.trim() === ', ,') val = '';
+                  val = [r.address?.village, r.address?.commune, r.address?.province].map(s => (s || '').trim()).filter(Boolean).join(', ');
                   break;
               case 'EDUCATION': 
-                  val = (r.details?.education || '').includes('Lớp') ? r.details.education.replace('Lớp ', '') + '/12' : '12/12';
+                  val = (r.details?.education || '').includes('Lớp') ? r.details.education.replace('Lớp ', '') + '/12' : (r.details?.education || '');
                   break;
               case 'MAJOR': val = r.details?.major || ''; break;
-              case 'ETHNICITY_RELIGION': val = `${r.details?.ethnicity || ''}, ${r.details?.religion || ''}`; break;
+              case 'ETHNICITY_RELIGION': 
+                  val = [r.details?.ethnicity, r.details?.religion].map(s => (s || '').trim()).filter(Boolean).join(', '); 
+                  break;
               case 'POLITICAL_STATUS': 
                   val = r.details?.politicalStatus === 'Dang_Vien' ? 'Đảng viên' : (r.details?.politicalStatus === 'Doan_Vien' ? 'Đoàn viên' : 'Quần chúng');
                   break;
@@ -116,13 +117,13 @@ export class TemplateExportService {
               case 'FAMILY_COMP': val = r.details?.familyComposition || ''; break;
               case 'PERSONAL_COMP': val = r.details?.personalComposition || ''; break;
               case 'FATHER_DETAILS': 
-                  val = r.family?.father?.fullName ? `Cha: ${r.family.father.fullName}, ${r.family.father.birthYear || ''}, ${r.family.father.job || ''}` : '';
+                  val = r.family?.father?.fullName ? `Cha: ${[r.family.father.fullName, r.family.father.birthYear, r.family.father.job].map(s => (s || '').trim()).filter(Boolean).join(', ')}` : '';
                   break;
               case 'MOTHER_DETAILS': 
-                  val = r.family?.mother?.fullName ? `Mẹ: ${r.family.mother.fullName}, ${r.family.mother.birthYear || ''}, ${r.family.mother.job || ''}` : '';
+                  val = r.family?.mother?.fullName ? `Mẹ: ${[r.family.mother.fullName, r.family.mother.birthYear, r.family.mother.job].map(s => (s || '').trim()).filter(Boolean).join(', ')}` : '';
                   break;
               case 'WIFE_DETAILS': 
-                  val = r.family?.wife?.fullName ? `Vợ: ${r.family.wife.fullName}, ${r.family.wife.birthYear || ''}, ${r.family.wife.job || ''}` : '';
+                  val = r.family?.wife?.fullName ? `Vợ: ${[r.family.wife.fullName, r.family.wife.birthYear, r.family.wife.job].map(s => (s || '').trim()).filter(Boolean).join(', ')}` : '';
                   break;
               case 'SIBLING_COUNT': val = r.details?.siblingCount || ''; break;
               case 'BIRTH_ORDER': val = r.details?.birthOrder || ''; break;
@@ -131,7 +132,11 @@ export class TemplateExportService {
               case 'DISCIPLINES': val = r.details?.disciplines || ''; break;
               case 'GRADE_GROUP': val = r.details?.gradeGroup || ''; break;
               case 'SALARY_LEVEL': val = r.details?.salaryLevel || ''; break;
-              case 'SALARY_FULL': val = `${r.details?.gradeGroup || ''} - ${r.details?.salaryLevel || ''}`; break;
+              case 'SALARY_FULL': 
+                  val = (r.details?.gradeGroup || r.details?.salaryLevel) 
+                    ? [r.details?.gradeGroup, r.details?.salaryLevel].map(s => (s || '').trim()).filter(Boolean).join(' - ') 
+                    : ''; 
+                  break;
               case 'ENLISTMENT_UNIT': val = r.enlistmentUnit || ''; break;
               case 'ENLISTMENT_DATE': val = r.enlistmentDate ? r.enlistmentDate.split('-').reverse().join('/') : ''; break;
               case 'REASON': val = `${getStatusLabel(r.status)}${r.defermentReason ? ': ' + r.defermentReason : ''}`; break;
@@ -141,7 +146,7 @@ export class TemplateExportService {
             return (val === undefined || val === null) ? '' : val.toString();
           });
 
-          const validLines = lines.map(l => l.trim()).filter(Boolean);
+          const validLines = lines.map(l => l.trim()).filter(l => l && !/^[-–—,\s]+$/.test(l));
           let combinedValue: string = '';
           if (validLines.length > 0) {
             combinedValue = validLines.join('\n');
