@@ -131,10 +131,9 @@ export class ExemptionListExport {
       }
     }
 
-    // Thiết lập độ cao dòng (Dòng header bảng cao hơn)
+    // Thiết lập độ cao dòng (chỉ thiết lập cho dòng header, các dòng dữ liệu để Excel tự căn vừa khít)
     ws['!rows'] = [];
     ws['!rows'][5] = { hpt: 80 };
-    for(let i = 6; i <= range.e.r; i++) ws['!rows'][i] = { hpt: 110 };
 
     excelUtils.book_append_sheet(wb, ws, 'DS Mien Goi');
     excelWrite(wb, `DS_Mien_Goi_Nhap_Ngu_${unitName}_${sessionYear}.xlsx`);

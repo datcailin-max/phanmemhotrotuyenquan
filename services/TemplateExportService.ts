@@ -228,9 +228,8 @@ export class TemplateExportService {
           }
         });
         
-        // Mỗi dòng chữ 11pt cần khoảng 18pt chiều cao + 10pt lề padding
-        const neededHeight = maxVisualLinesInRow * 18 + 10;
-        row.height = Math.max(28, neededHeight);
+        // Bỏ cố định độ cao dòng để Excel tự động căn chỉnh vừa khít với nội dung chữ (wrapText)
+        delete (row as any).height;
         
         currentRow++;
       });
@@ -241,6 +240,7 @@ export class TemplateExportService {
 
       for (let r = currentRow; r <= maxCheckRow; r++) {
         const row = worksheet.getRow(r);
+        delete (row as any).height;
         let rowHasText = false;
 
         for (let c = 1; c <= maxCol; c++) {
