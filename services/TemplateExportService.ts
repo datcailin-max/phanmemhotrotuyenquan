@@ -208,6 +208,37 @@ export class TemplateExportService {
         currentRow++;
       });
 
+      // Xóa kẻ ô (border) và nội dung ô trống đối với tất cả các dòng phía dưới công dân cuối cùng
+      const maxCheckRow = Math.max(worksheet.rowCount || 50, currentRow + 50);
+      const maxCol = Math.max(worksheet.columnCount || 15, 20);
+
+      for (let r = currentRow; r <= maxCheckRow; r++) {
+        const row = worksheet.getRow(r);
+        let rowHasText = false;
+
+        for (let c = 1; c <= maxCol; c++) {
+          const cell = row.getCell(c);
+          let strVal = '';
+          if (typeof cell.value === 'string') {
+            strVal = cell.value.trim();
+          } else if (cell.value && typeof cell.value === 'object' && 'richText' in cell.value) {
+            strVal = (cell.value as any).richText.map((t: any) => t.text).join('').trim();
+          } else if (cell.value !== null && cell.value !== undefined) {
+            strVal = cell.value.toString().trim();
+          }
+
+          if (strVal) {
+            rowHasText = true;
+          } else {
+            if (cell.isMerged) {
+              try { worksheet.unMergeCells(cell.address); } catch (e) {}
+            }
+            cell.value = null;
+            cell.border = {};
+          }
+        }
+      }
+
       const outBuffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([outBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
