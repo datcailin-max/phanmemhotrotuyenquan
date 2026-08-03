@@ -51,7 +51,12 @@ export class TemplateExportService {
   /**
    * Thực hiện "bơm" dữ liệu vào mẫu file mẫu có sẵn
    */
-  public static async inject(recruits: Recruit[], template: ExcelTemplate, sessionYear: number) {
+  public static async inject(
+    recruits: Recruit[], 
+    template: ExcelTemplate, 
+    sessionYear: number,
+    listLabel: string = template.name
+  ) {
     try {
       const workbook = new ExcelJS.Workbook();
       
@@ -61,6 +66,40 @@ export class TemplateExportService {
       await workbook.xlsx.load(buffer as any);
       const worksheet = workbook.getWorksheet(1);
       if (!worksheet) throw new Error("Không tìm thấy Sheet trong file mẫu.");
+
+      // Cập nhật tiêu đề danh sách trong các ô thuộc phần tiêu đề (từ dòng 1 đến startRow - 1)
+      if (listLabel) {
+        let titleText = listLabel.trim();
+        const cleanName = titleText.replace(/^[0-9.]+\s*/, '').trim();
+        if (!titleText.toUpperCase().includes('DANH SÁCH')) {
+          titleText = `DANH SÁCH CÔNG DÂN ${cleanName}`.toUpperCase();
+        } else {
+          titleText = titleText.toUpperCase();
+        }
+
+        for (let r = 1; r < template.startRow; r++) {
+          const row = worksheet.getRow(r);
+          row.eachCell({ includeEmpty: false }, (cell) => {
+            let strVal = '';
+            if (typeof cell.value === 'string') {
+              strVal = cell.value;
+            } else if (cell.value && typeof cell.value === 'object' && 'richText' in cell.value) {
+              strVal = (cell.value as any).richText.map((t: any) => t.text).join('');
+            }
+
+            if (strVal) {
+              const upperVal = strVal.toUpperCase();
+              if (upperVal.includes('DANH SÁCH') && !upperVal.includes('KÈM THEO BÁO CÁO') && !upperVal.includes('BÁO CÁO SỐ')) {
+                if (upperVal.includes('NĂM')) {
+                  cell.value = `${titleText} NĂM ${sessionYear}`;
+                } else {
+                  cell.value = titleText;
+                }
+              }
+            }
+          });
+        }
+      }
 
       let currentRow = template.startRow;
 
@@ -174,7 +213,8 @@ export class TemplateExportService {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Danh_sach_Xuat_Ban_${template.name.replace(/\s+/g, '_')}_${sessionYear}.xlsx`;
+      const exportName = (listLabel || template.name).replace(/^[0-9.]+\s*/, '').trim().replace(/\s+/g, '_');
+      link.download = `Danh_sach_Xuat_Ban_${exportName}_${sessionYear}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

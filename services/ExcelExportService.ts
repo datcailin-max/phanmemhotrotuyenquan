@@ -1,6 +1,7 @@
 
 import { Recruit, RecruitmentStatus } from '../types';
 import { isRecruitInTab } from '../views/RecruitManagement/utils';
+import { TABS } from '../views/RecruitManagement/constants';
 import { api } from '../api';
 import { TemplateExportService } from './TemplateExportService';
 import { ExemptionListExport } from './export/ExemptionListExport';
@@ -27,22 +28,15 @@ export class ExcelExportService {
     listLabel: string = "Danh sách chi tiết"
   ) {
     try {
-      // 0. Loại bỏ tuyệt đối công dân Đã xóa / Đưa ra khỏi nguồn khỏi các danh sách thông thường
-      let validRecruits: Recruit[] = [];
-      
-      if (templateId === 'DELETED_LIST') {
-        validRecruits = recruits.filter(r => r.status === RecruitmentStatus.DELETED);
-      } else if (templateId.startsWith('REMOVED')) {
-        validRecruits = recruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE);
-      } else {
-        validRecruits = recruits.filter(r => 
-          r.status !== RecruitmentStatus.DELETED && 
-          r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE &&
-          isRecruitInTab(r, templateId, sessionYear)
-        );
-      }
+      // 0. Lọc danh sách công dân thuộc đúng Tab / Sub-tab đã chọn (dùng isRecruitInTab)
+      const validRecruits = recruits.filter(r => isRecruitInTab(r, templateId, sessionYear));
 
-      // 1. Kiểm tra mẫu tùy biến được cấu hình bởi cán bộ/admin
+      // Xác định thông tin Tab và Parent Tab (nếu là danh sách con như 12.1, 12.2, 12.3, 5.1, 5.2...)
+      const currentTabObj = TABS.find(t => t.id === templateId);
+      const parentTabId = currentTabObj?.parentId;
+      const parentTabObj = parentTabId ? TABS.find(t => t.id === parentTabId) : null;
+
+      // 1. Kiểm tra các mẫu tùy biến được cấu hình bởi Cán bộ/Quản trị viên
       const customTemplates = await api.getTemplates();
       let customTpl = null;
 
@@ -59,10 +53,10 @@ export class ExcelExportService {
           );
         }
 
-        // Ưu tiên 3: Khớp tên danh sách (listLabel)
+        // Ưu tiên 3: Khớp tên danh sách (listLabel) hoặc nhãn Tab hiện tại
         if (!customTpl && listLabel) {
           const cleanLabel = listLabel.toLowerCase().replace(/^[0-9.]+\s*/, '').trim();
-          if (cleanLabel.length > 3) {
+          if (cleanLabel.length > 2) {
             customTpl = customTemplates.find(t => {
               const cleanName = (t.name || '').toLowerCase().replace(/^[0-9.]+\s*/, '').trim();
               return cleanName && (cleanName.includes(cleanLabel) || cleanLabel.includes(cleanName));
@@ -70,7 +64,33 @@ export class ExcelExportService {
           }
         }
 
-        // Ưu tiên 4: Dành cho tab 'ALL'
+        // Ưu tiên 4: Nếu là Tab con (như 12.1, 12.2, 12.3, 5.1, 5.2) chưa có mẫu riêng, kế thừa mẫu của Tab cha (12, 5...)
+        if (!customTpl && parentTabId) {
+          // a. Khớp parentTabId với id / _id
+          customTpl = customTemplates.find(t => t.id === parentTabId || t._id === parentTabId);
+
+          // b. Khớp sourceTabs chứa parentTabId
+          if (!customTpl) {
+            customTpl = customTemplates.find(t => 
+              t.sourceTabs && 
+              t.sourceTabs.includes(parentTabId) && 
+              !t.sourceTabs.includes('ALL')
+            );
+          }
+
+          // c. Khớp tên mẫu chứa tên Tab cha
+          if (!customTpl && parentTabObj) {
+            const cleanParentLabel = parentTabObj.label.toLowerCase().replace(/^[0-9.]+\s*/, '').trim();
+            if (cleanParentLabel.length > 2) {
+              customTpl = customTemplates.find(t => {
+                const cleanName = (t.name || '').toLowerCase().replace(/^[0-9.]+\s*/, '').trim();
+                return cleanName && (cleanName.includes(cleanParentLabel) || cleanParentLabel.includes(cleanName));
+              });
+            }
+          }
+        }
+
+        // Ưu tiên 5: Dành cho tab 'ALL' hoặc mẫu áp dụng chung
         if (!customTpl && templateId === 'ALL') {
           customTpl = customTemplates.find(t => t.sourceTabs && t.sourceTabs.includes('ALL'));
         }
@@ -81,7 +101,7 @@ export class ExcelExportService {
         Object.keys(customTpl.mapping || {}).length > 0;
 
       if (customTpl && hasValidCustomFile) {
-        await TemplateExportService.inject(validRecruits, customTpl, sessionYear);
+        await TemplateExportService.inject(validRecruits, customTpl, sessionYear, listLabel);
         return;
       }
 
