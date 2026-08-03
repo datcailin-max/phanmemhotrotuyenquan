@@ -126,6 +126,7 @@ export const isTotalSource = (r: Recruit, sessionYear: number) => {
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION,
       RecruitmentStatus.FIRST_TIME_REGISTRATION,
+      RecruitmentStatus.REMOVED_FROM_SOURCE,
       RecruitmentStatus.DELETED
   ].includes(r.status)) return false;
   
@@ -136,6 +137,14 @@ export const isTotalSource = (r: Recruit, sessionYear: number) => {
 };
 
 export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): boolean => {
+  // Loại bỏ tuyệt đối công dân đã xóa hoặc đã đưa ra khỏi nguồn ở các danh sách không thuộc phạm vi
+  if (tabId !== 'DELETED_LIST' && r.status === RecruitmentStatus.DELETED) {
+    return false;
+  }
+  if (!tabId.startsWith('REMOVED') && r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) {
+    return false;
+  }
+
   const tt50Statuses = [
     RecruitmentStatus.NOT_SELECTED_TT50, 
     RecruitmentStatus.KTC_KHONG_TUYEN_CHON, 

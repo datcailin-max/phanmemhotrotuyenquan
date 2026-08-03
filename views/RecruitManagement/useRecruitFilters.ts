@@ -41,6 +41,7 @@ export const useRecruitFilters = (
             RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
             RecruitmentStatus.EXEMPT_REGISTRATION,
             RecruitmentStatus.FIRST_TIME_REGISTRATION,
+            RecruitmentStatus.REMOVED_FROM_SOURCE,
             RecruitmentStatus.DELETED
         ].includes(r.status)) return false;
         

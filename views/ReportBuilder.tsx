@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, Download, CheckCircle2, Settings2, Sliders
 } from 'lucide-react';
-import { Recruit, User, ExcelTemplate } from '../types';
+import { Recruit, User, ExcelTemplate, RecruitmentStatus } from '../types';
 import { ExcelExportService } from '../services/ExcelExportService';
 import { TemplateExportService } from '../services/TemplateExportService';
 import { api } from '../api';
@@ -67,9 +67,17 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
       const unitName = user.fullName || user.unit?.commune || 'CƠ QUAN QUÂN SỰ';
 
       if (matchedTpl) {
-        // 1. Lọc theo danh sách nguồn được gán cho mẫu biểu
+        // 1. Lọc theo danh sách nguồn được gán cho mẫu biểu và loại bỏ công dân đã xóa/đưa ra khỏi nguồn
         let filteredData = recruits;
         const sourceTabs = matchedTpl.sourceTabs || [];
+        
+        const isDeletedTab = sourceTabs.includes('DELETED_LIST') || matchedTpl.id === 'DELETED_LIST';
+        const isRemovedTab = sourceTabs.some(s => s.startsWith('REMOVED')) || matchedTpl.id?.startsWith('REMOVED');
+
+        if (!isDeletedTab && !isRemovedTab) {
+          filteredData = filteredData.filter(r => r.status !== RecruitmentStatus.DELETED && r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE);
+        }
+
         if (sourceTabs.length > 0) {
            filteredData = filteredData.filter(r => 
              sourceTabs.some(tabId => isRecruitInTab(r, tabId, sessionYear))
