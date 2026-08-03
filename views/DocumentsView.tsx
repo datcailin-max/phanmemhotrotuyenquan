@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Folder, FolderOpen, ArrowLeft, FileText, Plus, Trash2, Download, 
-  Search, RefreshCw, X, UploadCloud, Eye, BookOpen, FileSpreadsheet, 
-  ChevronRight, AlertCircle, Pencil
+  FolderOpen, ArrowLeft, FileText, Plus, Search, RefreshCw, BookOpen, 
+  ChevronRight, AlertCircle 
 } from 'lucide-react';
 import { ResearchDocument, User } from '../types';
 import { api } from '../api';
+import { DocumentFolderType } from './Documents/types';
+import { UploadDocumentModal } from './Documents/UploadDocumentModal';
+import { EditDocumentModal } from './Documents/EditDocumentModal';
+import { DocumentCard } from './Documents/DocumentCard';
 
 interface DocumentsViewProps {
   user: User;
@@ -15,7 +18,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
   const [documents, setDocuments] = useState<ResearchDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingDocId, setIsFetchingDocId] = useState<string | null>(null);
-  const [selectedFolder, setSelectedFolder] = useState<'MAU_BIEU' | 'TAI_LIEU_THAM_KHAO' | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<DocumentFolderType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Upload modal state
@@ -49,11 +52,11 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
   }, []);
 
   // Helper function to map categories safely (including legacy ones)
-  const getDocFolderCategory = (doc: ResearchDocument): 'MAU_BIEU' | 'TAI_LIEU_THAM_KHAO' => {
+  const getDocFolderCategory = (doc: ResearchDocument): DocumentFolderType => {
     if (doc.category === 'MAU_DANH_SACH' || doc.category === 'MAU_BAO_CAO' || doc.category === 'MAU_BIEU') {
       return 'MAU_BIEU';
     }
-    return 'TAI_LIEU_THAM_KHAO'; // Default legacy documents to "Tài liệu tham khảo"
+    return 'TAI_LIEU_THAM_KHAO';
   };
 
   const getBlobFromBase64 = (base64Data: string) => {
@@ -100,7 +103,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
         alert("Lỗi khi tải tài liệu từ máy chủ.");
         setIsFetchingDocId(null);
         return;
-      } finally {
+      } fontFinally: {
         setIsFetchingDocId(null);
       }
     }
@@ -230,22 +233,20 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
       return;
     }
 
-    if (selectedFile.size > 70 * 1024 * 1024) {
-      alert(`File quá lớn (${(selectedFile.size/1024/1024).toFixed(1)}MB). Giới hạn tối đa là 70MB.`);
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      alert(`⚠️ Tệp "${selectedFile.name}" có dung lượng ${(selectedFile.size / 1024 / 1024).toFixed(1)}MB, vượt quá giới hạn 10MB của dịch vụ Cloudinary gói miễn phí.\n\nVui lòng truy cập các trang web nén PDF miễn phí (như ilovepdf.com hoặc smallpdf.com) để giảm dung lượng tệp xuống dưới 10MB trước khi tải lên.`);
       return;
     }
 
     setIsSubmitting(true);
-    setUploadProgress(1); // Bắt đầu hiển thị thanh % từ 1%
+    setUploadProgress(1);
 
     let uploadedUrl = '';
-    let isCloudinarySuccess = false;
 
     try {
       uploadedUrl = await api.uploadFile(selectedFile, 'documents', (percent) => {
         setUploadProgress(percent);
       });
-      isCloudinarySuccess = true;
     } catch (err: any) {
       console.error(err);
       alert(`Tải file lên Cloudinary thất bại: ${err.message || err}`);
@@ -293,7 +294,7 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
     )
   );
 
-  const countByFolder = (folderKey: 'MAU_BIEU' | 'TAI_LIEU_THAM_KHAO') => {
+  const countByFolder = (folderKey: DocumentFolderType) => {
     if (!Array.isArray(documents)) return 0;
     return documents.filter(doc => doc && getDocFolderCategory(doc) === folderKey).length;
   };
@@ -464,282 +465,54 @@ const DocumentsView: React.FC<DocumentsViewProps> = ({ user }) => {
                 </p>
               </div>
             ) : (
-              filteredDocs.map(doc => {
-                return (
-                  <div key={(doc as any)._id || doc.id} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all flex flex-col h-full group relative">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-[9px] font-black uppercase bg-red-50 text-red-700 border border-red-100 px-2 py-0.5 rounded-md">
-                        PDF
-                      </span>
-                      <span className="text-[9px] text-gray-400 font-bold">
-                        {doc.uploadDate}
-                      </span>
-                    </div>
-
-                    <h4 className="text-xs font-black text-military-900 leading-snug uppercase tracking-tight group-hover:text-military-700 transition-colors line-clamp-2 mb-2 flex-1">
-                      {doc.title}
-                    </h4>
-
-                    {doc.description && (
-                      <p className="text-[10px] text-gray-500 font-medium italic mb-5 line-clamp-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                        {doc.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-auto">
-                      <div className="flex items-center gap-3">
-                        {isFetchingDocId === ((doc as any)._id || doc.id) ? (
-                          <span className="flex items-center gap-1 text-gray-400 text-[10px] font-black uppercase tracking-wider">
-                            <RefreshCw size={12} className="animate-spin" /> Đang tải tệp...
-                          </span>
-                        ) : (
-                          <>
-                            <button 
-                              onClick={() => handleView(doc)}
-                              className="flex items-center gap-1 text-military-700 hover:text-military-900 text-[10px] font-black uppercase tracking-wider transition-all"
-                              title="Xem trực tuyến"
-                            >
-                              <Eye size={14} /> Xem
-                            </button>
-                            <button 
-                              onClick={() => handleDownload(doc)}
-                              className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-[10px] font-black uppercase tracking-wider transition-all"
-                              title="Tải về máy"
-                            >
-                              <Download size={14} /> Tải xuống
-                            </button>
-                          </>
-                        )}
-                      </div>
-
-                      {isAdmin && (
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onClick={() => handleEditClick(doc)}
-                            className="p-1.5 text-gray-400 hover:text-military-700 hover:bg-military-50 rounded-lg transition-all"
-                            title="Chỉnh sửa tài liệu"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(doc)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Xóa tài liệu"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
+              filteredDocs.map(doc => (
+                <DocumentCard
+                  key={(doc as any)._id || doc.id}
+                  doc={doc}
+                  isAdmin={isAdmin}
+                  isFetchingDocId={isFetchingDocId}
+                  onView={handleView}
+                  onDownload={handleDownload}
+                  onEdit={handleEditClick}
+                  onDelete={handleDelete}
+                />
+              ))
             )}
           </div>
         </div>
       )}
 
-      {/* Upload Modal (Triggered inside a selected folder) */}
+      {/* Upload Modal */}
       {showModal && selectedFolder && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-300">
-            <div className="bg-military-800 p-5 flex justify-between items-center text-white">
-              <div className="flex items-center gap-2">
-                <UploadCloud size={20} />
-                <h3 className="font-black uppercase text-xs tracking-widest">
-                  Tải tài liệu PDF mới
-                </h3>
-              </div>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="hover:bg-white/10 p-1 rounded-full text-white transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleModalSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">
-                  Thư mục đích
-                </label>
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl font-black text-xs text-military-800 uppercase">
-                  {selectedFolder === 'MAU_BIEU' ? '1. Mẫu biểu' : '2. Tài liệu tham khảo'}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">
-                  Tiêu đề tài liệu / số hiệu
-                </label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="VD: Mẫu 02 - Danh sách công dân đủ tuổi"
-                  value={docTitle}
-                  onChange={(e) => setDocTitle(e.target.value)}
-                  className="w-full border p-2.5 rounded-xl font-bold text-xs bg-white outline-none focus:ring-2 focus:ring-military-50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">
-                  Mô tả / Trích yếu nội dung
-                </label>
-                <textarea 
-                  rows={2}
-                  placeholder="Mô tả nội dung hoặc hướng dẫn đặc biệt khi sử dụng mẫu biểu..."
-                  value={docDesc}
-                  onChange={(e) => setDocDesc(e.target.value)}
-                  className="w-full border p-2.5 rounded-xl font-medium text-xs bg-white outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">
-                  Chọn tệp tài liệu (PDF)
-                </label>
-                <input 
-                  type="file"
-                  required
-                  accept=".pdf"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="w-full text-[10px] p-2 border border-dashed border-military-200 rounded-xl bg-military-50/30"
-                />
-                <p className="text-[9px] text-gray-400 mt-1 font-bold">
-                  * Hệ thống chấp nhận tệp định dạng PDF tối đa 70MB.
-                </p>
-              </div>
-
-              <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-start gap-2">
-                <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={14} />
-                <p className="text-[9px] text-amber-800 leading-normal font-medium">
-                  Tài liệu sau khi gửi thành công sẽ hiển thị ngay tại chuyên mục này trên tất cả các đơn vị thuộc hệ thống.
-                </p>
-              </div>
-
-              {isSubmitting && uploadProgress > 0 && (
-                <div className="space-y-1.5 bg-military-50/50 p-3 rounded-xl border border-military-100">
-                  <div className="flex justify-between items-center text-[10px] font-black text-military-800 uppercase tracking-wide">
-                    <span>Đang tải tệp lên...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-military-600 h-full rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-2 flex justify-end gap-2.5">
-                <button 
-                  type="button" 
-                  disabled={isSubmitting} 
-                  onClick={() => setShowModal(false)} 
-                  className="px-4 py-2 text-[10px] font-black text-gray-500 uppercase"
-                >
-                  Hủy bỏ
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-military-700 hover:bg-military-800 text-white rounded-xl font-black uppercase text-[10px] shadow-md flex items-center gap-1.5 transition-all"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <RefreshCw size={12} className="animate-spin" /> Đang gửi...
-                    </>
-                  ) : (
-                    'Gửi tài liệu'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <UploadDocumentModal
+          selectedFolder={selectedFolder}
+          docTitle={docTitle}
+          setDocTitle={setDocTitle}
+          docDesc={docDesc}
+          setDocDesc={setDocDesc}
+          setSelectedFile={setSelectedFile}
+          isSubmitting={isSubmitting}
+          uploadProgress={uploadProgress}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleModalSubmit}
+        />
       )}
 
       {/* Edit Modal */}
       {showEditModal && editingDoc && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-300">
-            <div className="bg-military-800 p-5 flex justify-between items-center text-white">
-              <div className="flex items-center gap-2">
-                <Pencil size={18} />
-                <h3 className="font-black uppercase text-xs tracking-widest">
-                  Chỉnh sửa thông tin tài liệu
-                </h3>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingDoc(null);
-                }}
-                className="hover:bg-white/10 p-1 rounded-full text-white transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">
-                  Tiêu đề tài liệu / số hiệu
-                </label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="VD: Mẫu 02 - Danh sách công dân đủ tuổi"
-                  value={docTitle}
-                  onChange={(e) => setDocTitle(e.target.value)}
-                  className="w-full border p-2.5 rounded-xl font-bold text-xs bg-white outline-none focus:ring-2 focus:ring-military-50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">
-                  Mô tả / Trích yếu nội dung
-                </label>
-                <textarea 
-                  rows={4}
-                  placeholder="Mô tả nội dung hoặc hướng dẫn đặc biệt khi sử dụng mẫu biểu..."
-                  value={docDesc}
-                  onChange={(e) => setDocDesc(e.target.value)}
-                  className="w-full border p-2.5 rounded-xl font-medium text-xs bg-white outline-none focus:ring-2 focus:ring-military-50"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2.5">
-                <button 
-                  type="button" 
-                  disabled={isSubmitting} 
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingDoc(null);
-                  }} 
-                  className="px-4 py-2 text-[10px] font-black text-gray-500 uppercase"
-                >
-                  Hủy bỏ
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-military-700 hover:bg-military-800 text-white rounded-xl font-black uppercase text-[10px] shadow-md flex items-center gap-1.5 transition-all"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <RefreshCw size={12} className="animate-spin" /> Đang cập nhật...
-                    </>
-                  ) : (
-                    'Cập nhật'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditDocumentModal
+          editingDoc={editingDoc}
+          docTitle={docTitle}
+          setDocTitle={setDocTitle}
+          docDesc={docDesc}
+          setDocDesc={setDocDesc}
+          isSubmitting={isSubmitting}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingDoc(null);
+          }}
+          onSubmit={handleEditSubmit}
+        />
       )}
     </div>
   );

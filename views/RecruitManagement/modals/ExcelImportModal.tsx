@@ -1,54 +1,33 @@
 import React, { useState } from 'react';
-import { X, Upload, CheckCircle2, AlertTriangle, FileSpreadsheet, RefreshCw, Download, HelpCircle, FileText, FileX, Info, ShieldAlert } from 'lucide-react';
+import { X, Upload, CheckCircle2, FileSpreadsheet, RefreshCw, Download, HelpCircle, FileText } from 'lucide-react';
 import XLSX from 'xlsx-js-style';
-import { Recruit, RecruitmentStatus, User, FamilyMember } from '../../../types';
+import { Recruit, User, FamilyMember } from '../../../types';
 import { api } from '../../../api';
 
-interface ExcelImportModalProps {
-  recruits: Recruit[];
-  activeTabId: string;
-  sessionYear: number;
-  currentUser?: User;
-  onClose: () => void;
-  onRefresh: () => void;
-}
+import {
+  ExcelImportModalProps,
+  ProcessError,
+  ProcessSuccess,
+  DeferredExemptNotice,
+  FontWarningNotice
+} from './excelImport/types';
 
-export type ErrorType = 
-  | 'THIEU_CCCD' 
-  | 'CCCD_SAI_DINH_DANG' 
-  | 'THIEU_HO_TEN' 
-  | 'LOI_FONT_CHINH_TA' 
-  | 'DU_LIEU_KHONG_HOP_LE';
+import {
+  getDefaultStatusForTab,
+  parseExcelDate,
+  extractCCCD,
+  sanitizeName,
+  extractNameFromCell,
+  checkFontWarning,
+  isHeaderOrMetadataRow
+} from './excelImport/excelHelpers';
 
-export interface ProcessError {
-  rowNum: number;
-  name?: string;
-  cccd?: string;
-  errorType: ErrorType;
-  reason: string;
-  suggestion: string;
-}
+import {
+  handleDownloadTemplate17,
+  handleDownloadTemplateSource
+} from './excelImport/excelTemplates';
 
-export interface ProcessSuccess {
-  rowNum: number;
-  fullName: string;
-  cccd: string;
-  isUpdate: boolean;
-}
-
-export interface DeferredExemptNotice {
-  rowNum: number;
-  fullName: string;
-  cccd: string;
-  reason: string;
-}
-
-export interface FontWarningNotice {
-  rowNum: number;
-  fullName: string;
-  cccd: string;
-  detail: string;
-}
+import { ImportReportView } from './excelImport/ImportReportView';
 
 export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   recruits,
@@ -71,34 +50,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [successList, setSuccessList] = useState<ProcessSuccess[]>([]);
   const [deferredExemptList, setDeferredExemptList] = useState<DeferredExemptNotice[]>([]);
   const [fontWarningList, setFontWarningList] = useState<FontWarningNotice[]>([]);
-  const [filterErrorCategory, setFilterErrorCategory] = useState<string>('ALL');
-
-  // Trạng thái mặc định của công dân khi nhập vào dựa theo danh sách/tab hiện tại
-  const getDefaultStatusForTab = (tabId: string): RecruitmentStatus => {
-    switch (tabId) {
-      case 'NOT_ALLOWED_REG':
-        return RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
-      case 'EXEMPT_REG':
-        return RecruitmentStatus.EXEMPT_REGISTRATION;
-      case 'FIRST_TIME_REG':
-        return RecruitmentStatus.FIRST_TIME_REGISTRATION;
-      case 'PRE_CHECK_MANAGEMENT':
-      case 'PRE_CHECK_LIST':
-        return RecruitmentStatus.SOURCE;
-      case 'HEALTH_CHECK':
-        return RecruitmentStatus.PRE_CHECK_PASSED;
-      case 'DEFERRED_EXEMPTED':
-        return RecruitmentStatus.DEFERRED;
-      case 'ENLISTMENT_LIST':
-        return RecruitmentStatus.FINALIZED;
-      case 'ENLISTED_LIST':
-        return RecruitmentStatus.ENLISTED;
-      case 'AGE_17':
-        return RecruitmentStatus.FIRST_TIME_REGISTRATION;
-      default:
-        return RecruitmentStatus.FIRST_TIME_REGISTRATION;
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -112,406 +63,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       setInsertedCount(0);
       setUpdatedCount(0);
     }
-  };
-
-  // Tải mẫu Excel 1: Đăng ký lần đầu (Tuổi 17) - Biểu 01/GNN-2025
-  const handleDownloadTemplate17 = () => {
-    const XLSXLib: any = XLSX;
-    const utils = XLSXLib?.utils || XLSXLib?.default?.utils;
-    const writeFile = XLSXLib?.writeFile || XLSXLib?.default?.writeFile;
-
-    if (!utils || !writeFile) {
-      alert("Không thể khởi tạo thư viện Excel!");
-      return;
-    }
-
-    const templateData = [
-      ["Biểu số: 01/GNN-2025", "", "", `DANH SÁCH CÔNG DÂN NAM ĐỦ 17 TUỔI TRONG NĂM ${sessionYear}`, "", "", "", ""],
-      ["Khổ biểu: 29,7x21cm", "", "", "(Tính từ ngày..../..../.... Đến..../..../....)", "", "", "", ""],
-      ["", "", "", "", "", "", "", ""],
-      ["", "", "", "", "", "", "", ""],
-      ["", "", "", "", "", "", "", ""],
-      [
-        "Số\nTT", 
-        "- Họ, chữ đệm tên khai sinh\n- Họ, chữ đệm tên thường dùng\n- Ngày tháng năm sinh\n- Số Thẻ căn cước/CCCD", 
-        "Trình độ văn hóa tốt nghiệp phổ thông (lớp.../12); đang học...", 
-        "- Nơi thường trú của gđ, bản thân\n- Nơi ở hiện nay của bản thân\n- Nơi làm việc (nếu có)\n- Nơi đăng ký NVQS tại...", 
-        "- Thành phần gia đình\n- Thành phần bản thân\n- Dân tộc, tôn giáo", 
-        "- Trình độ CMKT, học nghề gì? Làm việc gì?\n- Có... anh chị em ruột\n- Là con thứ... trong gđ", 
-        "- Họ tên cha, năm sinh, nghề nghiệp\n- Họ tên mẹ, năm sinh, nghề nghiệp", 
-        "GHI CHÚ"
-      ],
-      [1, 2, 3, 4, 5, 6, 7, 8],
-      [
-        1,
-        "- BẾ ĐĂNG KHÔI\n- BẾ ĐĂNG KHÔI\n- 09/12/2008\n- 040208017552",
-        "- 11/12",
-        "- thôn Lộc Thái 3, Xã Lộc Ninh, Đồng Nai\n- thôn Lộc Thái 3, Xã Lộc Ninh, Đồng Nai\n- Ban CHQS Xã Lộc Ninh",
-        "- Trung nông\n- Phụ thuộc\n- Kinh, Không",
-        "- Học sinh",
-        "- Cha: Bế Đăng Tuấn, 1980, NV ngân hàng\n- Mẹ: Võ Thị Kiều Oanh, 1982, NV ngân hàng",
-        "- ĐK Lần đầu"
-      ],
-      [
-        2,
-        "- BÙI ĐIỀN TƯỜNG\n- BÙI ĐIỀN TƯỜNG\n- 22/03/2008\n- 070208002346",
-        "- 11/12",
-        "- thôn Lộc Thuận 9, Xã Lộc Ninh, Đồng Nai\n- thôn Lộc Thuận 9, Xã Lộc Ninh, Đồng Nai\n- Ban CHQS Xã Lộc Ninh",
-        "- Trung nông\n- Phụ thuộc\n- Kinh, Không",
-        "- Học sinh",
-        "- Cha: Bùi Điền Du, 1978, Làm vườn\n- Mẹ: Trần Thị Kim Phương, 1980, Làm vườn",
-        "- ĐK Lần đầu"
-      ]
-    ];
-
-    const ws = utils.aoa_to_sheet(templateData);
-    ws['!cols'] = [
-      { wch: 6 },  // STT
-      { wch: 30 }, // Họ tên / DOB / CCCD
-      { wch: 20 }, // Trình độ VH
-      { wch: 35 }, // Nơi trú
-      { wch: 22 }, // Thành phần
-      { wch: 22 }, // CMKT
-      { wch: 45 }, // Thân nhân
-      { wch: 20 }  // Ghi chú
-    ];
-
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "Mau_01_DK_Lan_Dau");
-    writeFile(wb, `Excel_Mau_01_Dang_Ky_Lan_Dau_17_Tuoi_${sessionYear}.xlsx`);
-  };
-
-  // Tải mẫu Excel 2: Danh sách nguồn tuyển quân & các danh sách còn lại - Mẫu Biểu số 16B/16A
-  const handleDownloadTemplateSource = () => {
-    const XLSXLib: any = XLSX;
-    const utils = XLSXLib?.utils || XLSXLib?.default?.utils;
-    const writeFile = XLSXLib?.writeFile || XLSXLib?.default?.writeFile;
-
-    if (!utils || !writeFile) {
-      alert("Không thể khởi tạo thư viện Excel!");
-      return;
-    }
-
-    const templateData = [
-      ["Biểu số: 16B/GNN-2025", "", "", `DANH SÁCH NGUỒN CÔNG DÂN TUYỂN QUÂN NĂM ${sessionYear}`, "", "", "", "", ""],
-      ["Khổ biểu: 29,7x21cm", "", "", `Đơn vị: ${currentUser?.unit?.commune || 'Mỹ Hòa Hưng'}`, "", "", "", "", ""],
-      ["", "", "", "", "", "", "", "", ""],
-      ["", "", "", "", "", "", "", "", ""],
-      [
-        "Số TT", 
-        "- Họ, chữ đệm và tên khai sinh\n- Họ, chữ đệm và tên thường dùng\n- Ngày, tháng, năm sinh\n- Số thẻ căn cước/CCCD", 
-        "- Nghề nghiệp\n- Nơi làm việc\n- Nhóm, ngạch, bậc lương", 
-        "- Nơi thường trú của gia đình; bản thân\n- Nơi ở hiện nay của bản thân\n- Nơi làm việc (nếu có)", 
-        "- Thành phần gia đình\n- Thành phần bản thân\n- Dân tộc, tôn giáo", 
-        "- Trình độ văn hóa, CMKT\n- Ngoại ngữ\n- Đảng, đoàn", 
-        "- Họ và tên cha, năm sinh, nghề nghiệp\n- Họ và tên mẹ, năm sinh, nghề nghiệp\n- Họ và tên vợ (chồng), năm sinh, nghề nghiệp", 
-        "- Khen thưởng\n- Kỷ luật\n- Sức khỏe", 
-        "GHI CHÚ"
-      ],
-      [1, 2, 3, 4, 5, 6, 7, 8, 9],
-      [
-        1, 
-        "- BÀNH THỤC MINH\n- BÀNH THỤC MINH\n- 28/01/2007\n- 070207010085", 
-        "- Công nhân", 
-        "- Tổ 1 Khu phố Ninh Phú, Xã Lộc Ninh, Đồng Nai\n- Tổ 1 Khu phố Ninh Phú, Xã Lộc Ninh, Đồng Nai", 
-        "- Bần nông\n- Phụ thuộc\n- Kinh, Không", 
-        "- 12/12\n- Đoàn viên", 
-        "- Cha: Bành Mỹ Bình, 1975, Làm nông\n- Mẹ: Tiêu Hòa, 1978, Buôn bán", 
-        "- Sức khỏe: Loại 1", 
-        "- Tạm hoãn: 9."
-      ],
-      [
-        2, 
-        "- NGUYỄN VĂN A\n- NGUYỄN VĂN A\n- 15/05/2005\n- 038205001234", 
-        "- Sinh viên", 
-        "- Ấp Mỹ An, Xã Mỹ Hòa Hưng, TP Long Xuyên", 
-        "- Nông dân\n- Phụ thuộc\n- Kinh, Không", 
-        "- 12/12\n- Cao đẳng CNTT\n- Đoàn viên", 
-        "- Cha: Nguyễn Văn B, 1972, Làm nông\n- Mẹ: Trần Thị C, 1975, Nội trợ", 
-        "- Sức khỏe: Loại 2", 
-        "- Tạm hoãn học tập"
-      ]
-    ];
-
-    const ws = utils.aoa_to_sheet(templateData);
-    ws['!cols'] = [
-      { wch: 6 },  // STT
-      { wch: 30 }, // Họ tên / DOB / CCCD
-      { wch: 22 }, // Nghề nghiệp
-      { wch: 35 }, // Địa chỉ
-      { wch: 22 }, // Thành phần
-      { wch: 22 }, // Trình độ
-      { wch: 45 }, // Thân nhân
-      { wch: 22 }, // Khen thưởng / SK
-      { wch: 25 }  // Ghi chú
-    ];
-
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "Mau_Nguon_Tuyen_Quan");
-    writeFile(wb, `Excel_Mau_Danh_Sach_Nguon_Tuyen_Quan_${sessionYear}.xlsx`);
-  };
-
-  // Tải báo cáo lỗi Excel chi tiết cho cán bộ
-  const handleDownloadErrorReport = () => {
-    if (errorList.length === 0 && fontWarningList.length === 0) {
-      alert("Không có lỗi hoặc cảnh báo nào để xuất báo cáo!");
-      return;
-    }
-
-    const XLSXLib: any = XLSX;
-    const utils = XLSXLib?.utils || XLSXLib?.default?.utils;
-    const writeFile = XLSXLib?.writeFile || XLSXLib?.default?.writeFile;
-
-    if (!utils || !writeFile) {
-      alert("Không thể khởi tạo thư viện Excel!");
-      return;
-    }
-
-    const wb = utils.book_new();
-
-    if (errorList.length > 0) {
-      const getErrorCategoryLabel = (type: ErrorType): string => {
-        switch (type) {
-          case 'THIEU_CCCD': return 'Thiếu số CCCD';
-          case 'CCCD_SAI_DINH_DANG': return 'Số CCCD sai định dạng';
-          case 'THIEU_HO_TEN': return 'Thiếu Họ và tên';
-          case 'LOI_FONT_CHINH_TA': return 'Lỗi font chữ / chính tả';
-          case 'DU_LIEU_KHONG_HOP_LE': return 'Dữ liệu không hợp lệ';
-          default: return 'Lỗi dữ liệu';
-        }
-      };
-
-      const reportData = [
-        ["BÁO CÁO DÒNG LỖI KHÔNG THỂ NHẬP DỮ LIỆU CÔNG DÂN NVQS"],
-        [`Năm tuyển chọn: ${sessionYear} - Ngày tạo báo cáo: ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN')}`],
-        [`Tệp Excel nguồn: ${selectedFile?.name || 'Tệp tải lên'} - Tổng số dòng lỗi: ${errorList.length} dòng`],
-        [""], // Dòng trống
-        [
-          "STT Dòng Excel", 
-          "Họ và tên đọc được", 
-          "Số CCCD", 
-          "Phân loại lỗi", 
-          "Chi tiết nguyên nhân lỗi", 
-          "Hướng dẫn điều chỉnh cho Cán bộ"
-        ],
-        ...errorList.map(err => [
-          err.rowNum,
-          err.name || "---",
-          err.cccd || "---",
-          getErrorCategoryLabel(err.errorType),
-          err.reason,
-          err.suggestion
-        ])
-      ];
-
-      const ws = utils.aoa_to_sheet(reportData);
-
-      ws['!cols'] = [
-        { wch: 15 }, // Dòng Excel
-        { wch: 28 }, // Họ tên
-        { wch: 18 }, // CCCD
-        { wch: 25 }, // Phân loại lỗi
-        { wch: 50 }, // Chi tiết nguyên nhân
-        { wch: 50 }  // Hướng dẫn điều chỉnh
-      ];
-
-      utils.book_append_sheet(wb, ws, "DongLoi_KhongNhapDuoc");
-    }
-
-    if (fontWarningList.length > 0) {
-      const warningData = [
-        ["DANH SÁCH CÔNG DÂN CÓ CẢNH BÁO FONT CHỮ (ĐÃ TỰ ĐỘNG CHUẨN HÓA & LƯU THÀNH CÔNG)"],
-        [`Tệp Excel nguồn: ${selectedFile?.name || 'Tệp tải lên'} - Tổng số cảnh báo: ${fontWarningList.length} trường hợp`],
-        ["Lưu ý: Dữ liệu bên dưới ĐÃ ĐƯỢC LƯU VÀO CSDL. Cán bộ có thể đối soát lại nếu cần."],
-        [""],
-        ["STT Dòng Excel", "Họ và tên đã chuẩn hóa", "Số CCCD", "Chi tiết cảnh báo font / mã hóa ban đầu"],
-        ...fontWarningList.map(w => [
-          w.rowNum,
-          w.fullName,
-          w.cccd,
-          w.detail
-        ])
-      ];
-
-      const wsWarning = utils.aoa_to_sheet(warningData);
-      wsWarning['!cols'] = [
-        { wch: 15 },
-        { wch: 28 },
-        { wch: 18 },
-        { wch: 60 }
-      ];
-      utils.book_append_sheet(wb, wsWarning, "CanhBaoFontChu_DaLuu");
-    }
-
-    writeFile(wb, `Bao_Cao_Doi_Soat_Nhap_Excel_${sessionYear}.xlsx`);
-  };
-
-  // Trích xuất ngày sinh từ chuỗi hoặc số
-  const parseExcelDate = (val: any): string => {
-    if (!val) return '';
-    
-    if (typeof val === 'number') {
-      const date = new Date((val - (25567 + 2)) * 86400 * 1000);
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const dd = String(date.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    const str = String(val).trim();
-
-    // Dạng DD/MM/YYYY hoặc DD-MM-YYYY
-    const ddmmyyyy = str.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (ddmmyyyy) {
-      const dd = ddmmyyyy[1].padStart(2, '0');
-      const mm = ddmmyyyy[2].padStart(2, '0');
-      const yyyy = ddmmyyyy[3];
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    // Dạng YYYY-MM-DD
-    const yyyymmdd = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-    if (yyyymmdd) {
-      const yyyy = yyyymmdd[1];
-      const mm = yyyymmdd[2].padStart(2, '0');
-      const dd = yyyymmdd[3].padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    // Chỉ nhập năm sinh (ví dụ: 2005)
-    const yearOnly = str.match(/\b(19\d{2}|20\d{2})\b/);
-    if (yearOnly) {
-      return `${yearOnly[1]}-01-01`;
-    }
-
-    return '';
-  };
-
-  // Trích xuất số CCCD từ ô dữ liệu
-  const extractCCCD = (str: string): string => {
-    if (!str) return '';
-    const match = str.match(/(?:cccd|cmnd|số|đdcn|id)?\s*:?\s*(\d{9,12})\b/i) || str.match(/\b(\d{9,12})\b/);
-    return match ? match[1] : '';
-  };
-
-  // Trích xuất Họ tên công dân chính chủ từ dòng text
-  const extractNameFromCell = (cellText: string): string => {
-    if (!cellText) return '';
-    const lines = cellText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    
-    for (const line of lines) {
-      const lower = line.toLowerCase();
-      // Bỏ qua dòng tiêu đề phụ hoặc dòng thông tin thân nhân / nhãn tiêu đề
-      if (/cccd|cmnd|căn cước|định danh|ngày sinh|năm sinh|số thẻ|thẻ căn cước|số|loại|thôn|ấp|xã|cha:|mẹ:|vợ:|con:|họ, chữ đệm|họ và tên|khai sinh/i.test(lower)) continue;
-      if (/\b\d{9,12}\b/.test(line)) continue;
-      if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}\b/.test(line)) continue;
-      
-      if (/[a-zA-Zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ\s]{2,}/i.test(line)) {
-        return sanitizeName(line);
-      }
-    }
-
-    const firstClean = sanitizeName(lines[0] || '');
-    if (/căn cước|cccd|ngày sinh|định danh|số thẻ|họ và tên|họ, chữ đệm/i.test(firstClean.toLowerCase())) {
-      return '';
-    }
-    return firstClean;
-  };
-
-  // Tự động làm sạch và chuẩn hóa Họ tên công dân
-  const sanitizeName = (str: string): string => {
-    if (!str) return '';
-    let cleaned = str
-      .replace(/[\x00-\x1F\x7F-\x9F\uFFFD]/g, '') // Bỏ ký tự điều khiển & replacement character
-      .replace(/\?\?\?/g, '')
-      .replace(/ï¿½/g, '')
-      .replace(/[@#$%^&*=+_<>\\\/~`]/g, '') // Bỏ ký tự đặc biệt rác
-      .replace(/\s+/g, ' ')
-      .trim();
-    return cleaned.toUpperCase();
-  };
-
-  // Kiểm tra cảnh báo font chữ, mã hóa UTF-8 hoặc chính tả (Không chặn nhập dữ liệu)
-  const checkFontWarning = (str: string): { isWarning: boolean; detail?: string } => {
-    if (!str) return { isWarning: false };
-
-    // Ký tự đè / replacement character / ??? / ï¿½
-    if (/\uFFFD/.test(str) || str.includes('???') || str.includes('ï¿½')) {
-      return { 
-        isWarning: true, 
-        detail: 'Họ và tên chứa ký tự mã hóa Unicode/replacement character (?, ???, ï¿½).' 
-      };
-    }
-
-    // Các chuỗi Mojibake / vỡ font chữ tiếng Việt khi dùng sai bảng mã TCVN3 / VNI
-    const brokenPatterns = [/Ã¢/i, /Ã¡/i, /Ã /i, /Ã£/i, /Ã²/i, /Ã³/i, /Ãª/i, /Ã­/i, /Ãº/i, /áº/i, /â€/i, /â€™/i];
-    for (const pattern of brokenPatterns) {
-      if (pattern.test(str)) {
-        return { 
-          isWarning: true, 
-          detail: 'Phát hiện vỡ font chữ tiếng Việt (chữ bị lỗi mã hóa UTF-8 / Mojibake).' 
-        };
-      }
-    }
-
-    // Họ tên chứa số hoặc ký tự đặc biệt bất thường
-    if (/[0-9@#$%^&*=+_<>\\\/~`]/.test(str)) {
-      return { 
-        isWarning: true, 
-        detail: 'Họ và tên chứa chữ số hoặc ký tự đặc biệt bất thường.' 
-      };
-    }
-
-    return { isWarning: false };
-  };
-
-  // Kiểm tra dòng có phải là dòng Tiêu đề / Metadata / Thông tin chung không
-  const isHeaderOrMetadataRow = (row: any[]): boolean => {
-    if (!Array.isArray(row) || row.length === 0) return true;
-
-    const joined = row.map(c => String(c || '').trim()).join(' ').toLowerCase();
-    if (!joined) return true;
-
-    const metadataKeywords = [
-      'bộ chỉ huy quân sự',
-      'cộng hòa xã hội chủ nghĩa',
-      'danh sách công dân',
-      'biểu số:',
-      'khổ biểu:',
-      'số tt',
-      'stt',
-      'họ, chữ đệm',
-      'họ và tên',
-      'ngày, tháng, năm sinh',
-      'số định danh cá nhân',
-      'số thẻ căn cước',
-      'thẻ căn cước/cccd',
-      'thẻ căn cước',
-      'căn cước công dân',
-      'thành phần gia đình',
-      'trình độ văn hóa',
-      'họ và tên cha',
-      'họ và tên mẹ',
-      'đơn vị giao nhận',
-      'tính từ ngày',
-      'nơi thường trú',
-      'chuyên môn kỹ thuật'
-    ];
-
-    for (const kw of metadataKeywords) {
-      if (joined.includes(kw)) return true;
-    }
-
-    // Dòng đánh số thứ tự cột [1], [2], [3], [4]...
-    const nonNumCells = row.filter(c => {
-      const s = String(c || '').trim();
-      return s !== '' && !/^\d{1,2}$/.test(s);
-    });
-    if (nonNumCells.length === 0 && row.filter(c => String(c || '').trim() !== '').length >= 3) {
-      return true;
-    }
-
-    return false;
   };
 
   // Xử lý đọc và nhập dữ liệu từ File Excel
@@ -981,11 +532,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     }
   };
 
-  const filteredErrorList = errorList.filter(err => {
-    if (filterErrorCategory === 'ALL') return true;
-    return err.errorType === filterErrorCategory;
-  });
-
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in duration-300">
@@ -1030,14 +576,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             </div>
             <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
               <button
-                onClick={handleDownloadTemplate17}
+                onClick={() => handleDownloadTemplate17(sessionYear)}
                 className="flex-1 md:flex-initial px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 title="Mẫu Biểu 01 - Dành cho Danh sách Đăng ký lần đầu (Tuổi 17)"
               >
                 <Download size={13} /> Mẫu Đăng Ký Lần Đầu (17 Tuổi)
               </button>
               <button
-                onClick={handleDownloadTemplateSource}
+                onClick={() => handleDownloadTemplateSource(sessionYear, currentUser?.unit?.commune)}
                 className="flex-1 md:flex-initial px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 title="Mẫu Danh sách nguồn tuyển quân - Dành cho các danh sách khác"
               >
@@ -1130,196 +676,15 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
           {/* Báo cáo Kết quả sau khi hoàn tất */}
           {isCompleted && (
-            <div className="space-y-5 animate-in fade-in duration-300">
-              
-              {/* Thống kê Tổng quan */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center gap-3.5">
-                  <div className="p-2.5 bg-emerald-100 rounded-xl text-emerald-700">
-                    <CheckCircle2 size={24} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-emerald-800">Thêm mới thành công</p>
-                    <p className="text-xl font-black text-emerald-950 font-mono">
-                      {insertedCount} công dân
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl flex items-center gap-3.5">
-                  <div className="p-2.5 bg-blue-100 rounded-xl text-blue-700">
-                    <RefreshCw size={24} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-blue-800">Cập nhật thông tin</p>
-                    <p className="text-xl font-black text-blue-950 font-mono">
-                      {updatedCount} công dân
-                    </p>
-                  </div>
-                </div>
-
-                <div className={`p-4 rounded-2xl flex items-center gap-3.5 border ${errorList.length > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                  <div className={`p-2.5 rounded-xl ${errorList.length > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-500'}`}>
-                    <AlertTriangle size={24} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black uppercase text-gray-700">Dòng lỗi không nhập được</p>
-                    <p className={`text-xl font-black font-mono ${errorList.length > 0 ? 'text-red-950' : 'text-gray-500'}`}>
-                      {errorList.length} dòng
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Thông báo Công dân có lý do Tạm hoãn / Miễn NVQS */}
-              {deferredExemptList.length > 0 && (
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between border-b border-amber-200 pb-2">
-                    <h4 className="text-xs font-black text-amber-950 uppercase flex items-center gap-2">
-                      <Info size={16} className="text-amber-600" />
-                      Thông báo Cán bộ: Phát hiện {deferredExemptList.length} công dân có lý do Tạm hoãn / Miễn NVQS hoặc Ghi chú
-                    </h4>
-                    <span className="text-[10px] font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full uppercase">
-                      Lưu ý quản lý
-                    </span>
-                  </div>
-
-                  <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
-                    {deferredExemptList.map((item, idx) => (
-                      <div key={idx} className="bg-white p-2.5 rounded-xl border border-amber-100 text-xs flex items-center justify-between gap-3 shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-gray-500">#{item.rowNum}</span>
-                          <span className="font-black text-gray-900">{item.fullName}</span>
-                          <span className="text-[10px] font-mono bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-bold">
-                            CCCD: {item.cccd}
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/60 truncate max-w-xs">
-                          {item.reason}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Thông báo Cán bộ: Công dân bị vỡ font / lỗi mã hóa nhưng ĐÃ TỰ ĐỘNG CHUẨN HÓA & LƯU THÀNH CÔNG */}
-              {fontWarningList.length > 0 && (
-                <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between border-b border-orange-200 pb-2">
-                    <h4 className="text-xs font-black text-orange-950 uppercase flex items-center gap-2">
-                      <AlertTriangle size={16} className="text-orange-600" />
-                      Phát hiện {fontWarningList.length} công dân bị vỡ font / lỗi mã hóa (Đã tự động làm sạch & Lưu thành công)
-                    </h4>
-                    <span className="text-[10px] font-black bg-orange-200 text-orange-900 px-2 py-0.5 rounded-full uppercase font-bold">
-                      Đã lưu CSDL
-                    </span>
-                  </div>
-
-                  <p className="text-[11px] text-orange-900 font-medium">
-                    Hệ thống đã tự động loại bỏ ký tự rác và lưu thành công thông tin công dân vào CSDL. Cán bộ có thể đối soát lại danh sách dưới đây:
-                  </p>
-
-                  <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
-                    {fontWarningList.map((item, idx) => (
-                      <div key={idx} className="bg-white p-2.5 rounded-xl border border-orange-100 text-xs flex items-center justify-between gap-3 shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-gray-500">#{item.rowNum}</span>
-                          <span className="font-black text-gray-900">{item.fullName}</span>
-                          <span className="text-[10px] font-mono bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-bold">
-                            CCCD: {item.cccd}
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-orange-800 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200/60 truncate max-w-xs">
-                          {item.detail}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* KHU VỰC CHI TIẾT DÒNG LỖI & NÚT TẢI BÁO CÁO EXCEL LỖI */}
-              {errorList.length > 0 && (
-                <div className="bg-red-50/90 border border-red-200 p-4 rounded-2xl space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-200 pb-3">
-                    <div>
-                      <h4 className="text-xs font-black text-red-950 uppercase flex items-center gap-2">
-                        <ShieldAlert size={18} className="text-red-600" />
-                        Danh sách chi tiết {errorList.length} dòng lỗi không thể nhập vào CSDL
-                      </h4>
-                      <p className="text-[11px] text-red-700 font-medium mt-0.5">
-                        Tải về báo cáo Excel bên dưới để chỉnh sửa nhanh các dòng bị thiếu hoặc sai sót.
-                      </p>
-                    </div>
-
-                    {/* NÚT TẢI BÁO CÁO EXCEL LỖI QUAN TRỌNG */}
-                    <button
-                      onClick={handleDownloadErrorReport}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-xs uppercase shadow-md active:scale-95 transition-all flex items-center gap-2 shrink-0 border border-red-500"
-                    >
-                      <FileX size={16} />
-                      Tải File Excel Báo Cáo Lỗi
-                    </button>
-                  </div>
-
-                  {/* Bộ lọc loại lỗi */}
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="font-black uppercase text-red-900 text-[10px]">Lọc loại lỗi:</span>
-                    <select
-                      value={filterErrorCategory}
-                      onChange={(e) => setFilterErrorCategory(e.target.value)}
-                      className="px-2.5 py-1 bg-white border border-red-200 rounded-lg text-xs font-bold text-red-950 focus:outline-none focus:ring-1 focus:ring-red-500"
-                    >
-                      <option value="ALL">Tất cả ({errorList.length} dòng)</option>
-                      <option value="LOI_FONT_CHINH_TA">
-                        Lỗi Font chữ / Mã hóa ({errorList.filter(e => e.errorType === 'LOI_FONT_CHINH_TA').length})
-                      </option>
-                      <option value="THIEU_CCCD">
-                        Thiếu CCCD ({errorList.filter(e => e.errorType === 'THIEU_CCCD').length})
-                      </option>
-                      <option value="CCCD_SAI_DINH_DANG">
-                        CCCD sai định dạng ({errorList.filter(e => e.errorType === 'CCCD_SAI_DINH_DANG').length})
-                      </option>
-                      <option value="THIEU_HO_TEN">
-                        Thiếu Họ tên ({errorList.filter(e => e.errorType === 'THIEU_HO_TEN').length})
-                      </option>
-                    </select>
-                  </div>
-
-                  {/* Danh sách hiển thị lỗi */}
-                  <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-2.5 pr-1">
-                    {filteredErrorList.map((err, idx) => (
-                      <div key={idx} className="bg-white p-3 rounded-xl border border-red-200 text-xs flex flex-col gap-1.5 shadow-sm">
-                        <div className="flex items-center justify-between font-mono">
-                          <span className="font-black text-red-950 flex items-center gap-1.5">
-                            <span className="px-1.5 py-0.5 bg-red-100 text-red-800 rounded font-mono font-bold text-[10px]">
-                              Dòng #{err.rowNum}
-                            </span>
-                            {err.name ? `• ${err.name}` : ''}
-                          </span>
-                          {err.cccd && (
-                            <span className="text-[10px] bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded font-mono font-bold">
-                              CCCD: {err.cccd}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="text-[11px] space-y-1">
-                          <p className="text-red-800 font-bold flex items-start gap-1">
-                            <span className="text-red-500 font-bold">• Nguyên nhân:</span> {err.reason}
-                          </p>
-                          <p className="text-gray-600 font-medium flex items-start gap-1 bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                            <span className="text-blue-700 font-bold">💡 Gợi ý điều chỉnh:</span> {err.suggestion}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </div>
+            <ImportReportView
+              insertedCount={insertedCount}
+              updatedCount={updatedCount}
+              errorList={errorList}
+              deferredExemptList={deferredExemptList}
+              fontWarningList={fontWarningList}
+              sessionYear={sessionYear}
+              selectedFileName={selectedFile?.name}
+            />
           )}
 
         </div>
