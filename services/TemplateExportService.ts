@@ -116,6 +116,8 @@ export class TemplateExportService {
           }
         });
 
+        let maxVisualLinesInRow = 1;
+
         Object.entries(template.mapping).forEach(([colIndex, mappingValue]) => {
           const col = parseInt(colIndex);
           const fieldKeys = Array.isArray(mappingValue) ? mappingValue : [mappingValue];
@@ -200,10 +202,35 @@ export class TemplateExportService {
             top: {style:'thin'}, left: {style:'thin'}, 
             bottom: {style:'thin'}, right: {style:'thin'} 
           };
+
+          // Tính toán số dòng hiển thị thực tế khi ngắt dòng (wrap text)
+          if (combinedValue) {
+            const colObj = worksheet.getColumn(col);
+            let colWidth = colObj && colObj.width ? colObj.width : 20;
+            if (colWidth < 8) {
+              colWidth = (col === 1) ? 6 : 20;
+            }
+
+            // Với phông chữ Times New Roman 11pt, trung bình khoảng 0.82 ký tự / 1 unit độ rộng cột
+            const charsPerLine = Math.max(6, Math.floor(colWidth * 0.82));
+            const paragraphs = combinedValue.split('\n');
+            let cellLines = 0;
+
+            paragraphs.forEach(p => {
+              const pLen = p.length;
+              const wrapped = pLen > 0 ? Math.ceil(pLen / charsPerLine) : 1;
+              cellLines += wrapped;
+            });
+
+            if (cellLines > maxVisualLinesInRow) {
+              maxVisualLinesInRow = cellLines;
+            }
+          }
         });
         
-        const maxLinesInRow = Math.max(...Object.values(template.mapping).map(v => Array.isArray(v) ? v.length : 1));
-        row.height = Math.max(25, maxLinesInRow * 15);
+        // Mỗi dòng chữ 11pt cần khoảng 18pt chiều cao + 10pt lề padding
+        const neededHeight = maxVisualLinesInRow * 18 + 10;
+        row.height = Math.max(28, neededHeight);
         
         currentRow++;
       });
