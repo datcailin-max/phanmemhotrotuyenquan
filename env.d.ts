@@ -128,6 +128,16 @@ declare module 'xlsx-js-style' {
   export default XLSX;
 }
 
+declare module 'docxtemplater' {
+  const Docxtemplater: any;
+  export default Docxtemplater;
+}
+
+declare module 'pizzip' {
+  const PizZip: any;
+  export default PizZip;
+}
+
 declare module 'recharts' {
     export const ResponsiveContainer: any;
     export const BarChart: any;
