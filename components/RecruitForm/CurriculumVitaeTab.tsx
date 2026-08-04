@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { FileText, Download, Sparkles, CheckCircle, RefreshCw, User, ShieldCheck } from 'lucide-react';
 import { Recruit, CurriculumVitae } from '../../types';
 import { helperAutoFillCV, generateCurriculumVitaeWordDoc } from '../../services/WordExportService';
+import { api } from '../../api';
 
 interface CurriculumVitaeTabProps {
   formData: Recruit;
@@ -38,7 +39,14 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
 
   const handleExportWord = async () => {
     try {
-      await generateCurriculumVitaeWordDoc(formData, cv);
+      let tplUrl = formData.wordDocument?.url;
+      if (!tplUrl) {
+        const master = await api.getMasterWordTemplate().catch(() => null);
+        if (master?.url) {
+          tplUrl = master.url;
+        }
+      }
+      await generateCurriculumVitaeWordDoc(formData, cv, tplUrl);
     } catch (err: any) {
       alert(`Lỗi khi xuất tệp Word: ${err.message || err}`);
     }

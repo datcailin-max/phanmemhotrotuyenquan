@@ -1,6 +1,92 @@
 import { Document, Packer, Paragraph, TextRun, AlignmentType, Header, Footer, PageNumber } from 'docx';
 import { saveAs } from 'file-saver';
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
 import { Recruit, CurriculumVitae } from '../types';
+
+export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record<string, any> => {
+  const dobStr = recruit.dob || (cv.birthDay ? `${cv.birthDay}/${cv.birthMonth}/${cv.birthYear}` : '');
+
+  return {
+    fullNameUpper: cv.fullNameUpper || (recruit.fullName ? recruit.fullName.toUpperCase() : ''),
+    fullName: recruit.fullName || '',
+    aliasName: cv.aliasName || recruit.fullName || '',
+    birthDay: cv.birthDay || '',
+    birthMonth: cv.birthMonth || '',
+    birthYear: cv.birthYear || '',
+    dob: dobStr,
+    gender: cv.gender || 'Nam',
+    citizenId: cv.citizenId || recruit.citizenId || '',
+    placeOfBirth: cv.placeOfBirth || '',
+    hometown: cv.hometown || '',
+    ethnicity: cv.ethnicity || recruit.details?.ethnicity || '',
+    religion: cv.religion || recruit.details?.religion || '',
+    nationality: cv.nationality || 'Việt Nam',
+    permanentAddress: cv.permanentAddress || '',
+    temporaryAddress: cv.temporaryAddress || '',
+    familyClass: cv.familyClass || '',
+    personalClass: cv.personalClass || '',
+    educationLevel: cv.educationLevel || recruit.details?.education || '',
+    qualificationLevel: cv.qualificationLevel || recruit.details?.school || '',
+    languageLevel: cv.languageLevel || '',
+    major: cv.major || recruit.details?.major || '',
+    communistPartyJoinedDate: cv.communistPartyJoinedDate || recruit.details?.partyEntryDate || '',
+    communistPartyOfficialDate: cv.communistPartyOfficialDate || '',
+    youthUnionJoinedDate: cv.youthUnionJoinedDate || '',
+    commendations: cv.commendations || recruit.details?.rewards || '',
+    disciplinaryAction: cv.disciplinaryAction || recruit.details?.disciplines || '',
+    job: cv.job || recruit.details?.job || '',
+    salary: cv.salary || '',
+    salaryGrade: cv.salaryGrade || '',
+    salaryRank: cv.salaryRank || '',
+    workplace: cv.workplace || recruit.details?.workAddress || '',
+    foreignTravel: cv.foreignTravel || '',
+    fatherName: cv.fatherName || recruit.family?.father?.fullName || '',
+    fatherStatus: cv.fatherStatus || '',
+    fatherBirthDate: cv.fatherBirthDate || '',
+    fatherJob: cv.fatherJob || recruit.family?.father?.job || '',
+    motherName: cv.motherName || recruit.family?.mother?.fullName || '',
+    motherStatus: cv.motherStatus || '',
+    motherBirthDate: cv.motherBirthDate || '',
+    motherJob: cv.motherJob || recruit.family?.mother?.job || '',
+    spouseName: cv.spouseName || recruit.family?.wife?.fullName || '',
+    spouseBirthDate: cv.spouseBirthDate || '',
+    spouseJob: cv.spouseJob || recruit.family?.wife?.job || '',
+    childrenCount: cv.childrenCount || '0',
+    totalSiblings: cv.totalSiblings || '1',
+    maleSiblings: cv.maleSiblings || '',
+    femaleSiblings: cv.femaleSiblings || '',
+    siblingOrder: cv.siblingOrder || '1',
+
+    // UPPERCASE Aliases for Template Tags
+    FULL_NAME: cv.fullNameUpper || (recruit.fullName ? recruit.fullName.toUpperCase() : ''),
+    ALIAS_NAME: cv.aliasName || recruit.fullName || '',
+    DOB: dobStr,
+    CITIZEN_ID: cv.citizenId || recruit.citizenId || '',
+    PLACE_OF_BIRTH: cv.placeOfBirth || '',
+    HOMETOWN: cv.hometown || '',
+    ETHNICITY: cv.ethnicity || '',
+    RELIGION: cv.religion || '',
+    NATIONALITY: cv.nationality || 'Việt Nam',
+    PERMANENT_ADDRESS: cv.permanentAddress || '',
+    TEMPORARY_ADDRESS: cv.temporaryAddress || '',
+    FAMILY_CLASS: cv.familyClass || '',
+    PERSONAL_CLASS: cv.personalClass || '',
+    EDUCATION: cv.educationLevel || '',
+    QUALIFICATION: cv.qualificationLevel || '',
+    JOB: cv.job || '',
+    WORKPLACE: cv.workplace || '',
+    FATHER_NAME: cv.fatherName || '',
+    FATHER_BIRTH: cv.fatherBirthDate || '',
+    FATHER_JOB: cv.fatherJob || '',
+    MOTHER_NAME: cv.motherName || '',
+    MOTHER_BIRTH: cv.motherBirthDate || '',
+    MOTHER_JOB: cv.motherJob || '',
+    SPOUSE_NAME: cv.spouseName || '',
+    SPOUSE_BIRTH: cv.spouseBirthDate || '',
+    SPOUSE_JOB: cv.spouseJob || '',
+  };
+};
 
 export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
   const existingCV = recruit.curriculumVitae || {};
@@ -87,8 +173,53 @@ export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
   };
 };
 
-export const generateCurriculumVitaeWordDoc = async (recruit: Recruit, customCV?: CurriculumVitae) => {
+export const generateCurriculumVitaeWordDoc = async (
+  recruit: Recruit, 
+  customCV?: CurriculumVitae,
+  templateUrl?: string
+) => {
   const cv = customCV || helperAutoFillCV(recruit);
+
+  // If a Word template URL is provided (e.g. Admin master template or citizen custom Word template)
+  if (templateUrl) {
+    try {
+      let arrayBuffer: ArrayBuffer;
+      if (templateUrl.startsWith('data:')) {
+        const base64Data = templateUrl.split(';base64,').pop() || '';
+        const binaryStr = atob(base64Data);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        arrayBuffer = bytes.buffer;
+      } else {
+        const res = await fetch(templateUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        arrayBuffer = await res.arrayBuffer();
+      }
+
+      const zip = new PizZip(arrayBuffer);
+      const docxtpl = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        nullGetter() { return ''; }
+      });
+
+      const dataPayload = buildTemplateData(recruit, cv);
+      docxtpl.render(dataPayload);
+
+      const outBlob = docxtpl.getZip().generate({
+        type: 'blob',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+
+      const filename = `Ho_So_NVQS_${recruit.fullName ? recruit.fullName.replace(/\s+/g, '_') : 'Cong_Dan'}.docx`;
+      saveAs(outBlob, filename);
+      return;
+    } catch (err: any) {
+      console.warn("Lỗi khi bơm dữ liệu vào mẫu file Word Admin, chuyển sang tự tạo file Word...", err);
+    }
+  }
 
   const makeDotted = (text?: string, minLength = 30) => {
     const str = text ? String(text).trim() : '';
