@@ -85,6 +85,56 @@ export interface MasterWordTemplate {
   fileType?: string;
 }
 
+export interface CurriculumVitae {
+  fullNameUpper?: string; // Họ, chữ đệm và tên khai sinh (viết chữ in hoa)
+  aliasName?: string; // Họ, chữ đệm và tên thường dùng
+  birthDay?: string; // Sinh ngày
+  birthMonth?: string; // tháng
+  birthYear?: string; // năm
+  gender?: string; // Giới tính (nam, nữ)
+  citizenId?: string; // Số thẻ căn cước/CCCD
+  placeOfBirth?: string; // Nơi đăng ký khai sinh
+  hometown?: string; // Quê quán
+  ethnicity?: string; // Dân tộc
+  religion?: string; // Tôn giáo
+  nationality?: string; // Quốc tịch
+  permanentAddress?: string; // Nơi thường trú của gia đình
+  temporaryAddress?: string; // Nơi ở hiện tại của bản thân
+  familyClass?: string; // Thành phần gia đình
+  personalClass?: string; // Thành phần bản thân
+  educationLevel?: string; // Trình độ giáo dục phổ thông
+  qualificationLevel?: string; // Trình độ đào tạo
+  languageLevel?: string; // Ngoại ngữ
+  major?: string; // Chuyên ngành đào tạo
+  communistPartyJoinedDate?: string; // Ngày vào Đảng CSVN
+  communistPartyOfficialDate?: string; // Chính thức
+  youthUnionJoinedDate?: string; // Ngày vào Đoàn TNCS Hồ Chí Minh
+  commendations?: string; // Khen thưởng
+  disciplinaryAction?: string; // Kỷ luật
+  job?: string; // Nghề nghiệp
+  salary?: string; // Lương
+  salaryGrade?: string; // Ngạch
+  salaryRank?: string; // Bậc
+  workplace?: string; // Nơi làm việc, (học tập)
+  foreignTravel?: string; // Đã đi nước ngoài (tên nước, thời gian, lý do)
+  fatherName?: string; // Họ tên cha
+  fatherStatus?: string; // (sống, chết)
+  fatherBirthDate?: string; // Sinh ngày ... tháng ... năm ...
+  fatherJob?: string; // Nghề nghiệp
+  motherName?: string; // Họ tên mẹ
+  motherStatus?: string; // (sống, chết)
+  motherBirthDate?: string; // Sinh ngày ... tháng ... năm ...
+  motherJob?: string; // Nghề nghiệp
+  spouseName?: string; // Họ tên vợ (chồng)
+  spouseBirthDate?: string; // Sinh ngày ... tháng ... năm ...
+  spouseJob?: string; // Nghề nghiệp
+  childrenCount?: string; // Bản thân đã có ... con
+  totalSiblings?: string; // Cha mẹ có ... người con
+  maleSiblings?: string; // ... trai
+  femaleSiblings?: string; // ... gái
+  siblingOrder?: string; // bản thân là con thứ ...
+}
+
 export interface Recruit {
   id: string;
   citizenId: string;
@@ -144,6 +194,7 @@ export interface Recruit {
   recruitmentYear: number;
   attachments?: RecruitAttachment[];
   wordDocument?: RecruitWordDocument;
+  curriculumVitae?: CurriculumVitae;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -88,7 +88,8 @@ const recruitSchema = new mongoose.Schema({
     uploadDate: String,
     updatedBy: String,
     isCustom: Boolean
-  }
+  },
+  curriculumVitae: { type: Object, default: {} }
 }, { timestamps: true });
 
 const Recruit = mongoose.model('Recruit', recruitSchema);

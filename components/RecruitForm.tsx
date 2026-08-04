@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment, RecruitWordDocument } from '../types';
-import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt, Trash2 } from 'lucide-react';
+import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt, Trash2, FileText, UserCheck } from 'lucide-react';
 import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
 import { api } from '../api';
 
@@ -12,6 +12,7 @@ import StatusFields from './RecruitForm/StatusFields';
 import FamilyFields from './RecruitForm/FamilyFields';
 import AttachmentFields from './RecruitForm/AttachmentFields';
 import { WordDocumentSection } from './RecruitForm/WordDocumentSection';
+import { CurriculumVitaeTab } from './RecruitForm/CurriculumVitaeTab';
 
 interface RecruitFormProps {
   initialData?: Recruit;
@@ -55,6 +56,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
   });
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [activeTab, setActiveTab] = useState<'PROFILE' | 'CURRICULUM_VITAE'>('PROFILE');
 
   useEffect(() => {
     if (initialData) {
@@ -321,152 +323,191 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
             </div>
           )}
 
-          {/* MỤC CHỌN HÌNH THỨC ĐĂNG KÝ - ĐƯA LÊN ĐẦU CHO DS 3 */}
-          {isDS3 && (
-            <div className="bg-cyan-50 border-2 border-cyan-200 p-5 rounded-2xl mb-8 animate-in slide-in-from-top-2 duration-500">
-               <label className="block text-xs font-black text-cyan-800 uppercase mb-3 flex items-center gap-2">
-                  <UserPlus size={18} className="text-cyan-600"/> Hình thức đăng ký Nghĩa vụ quân sự (Bắt buộc)
-               </label>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => handleChange('details.registrationMethod', 'DIRECT')}
-                    className={`flex items-center justify-center gap-3 py-3.5 rounded-xl border-2 transition-all font-black uppercase text-xs ${
-                      formData.details.registrationMethod === 'DIRECT' 
-                        ? 'bg-cyan-600 border-cyan-700 text-white shadow-lg scale-[1.02]' 
-                        : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-200'
-                    }`}
-                    disabled={isReadOnly}
-                  >
-                    <UserIconAlt size={20}/> Đăng ký trực tiếp
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => handleChange('details.registrationMethod', 'ONLINE')}
-                    className={`flex items-center justify-center gap-3 py-3.5 rounded-xl border-2 transition-all font-black uppercase text-xs ${
-                      formData.details.registrationMethod === 'ONLINE' 
-                        ? 'bg-blue-600 border-blue-700 text-white shadow-lg scale-[1.02]' 
-                        : 'bg-white border-gray-200 text-gray-400 hover:border-blue-200'
-                    }`}
-                    disabled={isReadOnly}
-                  >
-                    <Globe size={20}/> Đăng ký trực tuyến
-                  </button>
-               </div>
-               <p className="text-[10px] text-cyan-600 font-bold italic mt-2">* Thông tin này dùng để phân loại cách thức công dân thực hiện nghĩa vụ tại địa phương.</p>
-            </div>
-          )}
+          {/* TAB CHUYỂN ĐỔI GIỮA HỒ SƠ CHUNG VÀ SƠ YẾU LÝ LỊCH (MỤC I) */}
+          <div className="flex items-center gap-3 mb-6 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('PROFILE')}
+              className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-black text-xs uppercase transition-all ${
+                activeTab === 'PROFILE'
+                  ? 'bg-military-700 text-white shadow-md scale-[1.01]'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
+              }`}
+            >
+              <UserIcon size={18} /> Hồ sơ chung quân nhân
+            </button>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-            <div className="space-y-8">
-               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                 <div className="flex flex-col md:flex-row gap-6 mb-8">
-                    <div className="flex flex-col items-center gap-2 shrink-0 mx-auto md:mx-0">
-                        <div className="w-32 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative group shadow-sm">
-                           {isUploadingAvatar ? (
-                             <div className="text-center p-2">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-military-600 mx-auto"></div>
-                                <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Đang tải...</p>
-                             </div>
-                           ) : formData.avatarUrl ? (
-                             <img src={formData.avatarUrl} className="w-full h-full object-cover" alt="Avatar"/>
-                           ) : (
-                             <div className="text-center p-2">
-                                <Camera size={32} className="mx-auto text-gray-300" />
-                                <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Ảnh chân dung</p>
-                             </div>
-                           )}
-                           {!isReadOnly && !isUploadingAvatar && (
-                             <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-black uppercase p-2 gap-1 text-center">
-                                <Camera size={18} />
-                                <span>{formData.avatarUrl ? 'Thay ảnh mới' : 'Tải ảnh lên'}</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                             </label>
-                           )}
-                        </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('CURRICULUM_VITAE')}
+              className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-black text-xs uppercase transition-all ${
+                activeTab === 'CURRICULUM_VITAE'
+                  ? 'bg-blue-700 text-white shadow-md scale-[1.01]'
+                  : 'text-gray-600 hover:text-blue-700 hover:bg-blue-50/80'
+              }`}
+            >
+              <FileText size={18} /> Sơ yếu lý lịch (Mục I)
+            </button>
+          </div>
 
-                        {!isReadOnly && !isUploadingAvatar && (
-                          <div className="flex items-center gap-1.5 w-32 mt-1">
-                            <label className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-military-50 text-military-800 hover:bg-military-100 rounded-lg text-[10px] font-black uppercase cursor-pointer border border-military-200 transition-colors text-center">
-                              <Camera size={11} />
-                              <span>{formData.avatarUrl ? 'Thay' : 'Tải'}</span>
-                              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                            </label>
-                            {formData.avatarUrl && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (window.confirm("Xác nhận xóa ảnh chân dung của công dân này?")) {
-                                    handleChange('avatarUrl', '');
-                                  }
-                                }}
-                                className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-[10px] font-black uppercase border border-red-200 transition-colors text-center"
-                                title="Xóa ảnh công dân"
-                              >
-                                <Trash2 size={11} />
-                                <span>Xóa</span>
-                              </button>
+          {activeTab === 'CURRICULUM_VITAE' ? (
+            <CurriculumVitaeTab
+              formData={formData}
+              isReadOnly={isReadOnly}
+              onUpdateCV={(updatedCV) => {
+                setFormData(prev => ({ ...prev, curriculumVitae: updatedCV }));
+              }}
+            />
+          ) : (
+            <>
+              {/* MỤC CHỌN HÌNH THỨC ĐĂNG KÝ - ĐƯA LÊN ĐẦU CHO DS 3 */}
+              {isDS3 && (
+                <div className="bg-cyan-50 border-2 border-cyan-200 p-5 rounded-2xl mb-8 animate-in slide-in-from-top-2 duration-500">
+                   <label className="block text-xs font-black text-cyan-800 uppercase mb-3 flex items-center gap-2">
+                      <UserPlus size={18} className="text-cyan-600"/> Hình thức đăng ký Nghĩa vụ quân sự (Bắt buộc)
+                   </label>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button 
+                        type="button"
+                        onClick={() => handleChange('details.registrationMethod', 'DIRECT')}
+                        className={`flex items-center justify-center gap-3 py-3.5 rounded-xl border-2 transition-all font-black uppercase text-xs ${
+                          formData.details.registrationMethod === 'DIRECT' 
+                            ? 'bg-cyan-600 border-cyan-700 text-white shadow-lg scale-[1.02]' 
+                            : 'bg-white border-gray-200 text-gray-400 hover:border-cyan-200'
+                        }`}
+                        disabled={isReadOnly}
+                      >
+                        <UserIconAlt size={20}/> Đăng ký trực tiếp
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleChange('details.registrationMethod', 'ONLINE')}
+                        className={`flex items-center justify-center gap-3 py-3.5 rounded-xl border-2 transition-all font-black uppercase text-xs ${
+                          formData.details.registrationMethod === 'ONLINE' 
+                            ? 'bg-blue-600 border-blue-700 text-white shadow-lg scale-[1.02]' 
+                            : 'bg-white border-gray-200 text-gray-400 hover:border-blue-200'
+                        }`}
+                        disabled={isReadOnly}
+                      >
+                        <Globe size={20}/> Đăng ký trực tuyến
+                      </button>
+                   </div>
+                   <p className="text-[10px] text-cyan-600 font-bold italic mt-2">* Thông tin này dùng để phân loại cách thức công dân thực hiện nghĩa vụ tại địa phương.</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <div className="space-y-8">
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                     <div className="flex flex-col md:flex-row gap-6 mb-8">
+                        <div className="flex flex-col items-center gap-2 shrink-0 mx-auto md:mx-0">
+                            <div className="w-32 h-40 bg-gray-100 rounded-xl border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center relative group shadow-sm">
+                               {isUploadingAvatar ? (
+                                 <div className="text-center p-2">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-military-600 mx-auto"></div>
+                                    <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Đang tải...</p>
+                                 </div>
+                               ) : formData.avatarUrl ? (
+                                 <img src={formData.avatarUrl} className="w-full h-full object-cover" alt="Avatar"/>
+                               ) : (
+                                 <div className="text-center p-2">
+                                    <Camera size={32} className="mx-auto text-gray-300" />
+                                    <p className="text-[8px] font-black text-gray-400 mt-2 uppercase">Ảnh chân dung</p>
+                                 </div>
+                               )}
+                               {!isReadOnly && !isUploadingAvatar && (
+                                 <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-black uppercase p-2 gap-1 text-center">
+                                    <Camera size={18} />
+                                    <span>{formData.avatarUrl ? 'Thay ảnh mới' : 'Tải ảnh lên'}</span>
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                                 </label>
+                               )}
+                            </div>
+
+                            {!isReadOnly && !isUploadingAvatar && (
+                              <div className="flex items-center gap-1.5 w-32 mt-1">
+                                <label className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-military-50 text-military-800 hover:bg-military-100 rounded-lg text-[10px] font-black uppercase cursor-pointer border border-military-200 transition-colors text-center">
+                                  <Camera size={11} />
+                                  <span>{formData.avatarUrl ? 'Thay' : 'Tải'}</span>
+                                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                                </label>
+                                {formData.avatarUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (window.confirm("Xác nhận xóa ảnh chân dung của công dân này?")) {
+                                        handleChange('avatarUrl', '');
+                                      }
+                                    }}
+                                    className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-[10px] font-black uppercase border border-red-200 transition-colors text-center"
+                                    title="Xóa ảnh công dân"
+                                  >
+                                    <Trash2 size={11} />
+                                    <span>Xóa</span>
+                                  </button>
+                                )}
+                              </div>
                             )}
-                          </div>
-                        )}
+                         </div>
+
+                        <div className="flex-1 space-y-4">
+                           <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-3 flex items-center gap-2 uppercase text-sm mb-4">
+                              <UserIcon size={18} className="text-military-600" /> Lý lịch trích ngang
+                           </h3>
+                           <div className="grid grid-cols-2 gap-4">
+                             <div className="col-span-2">
+                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Họ và tên công dân</label>
+                                <input required type="text" readOnly={isReadOnly} className="w-full rounded-lg border-gray-300 border p-2.5 font-black uppercase text-gray-800 focus:ring-2 focus:ring-military-50 outline-none" value={formData.fullName} onChange={(e) => handleChange('fullName', e.target.value)}/>
+                             </div>
+                             <div>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Ngày sinh</label>
+                                <input required type="date" readOnly={isReadOnly} className="w-full rounded-lg border-gray-300 border p-2.5 font-bold text-gray-800" value={formData.dob} onChange={(e) => handleChange('dob', e.target.value)}/>
+                             </div>
+                             <div>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Số CCCD</label>
+                                <input type="text" readOnly={isReadOnly} className="w-full rounded-lg border-gray-300 border p-2.5 font-mono font-black text-blue-700" value={formData.citizenId} onChange={(e) => handleChange('citizenId', e.target.value)}/>
+                             </div>
+                           </div>
+                        </div>
                      </div>
 
-                    <div className="flex-1 space-y-4">
-                       <h3 className="text-gray-900 font-bold border-b border-gray-200 pb-3 flex items-center gap-2 uppercase text-sm mb-4">
-                          <UserIcon size={18} className="text-military-600" /> Lý lịch trích ngang
-                       </h3>
-                       <div className="grid grid-cols-2 gap-4">
-                         <div className="col-span-2">
-                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Họ và tên công dân</label>
-                            <input required type="text" readOnly={isReadOnly} className="w-full rounded-lg border-gray-300 border p-2.5 font-black uppercase text-gray-800 focus:ring-2 focus:ring-military-50 outline-none" value={formData.fullName} onChange={(e) => handleChange('fullName', e.target.value)}/>
-                         </div>
-                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Ngày sinh</label>
-                            <input required type="date" readOnly={isReadOnly} className="w-full rounded-lg border-gray-300 border p-2.5 font-bold text-gray-800" value={formData.dob} onChange={(e) => handleChange('dob', e.target.value)}/>
-                         </div>
-                         <div>
-                            <label className="block text-[10px] font-black text-gray-500 uppercase mb-1 tracking-widest">Số CCCD</label>
-                            <input type="text" readOnly={isReadOnly} className="w-full rounded-lg border-gray-300 border p-2.5 font-mono font-black text-blue-700" value={formData.citizenId} onChange={(e) => handleChange('citizenId', e.target.value)}/>
-                         </div>
-                       </div>
-                    </div>
-                 </div>
+                     <LocationFields 
+                        label="Địa chỉ thường trú (Theo hộ khẩu)" icon={null} prefix="address"
+                        province={formData.address.province} commune={formData.address.commune} village={formData.address.village} street={formData.address.street}
+                        isLocalityFixed={!!user.unit.commune} isReadOnly={isReadOnly} onUpdate={handleChange}
+                     />
+                     <div className="mt-8">
+                       <LocationFields 
+                          label="Quê quán" icon={null} prefix="hometown"
+                          province={formData.hometown.province} commune={formData.hometown.commune} village={formData.hometown.village}
+                          isReadOnly={isReadOnly} onUpdate={handleChange}
+                       />
+                     </div>
+                   </div>
 
-                 <LocationFields 
-                    label="Địa chỉ thường trú (Theo hộ khẩu)" icon={null} prefix="address"
-                    province={formData.address.province} commune={formData.address.commune} village={formData.address.village} street={formData.address.street}
-                    isLocalityFixed={!!user.unit.commune} isReadOnly={isReadOnly} onUpdate={handleChange}
-                 />
-                 <div className="mt-8">
-                   <LocationFields 
-                      label="Quê quán" icon={null} prefix="hometown"
-                      province={formData.hometown.province} commune={formData.hometown.commune} village={formData.hometown.village}
-                      isReadOnly={isReadOnly} onUpdate={handleChange}
-                   />
-                 </div>
-               </div>
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                     <FamilyFields formData={formData} isReadOnly={isReadOnly} handleChange={handleChange} />
+                   </div>
+                </div>
 
-               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                 <FamilyFields formData={formData} isReadOnly={isReadOnly} handleChange={handleChange} />
-               </div>
-            </div>
+                <div className="space-y-8">
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                     <QualityFields formData={formData} isReadOnly={isReadOnly} handleChange={handleChange} isStudyingHigherEd={isStudyingHigherEd} />
+                     <StatusFields formData={formData} isReadOnly={isReadOnly} handleChange={handleChange} />
+                   </div>
 
-            <div className="space-y-8">
-               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                 <QualityFields formData={formData} isReadOnly={isReadOnly} handleChange={handleChange} isStudyingHigherEd={isStudyingHigherEd} />
-                 <StatusFields formData={formData} isReadOnly={isReadOnly} handleChange={handleChange} />
-               </div>
-
-               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                 <AttachmentFields 
-                    attachments={formData.attachments} 
-                    isReadOnly={isReadOnly} 
-                    onUpload={handleAddAttachment} 
-                    onDelete={handleRemoveAttachment} 
-                 />
-               </div>
-            </div>
-          </div>
+                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                     <AttachmentFields 
+                        attachments={formData.attachments} 
+                        isReadOnly={isReadOnly} 
+                        onUpload={handleAddAttachment} 
+                        onDelete={handleRemoveAttachment} 
+                     />
+                   </div>
+                </div>
+              </div>
+            </>
+          )}
         </form>
 
         <div className="bg-white p-5 border-t flex items-center justify-between shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] relative z-10">
