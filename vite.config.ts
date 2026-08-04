@@ -21,7 +21,8 @@ export default defineConfig({
           vendor: ['react', 'react-dom'],
           charts: ['recharts'],
           utils: ['lucide-react'],
-          excel: ['xlsx-js-style']
+          excel: ['xlsx-js-style', 'exceljs'],
+          docx: ['docx', 'file-saver']
         }
       }
     }
