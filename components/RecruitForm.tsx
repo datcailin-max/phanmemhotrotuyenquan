@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment } from '../types';
+import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment, RecruitWordDocument } from '../types';
 import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt, Trash2 } from 'lucide-react';
 import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
 import { api } from '../api';
@@ -11,6 +11,7 @@ import QualityFields from './RecruitForm/QualityFields';
 import StatusFields from './RecruitForm/StatusFields';
 import FamilyFields from './RecruitForm/FamilyFields';
 import AttachmentFields from './RecruitForm/AttachmentFields';
+import { WordDocumentSection } from './RecruitForm/WordDocumentSection';
 
 interface RecruitFormProps {
   initialData?: Recruit;
@@ -299,6 +300,17 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 bg-gray-50/50">
+          {/* VĂN BẢN WORD HỒ SƠ CÔNG DÂN (TỰ ĐỘNG XUẤT HIỆN Ở ĐẦU MỖI HỒ SƠ) */}
+          <WordDocumentSection 
+            wordDocument={formData.wordDocument}
+            user={user}
+            recruitName={formData.fullName}
+            isReadOnly={isReadOnly}
+            onUpdateWordDoc={(newWordDoc: RecruitWordDocument | undefined) => {
+              setFormData(prev => ({ ...prev, wordDocument: newWordDoc }));
+            }}
+          />
+
           {isReadOnly && (
             <div className="bg-blue-600 text-white p-4 rounded-xl mb-8 flex items-center justify-between shadow-lg animate-pulse">
                <div className="flex items-center gap-3">

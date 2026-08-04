@@ -12,6 +12,7 @@ import Feedback from './models/Feedback.js';
 import Report from './models/Report.js';
 import Dispatch from './models/Dispatch.js';
 import Template from './models/Template.js';
+import MasterWordTemplate from './models/MasterWordTemplate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -190,6 +191,34 @@ app.delete('/api/recruits/:id', async (req, res) => { try { await Recruit.findOn
 // --- TEMPLATE API ---
 app.get('/api/templates', async (req, res) => { try { res.json(await Template.find()); } catch (e) { res.status(500).json({ message: e.message }); } });
 app.post('/api/templates', async (req, res) => { try { res.status(201).json(await new Template(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
+
+// --- MASTER WORD TEMPLATE API ---
+app.get('/api/settings/master-word-template', async (req, res) => {
+  try {
+    const template = await MasterWordTemplate.findOne().sort({ createdAt: -1 });
+    res.json(template || null);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+app.post('/api/settings/master-word-template', async (req, res) => {
+  try {
+    // Delete existing ones to keep only the latest master template
+    await MasterWordTemplate.deleteMany({});
+    const newDoc = new MasterWordTemplate({
+      name: req.body.name,
+      url: req.body.url,
+      uploadDate: req.body.uploadDate || new Date().toLocaleDateString('vi-VN'),
+      updatedBy: req.body.updatedBy || 'ADMIN',
+      fileType: 'WORD'
+    });
+    const saved = await newDoc.save();
+    res.status(201).json(saved);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
 app.put('/api/templates/:id', async (req, res) => { 
   try { 
     const updateData = { ...req.body };

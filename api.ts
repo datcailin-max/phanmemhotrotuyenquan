@@ -1,4 +1,4 @@
-import { Recruit, User, Feedback, UnitReport, ProvincialDispatch, RecruitmentStatus, ResearchDocument, ExcelTemplate } from './types';
+import { Recruit, User, Feedback, UnitReport, ProvincialDispatch, RecruitmentStatus, ResearchDocument, ExcelTemplate, MasterWordTemplate } from './types';
 
 const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
@@ -134,6 +134,41 @@ export const api = {
   updateTemplate: async (id: string, d: any) => { if (isDemoMode()) { const list = getLocal('demo_templates'); const index = list.findIndex((t: any) => (t.id || t._id) === id); if (index > -1) { list[index] = { ...list[index], ...d }; setLocal('demo_templates', list); return list[index]; } return null; }
     try { const res = await fetch(`${API_URL}/templates/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return res.ok ? await res.json() : null; } catch { return null; } },
   deleteTemplate: async (id: string) => { if (isDemoMode()) { const list = getLocal('demo_templates'); setLocal('demo_templates', list.filter((t: any) => (t.id || t._id) !== id)); return true; } try { const res = await fetch(`${API_URL}/templates/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; } },
+
+  // --- MASTER WORD TEMPLATE ---
+  getMasterWordTemplate: async (): Promise<MasterWordTemplate | null> => {
+    if (isDemoMode()) {
+      const stored = localStorage.getItem('demo_master_word_template');
+      return stored ? JSON.parse(stored) : null;
+    }
+    try {
+      const res = await fetch(`${API_URL}/settings/master-word-template`);
+      if (res.ok) {
+        const data = await res.json();
+        return data || null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+  saveMasterWordTemplate: async (d: Partial<MasterWordTemplate>): Promise<MasterWordTemplate | null> => {
+    if (isDemoMode()) {
+      const item = { ...d, id: Date.now().toString(), uploadDate: d.uploadDate || new Date().toLocaleDateString('vi-VN') };
+      localStorage.setItem('demo_master_word_template', JSON.stringify(item));
+      return item as MasterWordTemplate;
+    }
+    try {
+      const res = await fetch(`${API_URL}/settings/master-word-template`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(d)
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
 
   // --- CÁC PHƯƠNG THỨC KHÁC GIỮ NGUYÊN ---
   getFeedbacks: async () => { try { const res = await fetch(`${API_URL}/feedbacks`); const data = await res.json(); return Array.isArray(data) ? data : []; } catch { return []; } },

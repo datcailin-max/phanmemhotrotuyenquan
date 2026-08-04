@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileSpreadsheet, Plus, Trash2, Edit3, Info, 
   Settings2, CheckCircle2, X, AlertTriangle, Sparkles,
-  XCircle, Filter, UserSearch, Zap, Activity, Heart, Globe, Landmark, ChevronDown, ChevronUp
+  XCircle, Filter, UserSearch, Zap, Activity, Heart, Globe, Landmark, ChevronDown, ChevronUp,
+  FileText, Upload, Download
 } from 'lucide-react';
-import { ExcelTemplate, User } from '../types';
+import { ExcelTemplate, User, MasterWordTemplate } from '../types';
 import { api } from '../api';
 import { FIELD_MAPPINGS } from '../services/TemplateExportService';
 import { TABS } from './RecruitManagement/constants';
@@ -17,6 +18,8 @@ interface TemplateManagementProps {
 
 const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   const [templates, setTemplates] = useState<ExcelTemplate[]>([]);
+  const [masterWordTpl, setMasterWordTpl] = useState<MasterWordTemplate | null>(null);
+  const [isUploadingWord, setIsUploadingWord] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<ExcelTemplate> | null>(null);
@@ -27,9 +30,46 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   const fetchTemplates = async () => {
     const data = await api.getTemplates();
     setTemplates(data || []);
+    try {
+      const wordTpl = await api.getMasterWordTemplate();
+      if (wordTpl) setMasterWordTpl(wordTpl);
+    } catch {}
   };
 
   useEffect(() => { fetchTemplates(); }, []);
+
+  const handleMasterWordUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (!['doc', 'docx', 'docm'].includes(fileExt || '')) {
+      alert("Vui lòng chọn tệp Word có định dạng .doc hoặc .docx");
+      return;
+    }
+
+    setIsUploadingWord(true);
+    try {
+      const url = await api.uploadFile(file, 'master_templates');
+      const payload: Partial<MasterWordTemplate> = {
+        name: file.name,
+        url,
+        uploadDate: new Date().toLocaleDateString('vi-VN'),
+        updatedBy: user.fullName || user.username || 'ADMIN',
+        fileType: 'WORD'
+      };
+      const saved = await api.saveMasterWordTemplate(payload);
+      if (saved) {
+        setMasterWordTpl(saved);
+        alert(`✅ Đã cập nhật file Word mẫu hệ thống "${file.name}" thành công! File này sẽ tự động xuất hiện ở trên đầu mỗi hồ sơ công dân.`);
+      }
+    } catch (err: any) {
+      alert(`Lỗi khi tải file Word mẫu lên: ${err.message || err}`);
+    } finally {
+      setIsUploadingWord(false);
+      e.target.value = '';
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingTemplate({ 
@@ -181,13 +221,63 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
         <div className="flex items-center gap-4">
           <div className="bg-green-100 p-3 rounded-xl text-green-700"><FileSpreadsheet size={32} /></div>
           <div>
-            <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">QUẢN LÝ MẪU BIỂU (EXCEL INJECTION)</h2>
-            <p className="text-sm text-gray-500 font-medium italic">Tùy biến các trường thông tin cho từng loại danh sách xuất ra</p>
+            <h2 className="text-2xl font-black text-military-900 uppercase tracking-tight">QUẢN LÝ MẪU BIỂU (EXCEL & WORD)</h2>
+            <p className="text-sm text-gray-500 font-medium italic">Tùy biến các trường thông tin danh sách Excel và cấu hình File Word Mẫu hồ sơ công dân</p>
           </div>
         </div>
         <div className="flex gap-2">
             <button onClick={handleQuickSeed} disabled={isProcessing} className="flex items-center gap-2 bg-amber-600 text-white px-5 py-3 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-amber-700 transition-all active:scale-95 disabled:opacity-50"><Zap size={18} /> KHỞI TẠO NHANH DANH MỤC (21 MẪU)</button>
-            <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-military-700 text-white px-5 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"><Plus size={18} /> Thêm mẫu biểu</button>
+            <button onClick={handleOpenAdd} className="flex items-center gap-2 bg-military-700 text-white px-5 py-3 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-military-800 transition-all active:scale-95"><Plus size={18} /> Thêm mẫu biểu Excel</button>
+        </div>
+      </div>
+
+      {/* BANNER MẪU FILE WORD HỒ SƠ CÔNG DÂN CHO ADMIN */}
+      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-6 rounded-3xl shadow-xl border border-blue-700 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-blue-600/50 rounded-2xl border border-blue-400/40 flex items-center justify-center shrink-0">
+              <FileText size={32} className="text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-black uppercase bg-blue-500/80 px-2.5 py-0.5 rounded-full border border-blue-300/40">ADMIN CONFIG</span>
+                <h3 className="text-base font-black uppercase text-blue-100">CẤU HÌNH FILE WORD MẪU HỒ SƠ CÔNG DÂN (TOÀN HỆ THỐNG)</h3>
+              </div>
+              <p className="text-xs text-blue-200 mt-1 max-w-2xl">
+                Khi Quản trị viên tải lên file Word mẫu tại đây, tệp sẽ <strong className="text-white">tự động xuất hiện ở trên đầu giao diện mỗi hồ sơ công dân</strong>. Cán bộ đơn vị có quyền tải về, chỉnh sửa và thay thế bằng bản cập nhật mới chèn vào file cũ.
+              </p>
+              {masterWordTpl && (
+                <div className="mt-2 text-xs font-bold text-amber-300 flex items-center gap-2">
+                  <CheckCircle2 size={14} /> File mẫu hiện tại: <strong>{masterWordTpl.name}</strong> (Cập nhật: {masterWordTpl.uploadDate})
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0 w-full md:w-auto">
+            {masterWordTpl?.url && (
+              <a
+                href={masterWordTpl.url}
+                target="_blank"
+                rel="noreferrer"
+                download={masterWordTpl.name}
+                className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-600 text-white px-5 py-3 rounded-2xl font-black uppercase text-xs shadow-lg transition-all"
+              >
+                <Download size={16} /> Tải file mẫu
+              </a>
+            )}
+            <label className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-3 rounded-2xl font-black uppercase text-xs shadow-xl transition-all cursor-pointer active:scale-95">
+              <Upload size={16} />
+              <span>{isUploadingWord ? 'Đang tải lên...' : 'Tải lên File Word Mẫu (.docx)'}</span>
+              <input
+                type="file"
+                accept=".doc,.docx,.docm"
+                className="hidden"
+                onChange={handleMasterWordUpload}
+                disabled={isUploadingWord}
+              />
+            </label>
+          </div>
         </div>
       </div>
 

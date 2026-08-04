@@ -81,7 +81,14 @@ const recruitSchema = new mongoose.Schema({
     url: String,
     type: String,
     uploadDate: String
-  }]
+  }],
+  wordDocument: {
+    name: String,
+    url: String,
+    uploadDate: String,
+    updatedBy: String,
+    isCustom: Boolean
+  }
 }, { timestamps: true });
 
 const Recruit = mongoose.model('Recruit', recruitSchema);

@@ -67,6 +67,24 @@ export interface RecruitAttachment {
   uploadDate: string;
 }
 
+export interface RecruitWordDocument {
+  name: string;
+  url: string;
+  uploadDate: string;
+  updatedBy?: string;
+  isCustom?: boolean;
+}
+
+export interface MasterWordTemplate {
+  id?: string;
+  _id?: string;
+  name: string;
+  url: string;
+  uploadDate: string;
+  updatedBy?: string;
+  fileType?: string;
+}
+
 export interface Recruit {
   id: string;
   citizenId: string;
@@ -125,6 +143,7 @@ export interface Recruit {
   enlistmentType?: 'OFFICIAL' | 'RESERVE';
   recruitmentYear: number;
   attachments?: RecruitAttachment[];
+  wordDocument?: RecruitWordDocument;
   createdAt?: string;
   updatedAt?: string;
 }
