@@ -63,30 +63,57 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
     // UPPERCASE Aliases for Template Tags
     FULL_NAME: cv.fullNameUpper || (recruit.fullName ? recruit.fullName.toUpperCase() : ''),
     ALIAS_NAME: cv.aliasName || recruit.fullName || '',
+    BIRTH_DAY: cv.birthDay || '',
+    BIRTH_MONTH: cv.birthMonth || '',
+    BIRTH_YEAR: cv.birthYear || '',
     DOB: dobStr,
+    GENDER: cv.gender || 'Nam',
     CITIZEN_ID: cv.citizenId || recruit.citizenId || '',
     PLACE_OF_BIRTH: cv.placeOfBirth || '',
     HOMETOWN: cv.hometown || '',
-    ETHNICITY: cv.ethnicity || '',
-    RELIGION: cv.religion || '',
+    ETHNICITY: cv.ethnicity || recruit.details?.ethnicity || '',
+    RELIGION: cv.religion || recruit.details?.religion || '',
     NATIONALITY: cv.nationality || 'Việt Nam',
     PERMANENT_ADDRESS: cv.permanentAddress || '',
     TEMPORARY_ADDRESS: cv.temporaryAddress || '',
     FAMILY_CLASS: cv.familyClass || '',
     PERSONAL_CLASS: cv.personalClass || '',
-    EDUCATION: cv.educationLevel || '',
-    QUALIFICATION: cv.qualificationLevel || '',
-    JOB: cv.job || '',
-    WORKPLACE: cv.workplace || '',
-    FATHER_NAME: cv.fatherName || '',
+    EDUCATION_LEVEL: cv.educationLevel || recruit.details?.education || '',
+    EDUCATION: cv.educationLevel || recruit.details?.education || '',
+    QUALIFICATION_LEVEL: cv.qualificationLevel || recruit.details?.school || '',
+    QUALIFICATION: cv.qualificationLevel || recruit.details?.school || '',
+    LANGUAGE_LEVEL: cv.languageLevel || '',
+    MAJOR: cv.major || recruit.details?.major || '',
+    COMMUNIST_PARTY_JOINED_DATE: cv.communistPartyJoinedDate || recruit.details?.partyEntryDate || '',
+    COMMUNIST_PARTY_OFFICIAL_DATE: cv.communistPartyOfficialDate || '',
+    YOUTH_UNION_JOINED_DATE: cv.youthUnionJoinedDate || '',
+    COMMENDATIONS: cv.commendations || recruit.details?.rewards || '',
+    DISCIPLINARY_ACTION: cv.disciplinaryAction || recruit.details?.disciplines || '',
+    JOB: cv.job || recruit.details?.job || '',
+    SALARY: cv.salary || '',
+    SALARY_GRADE: cv.salaryGrade || '',
+    SALARY_RANK: cv.salaryRank || '',
+    WORKPLACE: cv.workplace || recruit.details?.workAddress || '',
+    FOREIGN_TRAVEL: cv.foreignTravel || '',
+    FATHER_NAME: cv.fatherName || recruit.family?.father?.fullName || '',
+    FATHER_STATUS: cv.fatherStatus || '',
     FATHER_BIRTH: cv.fatherBirthDate || '',
-    FATHER_JOB: cv.fatherJob || '',
-    MOTHER_NAME: cv.motherName || '',
+    FATHER_BIRTH_DATE: cv.fatherBirthDate || '',
+    FATHER_JOB: cv.fatherJob || recruit.family?.father?.job || '',
+    MOTHER_NAME: cv.motherName || recruit.family?.mother?.fullName || '',
+    MOTHER_STATUS: cv.motherStatus || '',
     MOTHER_BIRTH: cv.motherBirthDate || '',
-    MOTHER_JOB: cv.motherJob || '',
-    SPOUSE_NAME: cv.spouseName || '',
+    MOTHER_BIRTH_DATE: cv.motherBirthDate || '',
+    MOTHER_JOB: cv.motherJob || recruit.family?.mother?.job || '',
+    SPOUSE_NAME: cv.spouseName || recruit.family?.wife?.fullName || '',
     SPOUSE_BIRTH: cv.spouseBirthDate || '',
-    SPOUSE_JOB: cv.spouseJob || '',
+    SPOUSE_BIRTH_DATE: cv.spouseBirthDate || '',
+    SPOUSE_JOB: cv.spouseJob || recruit.family?.wife?.job || '',
+    CHILDREN_COUNT: cv.childrenCount || '',
+    TOTAL_SIBLINGS: cv.totalSiblings || '',
+    MALE_SIBLINGS: cv.maleSiblings || '',
+    FEMALE_SIBLINGS: cv.femaleSiblings || '',
+    SIBLING_ORDER: cv.siblingOrder || '',
   };
 };
 
@@ -204,6 +231,26 @@ export const generateCurriculumVitaeWordDoc = async (
       const docxtpl = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
+        parser(tag: string) {
+          const cleanTag = tag.trim();
+          return {
+            get(scope: any) {
+              if (cleanTag === '.') return scope;
+              if (scope[cleanTag] !== undefined && scope[cleanTag] !== null && scope[cleanTag] !== '') {
+                return scope[cleanTag];
+              }
+              const upper = cleanTag.toUpperCase();
+              if (scope[upper] !== undefined && scope[upper] !== null && scope[upper] !== '') {
+                return scope[upper];
+              }
+              const lower = cleanTag.toLowerCase();
+              if (scope[lower] !== undefined && scope[lower] !== null && scope[lower] !== '') {
+                return scope[lower];
+              }
+              return scope[cleanTag] ?? scope[upper] ?? scope[lower] ?? '';
+            }
+          };
+        },
         nullGetter() { return ''; }
       });
 

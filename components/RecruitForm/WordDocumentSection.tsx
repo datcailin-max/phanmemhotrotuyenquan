@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, Upload, RefreshCw, CheckCircle2, ShieldCheck, AlertCircle, Edit3, Trash2, Settings } from 'lucide-react';
-import { RecruitWordDocument, MasterWordTemplate, User } from '../../types';
+import { Recruit, RecruitWordDocument, MasterWordTemplate, User } from '../../types';
 import { api } from '../../api';
+import { generateCurriculumVitaeWordDoc } from '../../services/WordExportService';
 
 interface WordDocumentSectionProps {
   wordDocument?: RecruitWordDocument;
   user: User;
   recruitName: string;
+  recruitData?: Recruit;
   isReadOnly?: boolean;
   onUpdateWordDoc: (doc: RecruitWordDocument | undefined) => void;
 }
@@ -15,6 +17,7 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
   wordDocument,
   user,
   recruitName,
+  recruitData,
   isReadOnly = false,
   onUpdateWordDoc
 }) => {
@@ -56,8 +59,18 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
   const activeDocUpdatedBy = wordDocument?.updatedBy || masterTemplate?.updatedBy || 'Ban CHQS Tỉnh';
   const isCustom = !!wordDocument?.isCustom;
 
-  // Handle Download file
-  const handleDownload = () => {
+  // Handle Download file with populated citizen data
+  const handleDownload = async () => {
+    if (recruitData) {
+      try {
+        const tplUrl = activeDocUrl !== DEFAULT_SAMPLE_URL ? activeDocUrl : undefined;
+        await generateCurriculumVitaeWordDoc(recruitData, recruitData.curriculumVitae, tplUrl);
+        return;
+      } catch (err: any) {
+        console.error("Lỗi khi bơm dữ liệu công dân vào file Word:", err);
+      }
+    }
+
     if (!activeDocUrl) {
       alert("Chưa tìm thấy liên kết tệp Word.");
       return;
@@ -67,22 +80,13 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
       ? `Ho_So_NVQS_${recruitName.replace(/\s+/g, '_')}.docx`
       : activeDocName;
 
-    if (activeDocUrl.startsWith('http://') || activeDocUrl.startsWith('https://')) {
-      const link = document.createElement('a');
-      link.href = activeDocUrl;
-      link.download = cleanName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } else {
-      const link = document.createElement('a');
-      link.href = activeDocUrl;
-      link.download = cleanName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    const link = document.createElement('a');
+    link.href = activeDocUrl;
+    link.download = cleanName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Handle Officer Replacing File for this specific citizen

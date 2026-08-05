@@ -307,6 +307,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
             wordDocument={formData.wordDocument}
             user={user}
             recruitName={formData.fullName}
+            recruitData={formData}
             isReadOnly={isReadOnly}
             onUpdateWordDoc={(newWordDoc: RecruitWordDocument | undefined) => {
               setFormData(prev => ({ ...prev, wordDocument: newWordDoc }));
