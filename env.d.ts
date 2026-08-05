@@ -128,6 +128,30 @@ declare module 'xlsx-js-style' {
   export default XLSX;
 }
 
+declare module 'docx' {
+  export const Document: any;
+  export const Packer: any;
+  export const Paragraph: any;
+  export const TextRun: any;
+  export const AlignmentType: any;
+  export const Header: any;
+  export const Footer: any;
+  export const PageNumber: any;
+  export const Table: any;
+  export const TableRow: any;
+  export const TableCell: any;
+  export const WidthType: any;
+  export const BorderStyle: any;
+  const content: any;
+  export default content;
+}
+
+declare module 'file-saver' {
+  export function saveAs(data: Blob | string, filename?: string, options?: any): void;
+  const content: any;
+  export default content;
+}
+
 declare module 'docxtemplater' {
   const Docxtemplater: any;
   export default Docxtemplater;
