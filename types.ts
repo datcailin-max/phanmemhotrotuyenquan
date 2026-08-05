@@ -85,6 +85,16 @@ export interface MasterWordTemplate {
   fileType?: string;
 }
 
+export interface MasterExcelTemplate {
+  id?: string;
+  _id?: string;
+  type: '17' | 'SOURCE';
+  name: string;
+  url: string;
+  uploadDate: string;
+  updatedBy?: string;
+}
+
 export interface CurriculumVitae {
   fullNameUpper?: string; // Họ, chữ đệm và tên khai sinh (viết chữ in hoa)
   aliasName?: string; // Họ, chữ đệm và tên thường dùng

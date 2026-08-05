@@ -6,7 +6,7 @@ import {
   XCircle, Filter, UserSearch, Zap, Activity, Heart, Globe, Landmark, ChevronDown, ChevronUp,
   FileText, Upload, Download
 } from 'lucide-react';
-import { ExcelTemplate, User, MasterWordTemplate } from '../types';
+import { ExcelTemplate, User, MasterWordTemplate, MasterExcelTemplate } from '../types';
 import { api } from '../api';
 import { FIELD_MAPPINGS } from '../services/TemplateExportService';
 import { TABS } from './RecruitManagement/constants';
@@ -19,7 +19,12 @@ interface TemplateManagementProps {
 const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
   const [templates, setTemplates] = useState<ExcelTemplate[]>([]);
   const [masterWordTpl, setMasterWordTpl] = useState<MasterWordTemplate | null>(null);
+  const [masterExcel17, setMasterExcel17] = useState<MasterExcelTemplate | null>(null);
+  const [masterExcelSource, setMasterExcelSource] = useState<MasterExcelTemplate | null>(null);
   const [isUploadingWord, setIsUploadingWord] = useState(false);
+  const [isUploadingExcel17, setIsUploadingExcel17] = useState(false);
+  const [isUploadingExcelSource, setIsUploadingExcelSource] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<ExcelTemplate> | null>(null);
@@ -33,6 +38,14 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
     try {
       const wordTpl = await api.getMasterWordTemplate();
       if (wordTpl) setMasterWordTpl(wordTpl);
+    } catch {}
+    try {
+      const ex17 = await api.getMasterExcelTemplate('17');
+      if (ex17) setMasterExcel17(ex17);
+    } catch {}
+    try {
+      const exSrc = await api.getMasterExcelTemplate('SOURCE');
+      if (exSrc) setMasterExcelSource(exSrc);
     } catch {}
   };
 
@@ -68,6 +81,57 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
     } finally {
       setIsUploadingWord(false);
       e.target.value = '';
+    }
+  };
+
+  const handleMasterExcelUpload = async (type: '17' | 'SOURCE', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls'].includes(fileExt || '')) {
+      alert("Vui lòng chọn tệp Excel có định dạng .xlsx hoặc .xls");
+      return;
+    }
+
+    if (type === '17') setIsUploadingExcel17(true);
+    else setIsUploadingExcelSource(true);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const fileData = ev.target?.result as string;
+        const payload: Partial<MasterExcelTemplate> = {
+          type,
+          name: file.name,
+          url: fileData,
+          uploadDate: new Date().toLocaleDateString('vi-VN'),
+          updatedBy: user.fullName || user.username || 'ADMIN'
+        };
+        const saved = await api.saveMasterExcelTemplate(type, payload);
+        if (saved) {
+          if (type === '17') setMasterExcel17(saved);
+          else setMasterExcelSource(saved);
+          alert(`✅ Đã cập nhật tệp Excel mẫu "${file.name}" cho ${type === '17' ? 'Danh sách Đăng ký lần đầu (17 tuổi)' : 'Danh sách Nguồn & Khác'} thành công!`);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert(`Lỗi khi tải tệp Excel mẫu lên: ${err.message || err}`);
+    } finally {
+      if (type === '17') setIsUploadingExcel17(false);
+      else setIsUploadingExcelSource(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteMasterExcel = async (type: '17' | 'SOURCE') => {
+    const label = type === '17' ? 'Đăng ký lần đầu (17 tuổi)' : 'Danh sách Nguồn & Khác';
+    if (window.confirm(`Khôi phục mẫu file Excel ${label} về mẫu hệ thống mặc định?`)) {
+      await api.deleteMasterExcelTemplate(type);
+      if (type === '17') setMasterExcel17(null);
+      else setMasterExcelSource(null);
+      alert(`Đã khôi phục tệp Excel mẫu ${label} về mặc định.`);
     }
   };
 
@@ -277,6 +341,116 @@ const TemplateManagement: React.FC<TemplateManagementProps> = ({ user }) => {
                 disabled={isUploadingWord}
               />
             </label>
+          </div>
+        </div>
+      </div>
+
+      {/* BANNER 2 MẪU EXCEL NHẬP DỮ LIỆU DÀNH CHO ADMIN */}
+      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-emerald-700/80 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-emerald-700/60 rounded-2xl border border-emerald-400/40 flex items-center justify-center shrink-0">
+            <FileSpreadsheet size={28} className="text-emerald-300" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black uppercase bg-emerald-500/80 px-2.5 py-0.5 rounded-full border border-emerald-300/40 text-white">ADMIN CONFIG</span>
+              <h3 className="text-base font-black uppercase text-emerald-100">CẤU HÌNH 2 MẪU FILE EXCEL NHẬP DỮ LIỆU ĐĂNG KÝ (TOÀN HỆ THỐNG)</h3>
+            </div>
+            <p className="text-xs text-emerald-200 mt-1">
+              Quản trị viên tải lên 2 tệp mẫu Excel chuẩn tại đây. Cán bộ ở tất cả các đơn vị sẽ tự động tải về 2 mẫu thống nhất này khi thực hiện Nhập dữ liệu từ tệp Excel.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-emerald-800/80">
+          {/* Mẫu 1: Đăng ký lần đầu (Tuổi 17 / Biểu 01) */}
+          <div className="bg-emerald-950/70 p-4 rounded-2xl border border-emerald-800/80 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-blue-600 rounded-md text-white">MẪU BIỂU 01</span>
+                {masterExcel17 ? (
+                  <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Đã có mẫu Admin ({masterExcel17.uploadDate})
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-emerald-300">Đang dùng mẫu chuẩn mặc định</span>
+                )}
+              </div>
+              <h4 className="text-sm font-black text-white uppercase mt-2">1. Mẫu Đăng ký lần đầu (17 tuổi)</h4>
+              <p className="text-[11px] text-emerald-200 mt-0.5 truncate">
+                {masterExcel17 ? masterExcel17.name : 'Excel_Mau_01_Dang_Ky_Lan_Dau_17_Tuoi.xlsx'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-emerald-800/60">
+              <label className="flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl font-bold uppercase text-xs cursor-pointer transition-all shadow-sm">
+                <Upload size={14} />
+                <span>{isUploadingExcel17 ? 'Đang tải lên...' : 'Tải lên mẫu Excel (.xlsx)'}</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => handleMasterExcelUpload('17', e)}
+                  disabled={isUploadingExcel17}
+                />
+              </label>
+
+              {masterExcel17 && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteMasterExcel('17')}
+                  className="p-2 bg-red-900/60 hover:bg-red-800 text-red-200 rounded-xl border border-red-500/40 transition-all"
+                  title="Khôi phục về mẫu hệ thống mặc định"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Mẫu 2: Danh sách nguồn & Khác (Biểu 16B/16A) */}
+          <div className="bg-emerald-950/70 p-4 rounded-2xl border border-emerald-800/80 flex flex-col justify-between space-y-3">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-amber-600 rounded-md text-white">MẪU BIỂU 16B/16A</span>
+                {masterExcelSource ? (
+                  <span className="text-[10px] font-bold text-amber-300 flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Đã có mẫu Admin ({masterExcelSource.uploadDate})
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-emerald-300">Đang dùng mẫu chuẩn mặc định</span>
+                )}
+              </div>
+              <h4 className="text-sm font-black text-white uppercase mt-2">2. Mẫu Danh sách nguồn & Khác</h4>
+              <p className="text-[11px] text-emerald-200 mt-0.5 truncate">
+                {masterExcelSource ? masterExcelSource.name : 'Excel_Mau_Danh_Sach_Nguon_Tuyen_Quan.xlsx'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-emerald-800/60">
+              <label className="flex-1 inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl font-bold uppercase text-xs cursor-pointer transition-all shadow-sm">
+                <Upload size={14} />
+                <span>{isUploadingExcelSource ? 'Đang tải lên...' : 'Tải lên mẫu Excel (.xlsx)'}</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => handleMasterExcelUpload('SOURCE', e)}
+                  disabled={isUploadingExcelSource}
+                />
+              </label>
+
+              {masterExcelSource && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteMasterExcel('SOURCE')}
+                  className="p-2 bg-red-900/60 hover:bg-red-800 text-red-200 rounded-xl border border-red-500/40 transition-all"
+                  title="Khôi phục về mẫu hệ thống mặc định"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

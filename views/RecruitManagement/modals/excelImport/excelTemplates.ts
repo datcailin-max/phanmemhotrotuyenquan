@@ -1,8 +1,28 @@
 import XLSX from 'xlsx-js-style';
 import { ProcessError, FontWarningNotice, ErrorType } from './types';
+import { api } from '../../../../api';
 
 // Tải mẫu Excel 1: Đăng ký lần đầu (Tuổi 17) - Biểu 01/GNN-2025
-export const handleDownloadTemplate17 = (sessionYear: number) => {
+export const handleDownloadTemplate17 = async (sessionYear: number) => {
+  try {
+    const master = await api.getMasterExcelTemplate('17').catch(() => null);
+    if (master?.url) {
+      if (master.url.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = master.url;
+        link.download = master.name || `Excel_Mau_01_Dang_Ky_Lan_Dau_17_Tuoi_${sessionYear}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        window.open(master.url, '_blank');
+      }
+      return;
+    }
+  } catch (e) {
+    console.warn("Không thể lấy mẫu Excel 17 từ Admin, sử dụng mẫu mặc định:", e);
+  }
+
   const XLSXLib: any = XLSX;
   const utils = XLSXLib?.utils || XLSXLib?.default?.utils;
   const writeFile = XLSXLib?.writeFile || XLSXLib?.default?.writeFile;
@@ -69,7 +89,26 @@ export const handleDownloadTemplate17 = (sessionYear: number) => {
 };
 
 // Tải mẫu Excel 2: Danh sách nguồn tuyển quân & các danh sách còn lại - Mẫu Biểu số 16B/16A
-export const handleDownloadTemplateSource = (sessionYear: number, userCommune?: string) => {
+export const handleDownloadTemplateSource = async (sessionYear: number, userCommune?: string) => {
+  try {
+    const master = await api.getMasterExcelTemplate('SOURCE').catch(() => null);
+    if (master?.url) {
+      if (master.url.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = master.url;
+        link.download = master.name || `Excel_Mau_Danh_Sach_Nguon_Tuyen_Quan_${sessionYear}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        window.open(master.url, '_blank');
+      }
+      return;
+    }
+  } catch (e) {
+    console.warn("Không thể lấy mẫu Excel Nguồn từ Admin, sử dụng mẫu mặc định:", e);
+  }
+
   const XLSXLib: any = XLSX;
   const utils = XLSXLib?.utils || XLSXLib?.default?.utils;
   const writeFile = XLSXLib?.writeFile || XLSXLib?.default?.writeFile;

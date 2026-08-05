@@ -1,4 +1,4 @@
-import { Recruit, User, Feedback, UnitReport, ProvincialDispatch, RecruitmentStatus, ResearchDocument, ExcelTemplate, MasterWordTemplate } from './types';
+import { Recruit, User, Feedback, UnitReport, ProvincialDispatch, RecruitmentStatus, ResearchDocument, ExcelTemplate, MasterWordTemplate, MasterExcelTemplate } from './types';
 
 const hostname = window.location.hostname;
 const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
@@ -167,6 +167,55 @@ export const api = {
       return res.ok ? await res.json() : null;
     } catch {
       return null;
+    }
+  },
+
+  // --- MASTER EXCEL TEMPLATES (17 & SOURCE) ---
+  getMasterExcelTemplate: async (type: '17' | 'SOURCE'): Promise<MasterExcelTemplate | null> => {
+    if (isDemoMode()) {
+      const stored = localStorage.getItem(`demo_master_excel_template_${type}`);
+      return stored ? JSON.parse(stored) : null;
+    }
+    try {
+      const res = await fetch(`${API_URL}/settings/master-excel-template/${type}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data || null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  saveMasterExcelTemplate: async (type: '17' | 'SOURCE', d: Partial<MasterExcelTemplate>): Promise<MasterExcelTemplate | null> => {
+    if (isDemoMode()) {
+      const item = { ...d, type, id: Date.now().toString(), uploadDate: d.uploadDate || new Date().toLocaleDateString('vi-VN') };
+      localStorage.setItem(`demo_master_excel_template_${type}`, JSON.stringify(item));
+      return item as MasterExcelTemplate;
+    }
+    try {
+      const res = await fetch(`${API_URL}/settings/master-excel-template/${type}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...d, type })
+      });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  },
+
+  deleteMasterExcelTemplate: async (type: '17' | 'SOURCE'): Promise<boolean> => {
+    if (isDemoMode()) {
+      localStorage.removeItem(`demo_master_excel_template_${type}`);
+      return true;
+    }
+    try {
+      const res = await fetch(`${API_URL}/settings/master-excel-template/${type}`, { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
     }
   },
 

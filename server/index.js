@@ -13,6 +13,7 @@ import Report from './models/Report.js';
 import Dispatch from './models/Dispatch.js';
 import Template from './models/Template.js';
 import MasterWordTemplate from './models/MasterWordTemplate.js';
+import MasterExcelTemplate from './models/MasterExcelTemplate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -217,6 +218,42 @@ app.post('/api/settings/master-word-template', async (req, res) => {
     res.status(201).json(saved);
   } catch (e) {
     res.status(400).json({ message: e.message });
+  }
+});
+
+// --- MASTER EXCEL TEMPLATES API ---
+app.get('/api/settings/master-excel-template/:type', async (req, res) => {
+  try {
+    const template = await MasterExcelTemplate.findOne({ type: req.params.type }).sort({ createdAt: -1 });
+    res.json(template || null);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+app.post('/api/settings/master-excel-template/:type', async (req, res) => {
+  try {
+    await MasterExcelTemplate.deleteMany({ type: req.params.type });
+    const newDoc = new MasterExcelTemplate({
+      type: req.params.type,
+      name: req.body.name,
+      url: req.body.url,
+      uploadDate: req.body.uploadDate || new Date().toLocaleDateString('vi-VN'),
+      updatedBy: req.body.updatedBy || 'ADMIN'
+    });
+    const saved = await newDoc.save();
+    res.status(201).json(saved);
+  } catch (e) {
+    res.status(400).json({ message: e.message });
+  }
+});
+
+app.delete('/api/settings/master-excel-template/:type', async (req, res) => {
+  try {
+    await MasterExcelTemplate.deleteMany({ type: req.params.type });
+    res.json({ message: 'OK' });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
   }
 });
 app.put('/api/templates/:id', async (req, res) => { 
