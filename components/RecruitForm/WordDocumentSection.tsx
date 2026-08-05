@@ -63,7 +63,10 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
   const handleDownload = async () => {
     if (recruitData) {
       try {
-        const tplUrl = activeDocUrl !== DEFAULT_SAMPLE_URL ? activeDocUrl : undefined;
+        let tplUrl = activeDocUrl !== DEFAULT_SAMPLE_URL ? activeDocUrl : undefined;
+        if (isCustom && activeDocName.toLowerCase().endsWith('.doc') && masterTemplate?.url) {
+          tplUrl = masterTemplate.url;
+        }
         await generateCurriculumVitaeWordDoc(recruitData, recruitData.curriculumVitae, tplUrl);
         return;
       } catch (err: any) {
@@ -348,14 +351,15 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
             )}
 
             {/* 4. Revert Button */}
-            {!isReadOnly && isCustom && !masterTemplate?.url && (
+            {!isReadOnly && isCustom && (
               <button
                 type="button"
                 onClick={handleRevertToMaster}
-                className="p-2.5 bg-red-900/60 hover:bg-red-800 text-red-200 rounded-xl border border-red-500/30 transition-all"
-                title="Khôi phục về file Word mẫu chuẩn của Admin"
+                className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 bg-red-800/80 hover:bg-red-700 text-red-100 px-3 py-2.5 rounded-xl font-bold uppercase text-xs border border-red-500/40 shadow-sm transition-all active:scale-95"
+                title="Xóa bản Word cập nhật riêng cũ này và khôi phục về Mẫu Word chuẩn của Admin"
               >
-                <Trash2 size={16} />
+                <Trash2 size={15} />
+                <span>Xóa bản cũ, dùng mẫu Admin</span>
               </button>
             )}
           </div>

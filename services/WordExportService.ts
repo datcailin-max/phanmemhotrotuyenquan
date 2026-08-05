@@ -282,27 +282,27 @@ export const generateCurriculumVitaeWordDoc = async (
 
   const DEFAULT_SAMPLE_URL = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,UEsDBBQAAAAIAAAAIQAAAAAA';
 
-  let activeUrl = (templateUrl && templateUrl !== DEFAULT_SAMPLE_URL) ? templateUrl : undefined;
-
-  if (!activeUrl) {
-    try {
-      const master = await api.getMasterWordTemplate().catch(() => null);
-      if (master?.url && master.url !== DEFAULT_SAMPLE_URL) {
-        activeUrl = master.url;
-      }
-    } catch (e) {
-      console.warn("Không thể lấy mẫu file Word từ Admin:", e);
+  // Get master template from Admin if available
+  let masterUrl: string | undefined;
+  try {
+    const master = await api.getMasterWordTemplate().catch(() => null);
+    if (master?.url && master.url !== DEFAULT_SAMPLE_URL) {
+      masterUrl = master.url;
     }
+  } catch (e) {
+    console.warn("Không thể lấy mẫu file Word từ Admin:", e);
   }
+
+  let activeUrl = (templateUrl && templateUrl !== DEFAULT_SAMPLE_URL) ? templateUrl : masterUrl;
 
   if (!activeUrl) {
     throw new Error("Chưa có tệp mẫu Word (.docx) do Admin / Cấp trên tải lên. Vui lòng vào mục Quản lý tệp Word để tải mẫu file Word chuẩn của cấp trên!");
   }
 
-  let arrayBuffer: ArrayBuffer;
-  try {
-    if (activeUrl.startsWith('data:')) {
-      const base64Data = activeUrl.split(';base64,').pop() || '';
+  const tryGenerate = async (urlToUse: string): Promise<boolean> => {
+    let arrayBuffer: ArrayBuffer;
+    if (urlToUse.startsWith('data:')) {
+      const base64Data = urlToUse.split(';base64,').pop() || '';
       const binaryStr = atob(base64Data);
       const bytes = new Uint8Array(binaryStr.length);
       for (let i = 0; i < binaryStr.length; i++) {
@@ -310,23 +310,17 @@ export const generateCurriculumVitaeWordDoc = async (
       }
       arrayBuffer = bytes.buffer;
     } else {
-      const res = await fetch(activeUrl);
+      const res = await fetch(urlToUse);
       if (!res.ok) throw new Error(`HTTP status ${res.status}`);
       arrayBuffer = await res.arrayBuffer();
     }
-  } catch (fetchErr: any) {
-    throw new Error(`Không thể tải tệp mẫu Word của Admin: ${fetchErr.message || fetchErr}`);
-  }
 
-  try {
     const zip = new PizZip(arrayBuffer);
     
     // Check if the zip file contains word/document.xml (standard .docx requirement)
     if (!zip.files || !zip.files['word/document.xml']) {
       throw new Error(
-        "Tệp mẫu Word đã tải lên không đúng định dạng .docx tiêu chuẩn (thiếu thành phần word/document.xml).\n\n" +
-        "👉 Nguyên nhân: Tệp đang ở định dạng .doc cũ (Word 97-2003) hoặc file Word bị đổi đuôi thủ công.\n" +
-        "👉 Cách xử lý: Vui lòng mở tệp này bằng Microsoft Word trên máy tính -> Chọn menu File -> Save As (Lưu thành) -> Chọn định dạng 'Word Document (*.docx)' -> Sau đó tải lại file .docx mới này lên hệ thống."
+        "Tệp mẫu Word không đúng định dạng .docx tiêu chuẩn (thiếu word/document.xml)."
       );
     }
 
@@ -366,15 +360,31 @@ export const generateCurriculumVitaeWordDoc = async (
 
     const filename = `Ho_So_NVQS_${recruit.fullName ? recruit.fullName.replace(/\s+/g, '_') : 'Cong_Dan'}.docx`;
     saveAs(outBlob, filename);
-  } catch (err: any) {
-    console.error("Lỗi khi trộn dữ liệu vào file Word mẫu:", err);
-    if (err.message && (err.message.includes('filetype') || err.message.includes('corrupted') || err.message.includes('word/document.xml'))) {
+    return true;
+  };
+
+  try {
+    await tryGenerate(activeUrl);
+  } catch (firstErr: any) {
+    // If passed templateUrl (e.g. custom file) failed, and we have a masterUrl from Admin, fallback to masterUrl!
+    if (masterUrl && activeUrl !== masterUrl) {
+      console.warn("Mẫu tệp Word riêng của công dân bị lỗi hoặc là file .doc cũ. Tự động chuyển sang dùng Mẫu Word chuẩn của Admin:", firstErr);
+      try {
+        await tryGenerate(masterUrl);
+        return;
+      } catch (masterErr: any) {
+        console.error("Lỗi cả trên mẫu Admin:", masterErr);
+      }
+    }
+
+    console.error("Lỗi khi trộn dữ liệu vào file Word mẫu:", firstErr);
+    if (firstErr.message && (firstErr.message.includes('filetype') || firstErr.message.includes('corrupted') || firstErr.message.includes('word/document.xml'))) {
       throw new Error(
         "Tệp mẫu Word do Admin/Cấp trên tải lên không đúng định dạng .docx tiêu chuẩn.\n\n" +
         "👉 Nguyên nhân: Tệp đang ở định dạng .doc cũ (Word 97-2003) hoặc file bị lỗi cấu trúc zip.\n" +
         "👉 Cách xử lý: Hãy mở tệp này bằng Microsoft Word -> Chọn File -> Save As -> Chọn kiểu 'Word Document (*.docx)' và tải lại lên hệ thống."
       );
     }
-    throw new Error(`Lỗi khi điền dữ liệu vào tệp mẫu Word của Admin: ${err.message || err}`);
+    throw new Error(`Lỗi khi điền dữ liệu vào tệp mẫu Word của Admin: ${firstErr.message || firstErr}`);
   }
 };
