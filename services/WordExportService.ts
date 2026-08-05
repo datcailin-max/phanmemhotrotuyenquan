@@ -1,6 +1,8 @@
 import { Document, Packer, Paragraph, TextRun, AlignmentType, Header, Footer, PageNumber } from 'docx';
 import { saveAs } from 'file-saver';
+// @ts-ignore
 import Docxtemplater from 'docxtemplater';
+// @ts-ignore
 import PizZip from 'pizzip';
 import { Recruit, CurriculumVitae } from '../types';
 
