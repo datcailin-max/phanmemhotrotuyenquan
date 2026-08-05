@@ -68,6 +68,8 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
         return;
       } catch (err: any) {
         console.error("Lỗi khi bơm dữ liệu công dân vào file Word:", err);
+        alert(err.message || "Lỗi khi trộn dữ liệu công dân vào tệp mẫu Word!");
+        return;
       }
     }
 
