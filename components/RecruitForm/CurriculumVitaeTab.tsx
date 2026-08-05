@@ -54,45 +54,6 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
 
   return (
     <div className="space-y-6 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 animate-in fade-in duration-200">
-      {/* Top Banner and Quick Actions */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-lg border border-blue-700/50">
-        <div className="flex items-center gap-3.5">
-          <div className="p-3 bg-blue-600 rounded-xl border border-blue-400/40 shrink-0">
-            <FileText size={24} className="text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-blue-500/80 text-white">Mục I</span>
-              <h3 className="text-sm font-black uppercase tracking-wider text-blue-100">SƠ YẾU LÝ LỊCH CÔNG DÂN</h3>
-            </div>
-            <p className="text-xs text-blue-200 font-medium mt-0.5">
-              Dữ liệu được tự động chuyển từ hồ sơ công dân. Cán bộ có thể chỉnh sửa bổ sung trước khi đẩy vào file Word.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto shrink-0">
-          {!isReadOnly && (
-            <button
-              type="button"
-              onClick={handleSyncFromProfile}
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 bg-blue-800/80 hover:bg-blue-700 text-blue-100 border border-blue-500/40 px-3.5 py-2 rounded-xl text-xs font-black uppercase transition-all active:scale-95"
-              title="Đồng bộ lấy dữ liệu mới nhất từ thông tin chung công dân"
-            >
-              <RefreshCw size={14} /> Tải lại dữ liệu gốc
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleExportWord}
-            className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 px-4 py-2 rounded-xl text-xs font-black uppercase shadow-md transition-all active:scale-95"
-          >
-            <Download size={15} /> Xuất Word (.docx)
-          </button>
-        </div>
-      </div>
-
       {/* SECTION I FORM FIELDS */}
       <div className="space-y-6">
         <h4 className="text-xs font-black uppercase text-gray-500 tracking-wider border-b border-gray-200 pb-2 flex items-center gap-2">

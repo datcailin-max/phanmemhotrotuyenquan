@@ -7,58 +7,76 @@ import { Recruit, CurriculumVitae } from '../types';
 import { api } from '../api';
 
 export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record<string, any> => {
-  const dobStr = recruit.dob || (cv.birthDay ? `${cv.birthDay}/${cv.birthMonth}/${cv.birthYear}` : '');
+  const DEFAULT_VAL = 'Chưa cập nhật';
+
+  const getVal = (val?: string | number, fallback?: string | number): string => {
+    if (val !== undefined && val !== null && String(val).trim() !== '') {
+      return String(val).trim();
+    }
+    if (fallback !== undefined && fallback !== null && String(fallback).trim() !== '') {
+      return String(fallback).trim();
+    }
+    return DEFAULT_VAL;
+  };
+
+  let dobStr = recruit.dob || '';
+  if (!dobStr && (cv.birthDay || cv.birthMonth || cv.birthYear)) {
+    const d = cv.birthDay || '...';
+    const m = cv.birthMonth || '...';
+    const y = cv.birthYear || '...';
+    dobStr = `${d}/${m}/${y}`;
+  }
 
   const data: Record<string, any> = {
-    fullNameUpper: cv.fullNameUpper || (recruit.fullName ? recruit.fullName.toUpperCase() : ''),
-    fullName: recruit.fullName || '',
-    aliasName: cv.aliasName || recruit.fullName || '',
-    birthDay: cv.birthDay || '',
-    birthMonth: cv.birthMonth || '',
-    birthYear: cv.birthYear || '',
-    dob: dobStr,
-    gender: cv.gender || 'Nam',
-    citizenId: cv.citizenId || recruit.citizenId || '',
-    placeOfBirth: cv.placeOfBirth || '',
-    hometown: cv.hometown || '',
-    ethnicity: cv.ethnicity || recruit.details?.ethnicity || '',
-    religion: cv.religion || recruit.details?.religion || '',
-    nationality: cv.nationality || 'Việt Nam',
-    permanentAddress: cv.permanentAddress || '',
-    temporaryAddress: cv.temporaryAddress || '',
-    familyClass: cv.familyClass || '',
-    personalClass: cv.personalClass || '',
-    educationLevel: cv.educationLevel || recruit.details?.education || '',
-    qualificationLevel: cv.qualificationLevel || recruit.details?.school || '',
-    languageLevel: cv.languageLevel || '',
-    major: cv.major || recruit.details?.major || '',
-    communistPartyJoinedDate: cv.communistPartyJoinedDate || recruit.details?.partyEntryDate || '',
-    communistPartyOfficialDate: cv.communistPartyOfficialDate || '',
-    youthUnionJoinedDate: cv.youthUnionJoinedDate || '',
-    commendations: cv.commendations || recruit.details?.rewards || '',
-    disciplinaryAction: cv.disciplinaryAction || recruit.details?.disciplines || '',
-    job: cv.job || recruit.details?.job || '',
-    salary: cv.salary || '',
-    salaryGrade: cv.salaryGrade || '',
-    salaryRank: cv.salaryRank || '',
-    workplace: cv.workplace || recruit.details?.workAddress || '',
-    foreignTravel: cv.foreignTravel || '',
-    fatherName: cv.fatherName || recruit.family?.father?.fullName || '',
-    fatherStatus: cv.fatherStatus || '',
-    fatherBirthDate: cv.fatherBirthDate || '',
-    fatherJob: cv.fatherJob || recruit.family?.father?.job || '',
-    motherName: cv.motherName || recruit.family?.mother?.fullName || '',
-    motherStatus: cv.motherStatus || '',
-    motherBirthDate: cv.motherBirthDate || '',
-    motherJob: cv.motherJob || recruit.family?.mother?.job || '',
-    spouseName: cv.spouseName || recruit.family?.wife?.fullName || '',
-    spouseBirthDate: cv.spouseBirthDate || '',
-    spouseJob: cv.spouseJob || recruit.family?.wife?.job || '',
-    childrenCount: cv.childrenCount || '0',
-    totalSiblings: cv.totalSiblings || '1',
-    maleSiblings: cv.maleSiblings || '',
-    femaleSiblings: cv.femaleSiblings || '',
-    siblingOrder: cv.siblingOrder || '1',
+    fullNameUpper: getVal(cv.fullNameUpper, recruit.fullName?.toUpperCase()),
+    fullName: getVal(recruit.fullName),
+    aliasName: getVal(cv.aliasName, recruit.fullName),
+    birthDay: getVal(cv.birthDay),
+    birthMonth: getVal(cv.birthMonth),
+    birthYear: getVal(cv.birthYear),
+    dob: getVal(dobStr),
+    gender: getVal(cv.gender, 'Nam'),
+    citizenId: getVal(cv.citizenId, recruit.citizenId),
+    placeOfBirth: getVal(cv.placeOfBirth),
+    hometown: getVal(cv.hometown),
+    ethnicity: getVal(cv.ethnicity, recruit.details?.ethnicity),
+    religion: getVal(cv.religion, recruit.details?.religion),
+    nationality: getVal(cv.nationality, 'Việt Nam'),
+    permanentAddress: getVal(cv.permanentAddress),
+    temporaryAddress: getVal(cv.temporaryAddress),
+    familyClass: getVal(cv.familyClass, recruit.details?.familyComposition),
+    personalClass: getVal(cv.personalClass, recruit.details?.personalComposition),
+    educationLevel: getVal(cv.educationLevel, recruit.details?.education),
+    qualificationLevel: getVal(cv.qualificationLevel, recruit.details?.school),
+    languageLevel: getVal(cv.languageLevel),
+    major: getVal(cv.major, recruit.details?.major),
+    communistPartyJoinedDate: getVal(cv.communistPartyJoinedDate, recruit.details?.partyEntryDate),
+    communistPartyOfficialDate: getVal(cv.communistPartyOfficialDate),
+    youthUnionJoinedDate: getVal(cv.youthUnionJoinedDate),
+    commendations: getVal(cv.commendations, recruit.details?.rewards),
+    disciplinaryAction: getVal(cv.disciplinaryAction, recruit.details?.disciplines),
+    job: getVal(cv.job, recruit.details?.job),
+    salary: getVal(cv.salary),
+    salaryGrade: getVal(cv.salaryGrade, recruit.details?.gradeGroup),
+    salaryRank: getVal(cv.salaryRank, recruit.details?.salaryLevel),
+    workplace: getVal(cv.workplace, recruit.details?.workAddress),
+    foreignTravel: getVal(cv.foreignTravel, 'Chưa đi nước ngoài'),
+    fatherName: getVal(cv.fatherName, recruit.family?.father?.fullName),
+    fatherStatus: getVal(cv.fatherStatus, 'Sống'),
+    fatherBirthDate: getVal(cv.fatherBirthDate),
+    fatherJob: getVal(cv.fatherJob, recruit.family?.father?.job),
+    motherName: getVal(cv.motherName, recruit.family?.mother?.fullName),
+    motherStatus: getVal(cv.motherStatus, 'Sống'),
+    motherBirthDate: getVal(cv.motherBirthDate),
+    motherJob: getVal(cv.motherJob, recruit.family?.mother?.job),
+    spouseName: getVal(cv.spouseName, recruit.family?.wife?.fullName),
+    spouseBirthDate: getVal(cv.spouseBirthDate),
+    spouseJob: getVal(cv.spouseJob, recruit.family?.wife?.job),
+    childrenCount: getVal(cv.childrenCount, recruit.family?.children),
+    totalSiblings: getVal(cv.totalSiblings, recruit.details?.siblingCount),
+    maleSiblings: getVal(cv.maleSiblings),
+    femaleSiblings: getVal(cv.femaleSiblings),
+    siblingOrder: getVal(cv.siblingOrder, recruit.details?.birthOrder),
   };
 
   // UPPERCASE Aliases & Vietnamese Tag Names for Template Matching
@@ -302,6 +320,16 @@ export const generateCurriculumVitaeWordDoc = async (
 
   try {
     const zip = new PizZip(arrayBuffer);
+    
+    // Check if the zip file contains word/document.xml (standard .docx requirement)
+    if (!zip.files || !zip.files['word/document.xml']) {
+      throw new Error(
+        "Tệp mẫu Word đã tải lên không đúng định dạng .docx tiêu chuẩn (thiếu thành phần word/document.xml).\n\n" +
+        "👉 Nguyên nhân: Tệp đang ở định dạng .doc cũ (Word 97-2003) hoặc file Word bị đổi đuôi thủ công.\n" +
+        "👉 Cách xử lý: Vui lòng mở tệp này bằng Microsoft Word trên máy tính -> Chọn menu File -> Save As (Lưu thành) -> Chọn định dạng 'Word Document (*.docx)' -> Sau đó tải lại file .docx mới này lên hệ thống."
+      );
+    }
+
     const docxtpl = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
@@ -340,6 +368,13 @@ export const generateCurriculumVitaeWordDoc = async (
     saveAs(outBlob, filename);
   } catch (err: any) {
     console.error("Lỗi khi trộn dữ liệu vào file Word mẫu:", err);
+    if (err.message && (err.message.includes('filetype') || err.message.includes('corrupted') || err.message.includes('word/document.xml'))) {
+      throw new Error(
+        "Tệp mẫu Word do Admin/Cấp trên tải lên không đúng định dạng .docx tiêu chuẩn.\n\n" +
+        "👉 Nguyên nhân: Tệp đang ở định dạng .doc cũ (Word 97-2003) hoặc file bị lỗi cấu trúc zip.\n" +
+        "👉 Cách xử lý: Hãy mở tệp này bằng Microsoft Word -> Chọn File -> Save As -> Chọn kiểu 'Word Document (*.docx)' và tải lại lên hệ thống."
+      );
+    }
     throw new Error(`Lỗi khi điền dữ liệu vào tệp mẫu Word của Admin: ${err.message || err}`);
   }
 };

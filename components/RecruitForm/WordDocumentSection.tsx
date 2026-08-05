@@ -98,7 +98,12 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
 
     const fileExt = file.name.split('.').pop()?.toLowerCase();
     if (!['doc', 'docx', 'docm'].includes(fileExt || '')) {
-      alert("Vui lòng chọn tệp Word có định dạng .doc hoặc .docx");
+      alert("Vui lòng chọn tệp Word có định dạng .docx (hoặc .docm)");
+      return;
+    }
+
+    if (fileExt === 'doc') {
+      alert("⚠️ LƯU Ý QUAN TRỌNG:\n\nTệp định dạng .doc (Word 97-2003) không hỗ trợ tính năng tự động trộn dữ liệu.\n\nVui lòng mở tệp trên trong Microsoft Word -> Vào File -> Chọn Save As (Lưu thành) -> Chọn định dạng 'Word Document (*.docx)' -> Rồi tải tệp .docx mới lên hệ thống!");
       return;
     }
 
@@ -142,7 +147,12 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
 
     const fileExt = file.name.split('.').pop()?.toLowerCase();
     if (!['doc', 'docx', 'docm'].includes(fileExt || '')) {
-      alert("Vui lòng chọn tệp Word có định dạng .doc hoặc .docx");
+      alert("Vui lòng chọn tệp Word có định dạng .docx");
+      return;
+    }
+
+    if (fileExt === 'doc') {
+      alert("⚠️ LƯU Ý BẮT BUỘC:\n\nMẫu file Word định dạng cũ .doc (Word 97-2003) không hỗ trợ tính năng trộn dữ liệu.\n\nVui lòng mở tệp mẫu đó trong Microsoft Word -> Chọn Save As (Lưu thành) -> Chọn định dạng 'Word Document (*.docx)' -> Sau đó tải file .docx đó lên hệ thống!");
       return;
     }
 
@@ -322,8 +332,8 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
               <Edit3 size={16} />
             </button>
 
-            {/* 3. Replace Button */}
-            {!isReadOnly && (
+            {/* 3. Replace Button (Hidden when Admin has uploaded master template) */}
+            {!isReadOnly && !masterTemplate?.url && (
               <label className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2.5 rounded-xl font-black uppercase text-xs shadow-lg transition-all cursor-pointer active:scale-95">
                 <Upload size={16} />
                 <span>{isCustom ? 'Thay bằng bản cập nhật mới' : 'Tải lên & Thay thế file'}</span>
@@ -338,7 +348,7 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
             )}
 
             {/* 4. Revert Button */}
-            {!isReadOnly && isCustom && (
+            {!isReadOnly && isCustom && !masterTemplate?.url && (
               <button
                 type="button"
                 onClick={handleRevertToMaster}
@@ -355,13 +365,12 @@ export const WordDocumentSection: React.FC<WordDocumentSectionProps> = ({
         {showGuide && (
           <div className="bg-blue-950 border border-blue-500/50 p-4 rounded-xl text-xs space-y-2 animate-in fade-in duration-200">
             <div className="font-black text-amber-300 uppercase flex items-center gap-1.5">
-              <AlertCircle size={15} /> Quy trình chỉnh sửa & cập nhật file Word hồ sơ công dân:
+              <AlertCircle size={15} /> Hướng dẫn xuất hồ sơ file Word:
             </div>
             <ol className="list-decimal list-inside space-y-1.5 text-blue-100 font-medium pl-1">
-              <li>Nhấp nút <strong className="text-emerald-300">"Tải file Word về"</strong> để tải tài liệu sơ yếu lý lịch về máy tính của bạn.</li>
-              <li>Mở tệp bằng phần mềm Microsoft Word để điền/chỉnh sửa thông tin chi tiết cho công dân <strong className="text-white">{recruitName || 'này'}</strong>.</li>
-              <li>Lưu tệp Word đã hoàn thiện trên máy tính.</li>
-              <li>Nhấp nút <strong className="text-amber-300">"Tải lên & Thay thế file"</strong> ở trên để chèn bản cập nhật mới thay thế vào vị trí file cũ của hồ sơ công dân này.</li>
+              <li>Cán bộ tiến hành nhập / cập nhật thông tin trực tiếp vào tab <strong className="text-white">"Sơ yếu lý lịch"</strong> bên dưới.</li>
+              <li>Nhấp nút <strong className="text-emerald-300">"Tải file Word về"</strong> ở trên, hệ thống sẽ tự động tự điền (trộn) toàn bộ dữ liệu công dân vào tệp Word mẫu chuẩn.</li>
+              <li>Mở tệp Word đã tải về để kiểm tra hoặc in ấn phục vụ công tác giao nhận quân.</li>
             </ol>
           </div>
         )}
