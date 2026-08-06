@@ -1,7 +1,7 @@
 
 import { useMemo } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../../../types';
-import { isMilitarySchoolRecruit, isTransferredRecruit } from '../../RecruitManagement/utils';
+import { isMilitarySchoolRecruit, isTransferredRecruit, isRecruitDeferred, isRecruitExempted } from '../../RecruitManagement/utils';
 
 interface UseDashboardStatsProps {
     recruits: Recruit[];
@@ -73,8 +73,8 @@ export const useDashboardStats = ({
         const countCGNN = activeYearRecruits.filter(r => r.status === RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU).length;
         const countTT50 = countKTC + countCGNN;
         
-        const countDeferred = activeYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED).length;
-        const countExempted = activeYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPTED).length;
+        const countDeferred = activeYearRecruits.filter(r => isRecruitDeferred(r, sessionYear)).length;
+        const countExempted = activeYearRecruits.filter(r => isRecruitExempted(r, sessionYear)).length;
         const countRemoved = activeYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
         
         const countRemovedMilitary = activeYearRecruits.filter(r => {
@@ -96,7 +96,10 @@ export const useDashboardStats = ({
         ];
         
         const ds6_count = ds4_recruits.filter(r => 
-            ![...tt50Statuses, RecruitmentStatus.DEFERRED, RecruitmentStatus.EXEMPTED, RecruitmentStatus.REMOVED_FROM_SOURCE].includes(r.status as RecruitmentStatus)
+            !tt50Statuses.includes(r.status as RecruitmentStatus) &&
+            r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE &&
+            !isRecruitDeferred(r, sessionYear) &&
+            !isRecruitExempted(r, sessionYear)
         ).length;
 
         const countPreCheckPass = ds4_recruits.filter(r => [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status)).length;

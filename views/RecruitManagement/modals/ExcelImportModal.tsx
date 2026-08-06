@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, CheckCircle2, FileSpreadsheet, RefreshCw, Download, HelpCircle, FileText } from 'lucide-react';
 import XLSX from 'xlsx-js-style';
-import { Recruit, User, FamilyMember } from '../../../types';
+import { Recruit, User, FamilyMember, RecruitmentStatus } from '../../../types';
 import { api } from '../../../api';
 
 import {
@@ -21,6 +21,8 @@ import {
   checkFontWarning,
   isHeaderOrMetadataRow
 } from './excelImport/excelHelpers';
+
+import { hasDefermentReason, hasExemptionReason } from '../utils';
 
 import {
   handleDownloadTemplate17,
@@ -408,12 +410,30 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           });
         }
 
+        // Tự động xác định trạng thái Tạm hoãn / Miễn gọi từ lý do nếu có
+        let autoStatus = defaultStatus;
+        if (reason && reason !== '---' && reason.toLowerCase() !== 'không') {
+          if (hasExemptionReason({ defermentReason: reason })) {
+            autoStatus = RecruitmentStatus.EXEMPTED;
+          } else if (hasDefermentReason({ defermentReason: reason })) {
+            autoStatus = RecruitmentStatus.DEFERRED;
+          }
+        }
+
         // 3. ĐỐI CHIẾU SỐ CCCD VỚI CƠ SỞ DỮ LIỆU CÔNG DÂN
         const existingIndex = currentRecruitsState.findIndex(r => r.citizenId?.trim() === rawCccd);
 
         if (existingIndex > -1) {
           // CẬP NHẬT CÔNG DÂN ĐÃ TỒN TẠI
           const existing = currentRecruitsState[existingIndex];
+          const finalReason = reason || existing.defermentReason;
+          let targetStatus = existing.status;
+          if (existing.status === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) {
+            targetStatus = autoStatus;
+          } else if (reason && autoStatus !== defaultStatus && autoStatus !== RecruitmentStatus.SOURCE) {
+            targetStatus = autoStatus;
+          }
+
           const updatedRecruit: Recruit = {
             ...existing,
             fullName: cleanedName || existing.fullName,
@@ -438,7 +458,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               education: edu || existing.details?.education || '12/12',
               job: job || existing.details?.job || 'Không'
             },
-            defermentReason: reason || existing.defermentReason,
+            status: targetStatus,
+            defermentReason: finalReason,
             updatedAt: new Date().toISOString()
           };
 
@@ -455,6 +476,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         } else {
           // CHÈN BẢN GHI CÔNG DÂN MỚI
+          const targetStatus = (defaultStatus === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) ? autoStatus : defaultStatus;
+
           const newRecruit: Recruit = {
             id: Date.now().toString(36) + Math.random().toString(36).substring(2) + idx,
             citizenId: rawCccd,
@@ -498,7 +521,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               wife: { ...emptyFamilyMember },
               children: ''
             },
-            status: defaultStatus,
+            status: targetStatus,
             defermentReason: reason,
             recruitmentYear: sessionYear,
             createdAt: new Date().toISOString(),

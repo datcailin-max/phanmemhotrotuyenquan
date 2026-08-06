@@ -1,6 +1,56 @@
 
 import { Recruit, RecruitmentStatus } from '../../types';
-import { LEGAL_DEFERMENT_REASONS } from '../../constants';
+import { LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS } from '../../constants';
+
+export const hasExemptionReason = (r: { defermentReason?: string; legalReason?: string; notes?: string }): boolean => {
+  const reason = [r.defermentReason, r.legalReason, r.notes].filter(Boolean).join(' ').trim().toLowerCase();
+  if (!reason || reason === '---' || reason === 'không') return false;
+  return (
+    reason.includes('miễn gọi') ||
+    reason.includes('con liệt sĩ') ||
+    reason.includes('con thương binh hạng một') ||
+    reason.includes('con thương binh hạng 1') ||
+    reason.includes('con thương binh hạng hai') ||
+    reason.includes('con thương binh hạng 2') ||
+    LEGAL_EXEMPTION_REASONS.some(ex => reason.includes(ex.toLowerCase()))
+  );
+};
+
+export const hasDefermentReason = (r: { defermentReason?: string; legalReason?: string; notes?: string }): boolean => {
+  const reason = [r.defermentReason, r.legalReason, r.notes].filter(Boolean).join(' ').trim();
+  if (!reason || reason === '---' || reason.toLowerCase() === 'không') return false;
+  if (hasExemptionReason(r)) return false;
+  return true;
+};
+
+export const isRecruitDeferred = (r: Recruit, sessionYear: number): boolean => {
+  if (r.status === RecruitmentStatus.DEFERRED) return true;
+  if (
+    r.status === RecruitmentStatus.EXEMPTED || 
+    r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
+    r.status === RecruitmentStatus.EXEMPT_REGISTRATION || 
+    r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION || 
+    r.status === RecruitmentStatus.REMOVED_FROM_SOURCE || 
+    r.status === RecruitmentStatus.DELETED
+  ) {
+    return false;
+  }
+  return isTotalSource(r, sessionYear) && hasDefermentReason(r);
+};
+
+export const isRecruitExempted = (r: Recruit, sessionYear: number): boolean => {
+  if (r.status === RecruitmentStatus.EXEMPTED) return true;
+  if (
+    r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
+    r.status === RecruitmentStatus.EXEMPT_REGISTRATION || 
+    r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION || 
+    r.status === RecruitmentStatus.REMOVED_FROM_SOURCE || 
+    r.status === RecruitmentStatus.DELETED
+  ) {
+    return false;
+  }
+  return isTotalSource(r, sessionYear) && hasExemptionReason(r);
+};
 
 export const isMilitarySchoolRecruit = (r: {
   defermentReason?: string;
@@ -181,7 +231,7 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
         RecruitmentStatus.DEFERRED, 
         RecruitmentStatus.EXEMPTED,
         RecruitmentStatus.REMOVED_FROM_SOURCE
-      ].includes(r.status);
+      ].includes(r.status) && !hasDefermentReason(r) && !hasExemptionReason(r);
 
     case 'PRE_CHECK_PASS':
       return isTotalSource(r, sessionYear) && [
@@ -215,26 +265,32 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
       return isTotalSource(r, sessionYear) && r.status === RecruitmentStatus.MED_EXAM_FAILED;
 
     case 'DEFERRED_LIST':
-      return r.status === RecruitmentStatus.DEFERRED;
+      return isRecruitDeferred(r, sessionYear);
 
-    case 'DEFERRED_HEALTH':
-      if (r.status !== RecruitmentStatus.DEFERRED) return false;
+    case 'DEFERRED_HEALTH': {
+      if (!isRecruitDeferred(r, sessionYear)) return false;
       return reason === LEGAL_DEFERMENT_REASONS[0] || 
              reason.startsWith('1.') || 
              reason.toLowerCase().includes('sức khỏe') || 
              reason.toLowerCase().includes('sức khoẻ');
+    }
 
-    case 'DEFERRED_EDUCATION':
-      if (r.status !== RecruitmentStatus.DEFERRED) return false;
+    case 'DEFERRED_EDUCATION': {
+      if (!isRecruitDeferred(r, sessionYear)) return false;
       return reason === LEGAL_DEFERMENT_REASONS[6] || 
              reason === LEGAL_DEFERMENT_REASONS[8] || 
              reason.startsWith('7.') || 
              reason.startsWith('9.') || 
              reason.toLowerCase().includes('học') || 
+             reason.toLowerCase().includes('đào tạo') || 
+             reason.toLowerCase().includes('trường') || 
+             reason.toLowerCase().includes('sinh viên') || 
+             reason.toLowerCase().includes('học sinh') || 
              reason.toLowerCase().includes('giáo dục');
+    }
 
-    case 'DEFERRED_POLICY':
-      if (r.status !== RecruitmentStatus.DEFERRED) return false;
+    case 'DEFERRED_POLICY': {
+      if (!isRecruitDeferred(r, sessionYear)) return false;
       const policyReasons = [
         LEGAL_DEFERMENT_REASONS[1], 
         LEGAL_DEFERMENT_REASONS[2], 
@@ -242,26 +298,40 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
         LEGAL_DEFERMENT_REASONS[4], 
         LEGAL_DEFERMENT_REASONS[5]
       ];
+      const lowerReason = reason.toLowerCase();
       return policyReasons.includes(reason) || 
              reason.startsWith('2.') || 
              reason.startsWith('3.') || 
              reason.startsWith('4.') || 
              reason.startsWith('5.') || 
              reason.startsWith('6.') || 
-             reason.toLowerCase().includes('lao động') || 
-             reason.toLowerCase().includes('chính sách') || 
-             reason.toLowerCase().includes('thương binh') || 
-             reason.toLowerCase().includes('liệt sĩ');
+             lowerReason.includes('lao động') || 
+             lowerReason.includes('chính sách') || 
+             lowerReason.includes('thương binh') || 
+             lowerReason.includes('liệt sĩ') || 
+             lowerReason.includes('nuôi') || 
+             lowerReason.includes('bệnh tật') || 
+             lowerReason.includes('anh trai') || 
+             lowerReason.includes('em trai') || 
+             lowerReason.includes('anh ruột') || 
+             lowerReason.includes('em ruột') || 
+             lowerReason.includes('nhập ngũ') || 
+             lowerReason.includes('hoàn cảnh') || 
+             lowerReason.includes('duy nhất') || 
+             lowerReason.includes('l1.') || 
+             lowerReason.includes('l2.');
+    }
 
-    case 'DEFERRED_DQTT':
-      if (r.status !== RecruitmentStatus.DEFERRED) return false;
+    case 'DEFERRED_DQTT': {
+      if (!isRecruitDeferred(r, sessionYear)) return false;
       return reason === LEGAL_DEFERMENT_REASONS[7] || 
              reason.startsWith('8.') || 
-             reason.includes('DQTT') || 
+             reason.toUpperCase().includes('DQTT') || 
              reason.toLowerCase().includes('dân quân');
+    }
 
     case 'EXEMPTED_LIST':
-      return r.status === RecruitmentStatus.EXEMPTED;
+      return isRecruitExempted(r, sessionYear);
 
     case 'FINAL':
       return [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status);
