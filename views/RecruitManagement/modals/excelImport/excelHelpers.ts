@@ -8,22 +8,45 @@ export const getDefaultStatusForTab = (tabId: string): RecruitmentStatus => {
     case 'EXEMPT_REG':
       return RecruitmentStatus.EXEMPT_REGISTRATION;
     case 'FIRST_TIME_REG':
-      return RecruitmentStatus.FIRST_TIME_REGISTRATION;
-    case 'PRE_CHECK_MANAGEMENT':
-    case 'PRE_CHECK_LIST':
-      return RecruitmentStatus.SOURCE;
-    case 'HEALTH_CHECK':
-      return RecruitmentStatus.PRE_CHECK_PASSED;
-    case 'DEFERRED_EXEMPTED':
-      return RecruitmentStatus.DEFERRED;
-    case 'ENLISTMENT_LIST':
-      return RecruitmentStatus.FINALIZED;
-    case 'ENLISTED_LIST':
-      return RecruitmentStatus.ENLISTED;
     case 'AGE_17':
       return RecruitmentStatus.FIRST_TIME_REGISTRATION;
+    case 'ALL':
+    case 'PRE_CHECK':
+    case 'PRE_CHECK_PASS':
+    case 'PRE_CHECK_FAIL':
+    case 'PRE_CHECK_MANAGEMENT':
+    case 'PRE_CHECK_LIST':
+    case 'SOURCE':
+    case 'SOURCE_LIST':
+      return RecruitmentStatus.SOURCE;
+    case 'MED_EXAM':
+    case 'MED_EXAM_PASS':
+    case 'MED_EXAM_FAIL':
+    case 'HEALTH_CHECK':
+      return RecruitmentStatus.PRE_CHECK_PASSED;
+    case 'DEFERRED_LIST':
+    case 'DEFERRED_HEALTH':
+    case 'DEFERRED_EDUCATION':
+    case 'DEFERRED_POLICY':
+    case 'DEFERRED_DQTT':
+    case 'DEFERRED_EXEMPTED':
+      return RecruitmentStatus.DEFERRED;
+    case 'EXEMPTED_LIST':
+      return RecruitmentStatus.EXEMPTED;
+    case 'FINAL':
+    case 'FINAL_OFFICIAL':
+    case 'FINAL_RESERVE':
+    case 'ENLISTMENT_LIST':
+      return RecruitmentStatus.FINALIZED;
+    case 'ENLISTED':
+    case 'ENLISTED_LIST':
+      return RecruitmentStatus.ENLISTED;
+    case 'TT50':
+    case 'KTC_SUB1':
+    case 'KTC_SUB2':
+      return RecruitmentStatus.KTC_KHONG_TUYEN_CHON;
     default:
-      return RecruitmentStatus.FIRST_TIME_REGISTRATION;
+      return RecruitmentStatus.SOURCE;
   }
 };
 

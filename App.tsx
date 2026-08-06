@@ -25,7 +25,7 @@ function App() {
   const [activeRecruitSubTab, setActiveRecruitSubTab] = useState<string>('ALL');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   
-  const { recruits, setRecruits, feedbacks, isLoading } = useInitialData(user, sessionYear);
+  const { recruits, setRecruits, feedbacks, isLoading, fetchAllData } = useInitialData(user, sessionYear);
   
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -78,7 +78,7 @@ function App() {
         <MainHeader activeTab={activeTab} isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} sessionYear={sessionYear} onYearReset={() => setSessionYear(null)} user={user} />
         <div className="flex-1 overflow-auto custom-scrollbar relative">
             {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={(id) => {setActiveRecruitSubTab(id); setActiveTab('recruits');}} sessionYear={sessionYear} userRole={user.role} userUnit={user.unit} currentUser={user} onUpdateUser={setUser} />}
-            {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={(id) => api.deleteRecruit(id).then(() => setRecruits(prev => prev.filter(r => r.id !== id)))} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} />}
+            {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={(id) => api.deleteRecruit(id).then(() => setRecruits(prev => prev.filter(r => r.id !== id)))} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} onRefreshData={fetchAllData} />}
             {activeTab === 'communication' && <CommunicationView user={user} sessionYear={sessionYear} />}
             {activeTab === 'report-builder' && <ReportBuilder user={user} recruits={recruits} sessionYear={sessionYear} />}
             {activeTab === 'documents' && <DocumentsView user={user} />}

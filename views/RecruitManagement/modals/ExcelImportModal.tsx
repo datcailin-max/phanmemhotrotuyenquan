@@ -241,8 +241,15 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       }
 
       const defaultStatus = getDefaultStatusForTab(activeTabId);
-      const userCommune = currentUser?.unit?.commune || 'Mỹ Hòa Hưng';
-      const userProvince = currentUser?.unit?.province || 'An Giang';
+      let userCommune = currentUser?.unit?.commune?.trim() || '';
+      let userProvince = currentUser?.unit?.province?.trim() || '';
+
+      if (!userCommune && currentUser?.fullName) {
+        const match = currentUser.fullName.match(/BAN CHQS (?:XÃ|PHƯỜNG|THỊ TRẤN)?\s*(.+)/i);
+        if (match && match[1]) userCommune = match[1].trim();
+      }
+      if (!userCommune) userCommune = 'Mỹ Hòa Hưng';
+      if (!userProvince) userProvince = 'An Giang';
 
       const errors: ProcessError[] = [];
       const successes: ProcessSuccess[] = [];

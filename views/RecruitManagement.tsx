@@ -32,10 +32,11 @@ interface RecruitManagementProps {
   initialTab?: string;
   onTabChange?: (tabId: string) => void;
   sessionYear: number;
+  onRefreshData?: () => void;
 }
 
 const RecruitManagement: React.FC<RecruitManagementProps> = ({ 
-  recruits: rawRecruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear
+  recruits: rawRecruits, user, onUpdate, onDelete, initialTab = 'ALL', onTabChange, sessionYear, onRefreshData
 }) => {
   const [activeTabId, setActiveTabId] = useState(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
@@ -405,6 +406,9 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
             const data = await api.getRecruits();
             if (data && Array.isArray(data)) {
               setRecruits(data);
+            }
+            if (onRefreshData) {
+              await onRefreshData();
             }
           }}
         />
