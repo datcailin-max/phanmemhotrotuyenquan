@@ -19,7 +19,8 @@ import {
   sanitizeName,
   extractNameFromCell,
   checkFontWarning,
-  isHeaderOrMetadataRow
+  isHeaderOrMetadataRow,
+  parseParentInfo
 } from './excelImport/excelHelpers';
 
 import { hasDefermentReason, hasExemptionReason } from '../utils';
@@ -399,6 +400,20 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         }
 
         const formattedDob = rawDob || '2005-01-01';
+        const birthYear = parseInt(formattedDob.split('-')[0] || '2005');
+        const citizenAge = sessionYear - birthYear;
+
+        // Quét tự động nhận dạng thông tin Cha / Mẹ từ các ô trong hàng
+        const parentTexts: string[] = [];
+        row.forEach((cell, cIdx) => {
+          if (cIdx === nameCol || cIdx === cccdCol || cIdx === dobCol) return;
+          const cellStr = String(cell || '').trim();
+          if (!cellStr) return;
+          if (/cha|bố|mẹ|thân nhân|gia đình|phụ huynh|nông dân|công nhân|làm vườn|nội trợ|bộ đội|giáo viên|19\d{2}|20\d{2}/i.test(cellStr)) {
+            parentTexts.push(cellStr);
+          }
+        });
+        const parsedParents = parseParentInfo(parentTexts);
 
         // Ghi nhận nếu công dân có lý do Tạm hoãn / Miễn / Ghi chú đặc biệt
         if (reason && reason !== '---') {
@@ -412,7 +427,28 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         // Tự động xác định trạng thái Tạm hoãn / Miễn gọi từ lý do nếu có
         let autoStatus = defaultStatus;
-        if (reason && reason !== '---' && reason.toLowerCase() !== 'không') {
+
+        // KIỂM TRA QUY ĐỊNH LUẬT NVQS VỀ TUỔI
+        if (citizenAge < 17) {
+          deferredExempts.push({
+            rowNum: rowNumberInExcel,
+            fullName: cleanedName,
+            cccd: rawCccd,
+            reason: `CẢNH BÁO LUẬT NVQS: Công dân ${citizenAge} tuổi (chưa đủ 17 tuổi trong năm ${sessionYear}) - Chưa đến tuổi đăng ký NVQS lần đầu.`
+          });
+          autoStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
+        } else if (citizenAge < 18) {
+          // Công dân 17 tuổi (dưới 18 tuổi): Thuộc Danh sách Đăng ký NVQS lần đầu (DS 3)
+          if (defaultStatus !== RecruitmentStatus.FIRST_TIME_REGISTRATION || (reason && reason !== '---')) {
+            deferredExempts.push({
+              rowNum: rowNumberInExcel,
+              fullName: cleanedName,
+              cccd: rawCccd,
+              reason: `NHẮC NHỞ LUẬT NVQS: Công dân ${citizenAge} tuổi (dưới 18 tuổi) - Không thuộc diện vào Danh sách Nguồn/Tạm hoãn nguồn. Đã giữ tại Danh sách Đăng ký NVQS lần đầu (DS 3).`
+            });
+          }
+          autoStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
+        } else if (reason && reason !== '---' && reason.toLowerCase() !== 'không') {
           if (hasExemptionReason({ defermentReason: reason })) {
             autoStatus = RecruitmentStatus.EXEMPTED;
           } else if (hasDefermentReason({ defermentReason: reason })) {
@@ -428,7 +464,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           const existing = currentRecruitsState[existingIndex];
           const finalReason = reason || existing.defermentReason;
           let targetStatus = existing.status;
-          if (existing.status === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) {
+
+          if (citizenAge < 18) {
+            targetStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
+          } else if (existing.status === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) {
             targetStatus = autoStatus;
           } else if (reason && autoStatus !== defaultStatus && autoStatus !== RecruitmentStatus.SOURCE) {
             targetStatus = autoStatus;
@@ -458,6 +497,22 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               education: edu || existing.details?.education || '12/12',
               job: job || existing.details?.job || 'Không'
             },
+            family: {
+              father: {
+                fullName: parsedParents.father.fullName || existing.family?.father?.fullName || '',
+                birthYear: parsedParents.father.birthYear || existing.family?.father?.birthYear || '',
+                job: parsedParents.father.job || existing.family?.father?.job || '',
+                phoneNumber: existing.family?.father?.phoneNumber || ''
+              },
+              mother: {
+                fullName: parsedParents.mother.fullName || existing.family?.mother?.fullName || '',
+                birthYear: parsedParents.mother.birthYear || existing.family?.mother?.birthYear || '',
+                job: parsedParents.mother.job || existing.family?.mother?.job || '',
+                phoneNumber: existing.family?.mother?.phoneNumber || ''
+              },
+              wife: existing.family?.wife || { ...emptyFamilyMember },
+              children: existing.family?.children || ''
+            },
             status: targetStatus,
             defermentReason: finalReason,
             updatedAt: new Date().toISOString()
@@ -476,7 +531,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         } else {
           // CHÈN BẢN GHI CÔNG DÂN MỚI
-          const targetStatus = (defaultStatus === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) ? autoStatus : defaultStatus;
+          let targetStatus = (defaultStatus === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) ? autoStatus : defaultStatus;
+          if (citizenAge < 18) {
+            targetStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
+          }
 
           const newRecruit: Recruit = {
             id: Date.now().toString(36) + Math.random().toString(36).substring(2) + idx,
@@ -516,8 +574,18 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               personalComposition: 'Phụ thuộc'
             },
             family: {
-              father: { ...emptyFamilyMember },
-              mother: { ...emptyFamilyMember },
+              father: {
+                fullName: parsedParents.father.fullName || '',
+                birthYear: parsedParents.father.birthYear || '',
+                job: parsedParents.father.job || '',
+                phoneNumber: ''
+              },
+              mother: {
+                fullName: parsedParents.mother.fullName || '',
+                birthYear: parsedParents.mother.birthYear || '',
+                job: parsedParents.mother.job || '',
+                phoneNumber: ''
+              },
               wife: { ...emptyFamilyMember },
               children: ''
             },

@@ -217,3 +217,130 @@ export const isHeaderOrMetadataRow = (row: any[]): boolean => {
 
   return false;
 };
+
+export interface ParentInfoParsed {
+  father: { fullName: string; birthYear: string; job: string };
+  mother: { fullName: string; birthYear: string; job: string };
+}
+
+export const parseParentInfo = (textInputs: (string | undefined | null)[]): ParentInfoParsed => {
+  const result: ParentInfoParsed = {
+    father: { fullName: '', birthYear: '', job: '' },
+    mother: { fullName: '', birthYear: '', job: '' }
+  };
+
+  if (!textInputs || textInputs.length === 0) return result;
+
+  const rawLines: string[] = [];
+  textInputs.forEach(input => {
+    if (!input) return;
+    String(input).split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed) rawLines.push(trimmed);
+    });
+  });
+
+  const lines = rawLines.filter(line => {
+    const lower = line.toLowerCase();
+    if (
+      (lower.includes('họ tên cha') || lower.includes('họ và tên cha')) && 
+      (lower.includes('nghề nghiệp') || lower.includes('năm sinh')) && 
+      !lower.includes(':') && !/\b(19\d{2}|20\d{2})\b/.test(lower)
+    ) return false;
+    if (
+      (lower.includes('họ tên mẹ') || lower.includes('họ và tên mẹ')) && 
+      (lower.includes('nghề nghiệp') || lower.includes('năm sinh')) && 
+      !lower.includes(':') && !/\b(19\d{2}|20\d{2})\b/.test(lower)
+    ) return false;
+    if (lower.includes('thành phần gia đình') || lower.includes('thông tin thân nhân') || lower.includes('thông tin cha mẹ')) return false;
+    return true;
+  });
+
+  if (lines.length === 0) return result;
+
+  const parseYearAndJob = (str: string) => {
+    const yearMatch = str.match(/\b(19\d{2}|20\d{2})\b/);
+    const birthYear = yearMatch ? yearMatch[1] : '';
+    let job = str;
+    if (birthYear) {
+      job = job.replace(birthYear, '');
+    }
+    job = job.replace(/^(cha|bố|mẹ|họ và tên cha|họ tên cha|họ và tên mẹ|họ tên mẹ)\s*[:\-]?\s*/i, '')
+             .replace(/^[:,\-\s\(\)]+/, '')
+             .replace(/[:,\-\s\(\)]+$/, '')
+             .trim();
+    return { birthYear, job };
+  };
+
+  let currentTarget: 'father' | 'mother' | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (/\b(cha|bố|họ tên cha|họ và tên cha|thông tin cha)\b/i.test(line)) {
+      currentTarget = 'father';
+      const cleanLine = line.replace(/^(họ và tên cha|họ tên cha|thông tin cha|cha|bố)\s*[:\-]?\s*/i, '').trim();
+      if (cleanLine) {
+        const { birthYear, job } = parseYearAndJob(cleanLine);
+        const namePart = cleanLine.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
+        if (namePart) result.father.fullName = namePart;
+        if (birthYear) result.father.birthYear = birthYear;
+        if (job && job !== namePart) result.father.job = job;
+      }
+      continue;
+    }
+
+    if (/\b(mẹ|họ tên mẹ|họ và tên mẹ|thông tin mẹ)\b/i.test(line)) {
+      currentTarget = 'mother';
+      const cleanLine = line.replace(/^(họ và tên mẹ|họ tên mẹ|thông tin mẹ|mẹ)\s*[:\-]?\s*/i, '').trim();
+      if (cleanLine) {
+        const { birthYear, job } = parseYearAndJob(cleanLine);
+        const namePart = cleanLine.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
+        if (namePart) result.mother.fullName = namePart;
+        if (birthYear) result.mother.birthYear = birthYear;
+        if (job && job !== namePart) result.mother.job = job;
+      }
+      continue;
+    }
+
+    const startsWithYear = line.match(/^\b(19\d{2}|20\d{2})\b/);
+    if (startsWithYear) {
+      const { birthYear, job } = parseYearAndJob(line);
+      if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
+        if (birthYear) result.father.birthYear = birthYear;
+        if (job) result.father.job = job;
+      } else if (currentTarget === 'mother' || (!result.mother.birthYear && result.mother.fullName)) {
+        if (birthYear) result.mother.birthYear = birthYear;
+        if (job) result.mother.job = job;
+      }
+      continue;
+    }
+
+    if (!/\b(19\d{2}|20\d{2})\b/.test(line)) {
+      if (!result.father.fullName) {
+        result.father.fullName = line.trim();
+        currentTarget = 'father';
+      } else if (!result.mother.fullName) {
+        result.mother.fullName = line.trim();
+        currentTarget = 'mother';
+      }
+      continue;
+    }
+
+    const { birthYear, job } = parseYearAndJob(line);
+    const namePart = line.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
+    if (!result.father.fullName) {
+      result.father.fullName = namePart;
+      if (birthYear) result.father.birthYear = birthYear;
+      if (job) result.father.job = job;
+      currentTarget = 'father';
+    } else if (!result.mother.fullName) {
+      result.mother.fullName = namePart;
+      if (birthYear) result.mother.birthYear = birthYear;
+      if (job) result.mother.job = job;
+      currentTarget = 'mother';
+    }
+  }
+
+  return result;
+};

@@ -24,6 +24,7 @@ export const hasDefermentReason = (r: { defermentReason?: string; legalReason?: 
 };
 
 export const isRecruitDeferred = (r: Recruit, sessionYear: number): boolean => {
+  if (checkAge(r, sessionYear) < 18) return false;
   if (r.status === RecruitmentStatus.DEFERRED) return true;
   if (
     r.status === RecruitmentStatus.EXEMPTED || 
@@ -39,6 +40,7 @@ export const isRecruitDeferred = (r: Recruit, sessionYear: number): boolean => {
 };
 
 export const isRecruitExempted = (r: Recruit, sessionYear: number): boolean => {
+  if (checkAge(r, sessionYear) < 18) return false;
   if (r.status === RecruitmentStatus.EXEMPTED) return true;
   if (
     r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
@@ -181,7 +183,7 @@ export const isTotalSource = (r: Recruit, sessionYear: number) => {
   ].includes(r.status)) return false;
   
   const age = checkAge(r, sessionYear);
-  if (r.status === RecruitmentStatus.SOURCE && age < 18) return false;
+  if (age < 18) return false;
   
   return true;
 };
@@ -210,8 +212,18 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
     case 'EXEMPT_REG':
       return r.status === RecruitmentStatus.EXEMPT_REGISTRATION;
 
-    case 'FIRST_TIME_REG':
+    case 'FIRST_TIME_REG': {
+      const age = checkAge(r, sessionYear);
+      if (age < 18 && ![
+        RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
+        RecruitmentStatus.EXEMPT_REGISTRATION,
+        RecruitmentStatus.REMOVED_FROM_SOURCE,
+        RecruitmentStatus.DELETED
+      ].includes(r.status)) {
+        return true;
+      }
       return r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION;
+    }
 
     case 'ALL':
       return isTotalSource(r, sessionYear);
