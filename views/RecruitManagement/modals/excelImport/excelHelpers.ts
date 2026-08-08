@@ -450,12 +450,27 @@ export const isNonPersonName = (str: string): boolean => {
   const exactKeywords = [
     'nông dân', 'phụ thuộc', 'kinh', 'tày', 'nùng', 'hoa', 'dao', 'chăm', 'khơ me', 'mường', 'sán dìu', 'sán rìu',
     'không', 'phật giáo', 'thiên chúa', 'công giáo', 'tin lành', 'cao đài', 'hòa hảo',
-    'đảng viên', 'đoàn viên', 'học sinh', 'sinh viên', 'thất nghiệp', 'tự do', 'phụ giúp gia đình',
+    'đảng viên', 'đoàn viên', 'học sinh', 'sinh viên', 'thất nghiệp', 'tự do', 'lao động tự do',
     'công nhân', 'làm vườn', 'nội trợ', 'bộ đội', 'giáo viên', 'buôn bán', 'làm nông', 'kinh doanh', 'cán bộ',
-    'chưa có', 'không nghề nghiệp', 'hộ khẩu', 'tạm trú', 'thường trú', 'quê quán'
+    'chưa có', 'không nghề nghiệp', 'hộ khẩu', 'tạm trú', 'thường trú', 'quê quán',
+    'ở nhà', 'làm mộc', 'làm ruộng', 'làm thuê', 'làm rẫy', 'thợ mộc', 'thợ xây', 'thợ sắt', 'thợ điện',
+    'thợ cơ khí', 'lái xe', 'tài xế', 'bảo vệ', 'buôn bán nhỏ', 'chăn nuôi', 'trồng trọt', 'đã mất', 'qua đời',
+    'đã chết', 'mất', 'chết', 'chủ hộ', 'cháu', 'cháu ngoại', 'cháu nội', 'ông', 'bà', 'anh', 'chị', 'em'
   ];
 
   if (exactKeywords.some(kw => clean === kw || clean === kw + ' gia đình')) {
+    return true;
+  }
+
+  if (
+    clean.startsWith('ở nhà') ||
+    clean.startsWith('chủ hộ') ||
+    clean.startsWith('cháu ') ||
+    clean.startsWith('cháu ngoại') ||
+    clean.startsWith('cháu nội') ||
+    clean.startsWith('đã mất') ||
+    clean.startsWith('qua đời')
+  ) {
     return true;
   }
 
@@ -561,7 +576,10 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
     const jobKeywords = [
       'công nhân', 'nông dân', 'làm ruộng', 'buôn bán', 'tự do', 'lao động tự do',
       'cán bộ', 'giáo viên', 'bộ đội', 'công chức', 'viên chức', 'hưu trí', 'nội trợ',
-      'làm vườn', 'kinh doanh', 'thất nghiệp', 'phụ giúp gia đình', 'bần nông', 'trung nông'
+      'làm vườn', 'kinh doanh', 'thất nghiệp', 'phụ giúp gia đình', 'bần nông', 'trung nông',
+      'ở nhà', 'làm mộc', 'làm thuê', 'làm rẫy', 'làm nông', 'thợ mộc', 'thợ xây', 'thợ sắt',
+      'thợ điện', 'thợ cơ khí', 'lái xe', 'tài xế', 'bảo vệ', 'buôn bán nhỏ', 'chăn nuôi',
+      'trồng trọt', 'đã mất', 'qua đời', 'mất'
     ];
 
     let name = text;
@@ -602,10 +620,15 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    const { birthYear, cleanStr } = extractBirthYear(line);
-
     const isFatherExplicit = /\b(cha|bố|họ tên cha|họ và tên cha|thông tin cha|năm sinh cha|nghề nghiệp cha)\b/i.test(line);
     const isMotherExplicit = /\b(mẹ|họ tên mẹ|họ và tên mẹ|thông tin mẹ|năm sinh mẹ|nghề nghiệp mẹ)\b/i.test(line);
+    const isOtherRelative = /^\s*(chủ hộ|cháu|cháu ngoại|cháu nội|ông|bà|anh|chị|em|cậu|dì|chú|bác|vợ|chồng)\b/i.test(line) && !isFatherExplicit && !isMotherExplicit;
+
+    if (isOtherRelative) {
+      continue;
+    }
+
+    const { birthYear, cleanStr } = extractBirthYear(line);
 
     if (isFatherExplicit) {
       currentTarget = 'father';
@@ -627,27 +650,27 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
 
     const { name, job } = parseNameAndJob(cleanStr);
 
-    // Trường hợp ô chỉ chứa năm sinh
-    if (birthYear && !name && !job) {
-      if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
-        result.father.birthYear = birthYear;
-      } else if (currentTarget === 'mother' || (!result.mother.birthYear && result.mother.fullName)) {
-        result.mother.birthYear = birthYear;
+    // 1. Line without a valid person name (contains only birth year and/or job, e.g. "1977 Ở nhà", "1982 Buôn bán")
+    if (!name || isNonPersonName(name)) {
+      if (currentTarget === 'father') {
+        if (birthYear && !result.father.birthYear) result.father.birthYear = birthYear;
+        if (job && !result.father.job) result.father.job = job;
+      } else if (currentTarget === 'mother') {
+        if (birthYear && !result.mother.birthYear) result.mother.birthYear = birthYear;
+        if (job && !result.mother.job) result.mother.job = job;
+      } else {
+        if (!result.father.fullName || (!result.father.birthYear && !result.father.job)) {
+          if (birthYear && !result.father.birthYear) result.father.birthYear = birthYear;
+          if (job && !result.father.job) result.father.job = job;
+        } else if (!result.mother.fullName || (!result.mother.birthYear && !result.mother.job)) {
+          if (birthYear && !result.mother.birthYear) result.mother.birthYear = birthYear;
+          if (job && !result.mother.job) result.mother.job = job;
+        }
       }
       continue;
     }
 
-    // Trường hợp ô chỉ chứa nghề nghiệp
-    if (job && !name) {
-      if (currentTarget === 'father' && result.father.fullName && !result.father.job) {
-        result.father.job = job;
-      } else if (currentTarget === 'mother' && result.mother.fullName && !result.mother.job) {
-        result.mother.job = job;
-      }
-      continue;
-    }
-
-    // Trường hợp có Họ tên
+    // 2. Line contains a valid person name
     if (name && !isNonPersonName(name)) {
       if (!result.father.fullName) {
         result.father.fullName = name;
@@ -661,20 +684,12 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
         currentTarget = 'mother';
       } else {
         if (currentTarget === 'father') {
-          if (birthYear) result.father.birthYear = birthYear;
-          if (job) result.father.job = job;
+          if (birthYear && !result.father.birthYear) result.father.birthYear = birthYear;
+          if (job && !result.father.job) result.father.job = job;
         } else if (currentTarget === 'mother') {
-          if (birthYear) result.mother.birthYear = birthYear;
-          if (job) result.mother.job = job;
+          if (birthYear && !result.mother.birthYear) result.mother.birthYear = birthYear;
+          if (job && !result.mother.job) result.mother.job = job;
         }
-      }
-    } else {
-      if (currentTarget === 'father') {
-        if (birthYear && !result.father.birthYear) result.father.birthYear = birthYear;
-        if (job && !result.father.job) result.father.job = job;
-      } else if (currentTarget === 'mother') {
-        if (birthYear && !result.mother.birthYear) result.mother.birthYear = birthYear;
-        if (job && !result.mother.job) result.mother.job = job;
       }
     }
   }
