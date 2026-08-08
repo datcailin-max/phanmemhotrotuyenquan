@@ -158,9 +158,17 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               cellStr.includes('mẹ') || 
               cellStr.includes('thân nhân') || 
               cellStr.includes('phụ huynh') ||
-              cellStr.includes('ông, bà')
+              cellStr.includes('ông, bà') ||
+              cellStr.includes('gia đình')
             ) {
               if (!parentColIndices.includes(colIdx)) parentColIndices.push(colIdx);
+              // Bổ sung các cột kế tiếp (VD: Năm sinh cha, Nghề nghiệp cha, Năm sinh mẹ, Nghề nghiệp mẹ)
+              [1, 2, 3, 4, 5].forEach(offset => {
+                const nextColIdx = colIdx + offset;
+                if (!parentColIndices.includes(nextColIdx) && nextColIdx < row.length) {
+                  parentColIndices.push(nextColIdx);
+                }
+              });
             }
 
             if (
@@ -488,8 +496,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           });
         }
 
-        // Nếu chưa tìm thấy parentTexts từ cột định danh, quét lọc các cột chưa phân ánh chứa từ khóa thân nhân hoặc Họ tên + Năm sinh
-        if (parentTexts.length === 0) {
+        // Quét bổ sung tất cả các ô còn lại chưa gán nếu thiếu thông tin năm sinh hoặc tên của cha/mẹ
+        let parsedParents = parseParentInfo(parentTexts);
+
+        if (!parsedParents.father.birthYear || !parsedParents.mother.birthYear || !parsedParents.father.fullName || !parsedParents.mother.fullName) {
           row.forEach((cell, cIdx) => {
             if (
               cIdx === nameCol || 
@@ -506,22 +516,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
             if (cell === undefined || cell === null) return;
             const cellStr = String(cell).trim();
-            if (!cellStr) return;
+            if (!cellStr || parentTexts.includes(cellStr)) return;
 
-            const lower = cellStr.toLowerCase();
-            // Bắt buộc chứa từ chỉ thân nhân HOẶC chứa định dạng Họ tên + Năm sinh / Tuổi (19xx hoặc 2 chữ số / tuổi)
-            if (
-              /\b(cha|bố|mẹ|thân nhân|phụ huynh)\b/i.test(lower) ||
-              (/[a-zA-Zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ\s]{3,}/i.test(cellStr) && /\b(19[2-9]\d|20[0-2]\d|[3-9]\d|\d{2}\s*tuổi|\d{2}t)\b/i.test(cellStr))
-            ) {
-              if (!parentTexts.includes(cellStr)) {
-                parentTexts.push(cellStr);
-              }
-            }
+            parentTexts.push(cellStr);
           });
-        }
 
-        const parsedParents = parseParentInfo(parentTexts);
+          // Tái phân tích với đầy đủ dữ liệu hàng
+          parsedParents = parseParentInfo(parentTexts);
+        }
 
         const isRealDefer = isRealDefermentReason(reason);
         const isRealExempt = hasExemptionReason({ defermentReason: reason });

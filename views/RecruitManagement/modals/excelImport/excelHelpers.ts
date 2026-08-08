@@ -580,7 +580,19 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       return { birthYear, cleanStr };
     }
 
-    // 6. Tìm năm sinh 2 chữ số đứng độc lập giữa các dấu phân cách (VD: "Cha: NGUYỄN NAM, 75, công nhân")
+    // 6. Ô độc lập chỉ chứa 2 chữ số (VD: "51" hoặc "75")
+    const pureTrimmed = str.trim();
+    if (/^\d{2}$/.test(pureTrimmed)) {
+      const num = parseInt(pureTrimmed, 10);
+      if (num >= 60 && num <= 99) {
+        return { birthYear: '19' + pureTrimmed, cleanStr: '' };
+      } else if (num >= 25 && num < 60) {
+        const currentYr = new Date().getFullYear() || 2026;
+        return { birthYear: String(currentYr - num), cleanStr: '' };
+      }
+    }
+
+    // 7. Tìm năm sinh 2 chữ số đứng độc lập giữa các dấu phân cách (VD: "Cha: NGUYỄN NAM, 75, công nhân")
     const standalone2digitMatch = str.match(/(?:^|[:,\-\s\(\/])\b([3-9]\d)\b(?:$|[:,\-\s\)\/])/);
     if (standalone2digitMatch) {
       const numStr = standalone2digitMatch[1];
