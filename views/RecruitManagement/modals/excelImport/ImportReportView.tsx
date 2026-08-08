@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { CheckCircle2, RefreshCw, AlertTriangle, Info, ShieldAlert, FileX } from 'lucide-react';
-import { ProcessError, DeferredExemptNotice, FontWarningNotice } from './types';
+import { CheckCircle2, RefreshCw, AlertTriangle, Info, ShieldAlert, FileX, AlertCircle, UserCheck } from 'lucide-react';
+import { ProcessError, DeferredExemptNotice, FontWarningNotice, MissingCccdNotice } from './types';
 import { handleDownloadErrorReport } from './excelTemplates';
 
 interface ImportReportViewProps {
@@ -9,6 +9,7 @@ interface ImportReportViewProps {
   errorList: ProcessError[];
   deferredExemptList: DeferredExemptNotice[];
   fontWarningList: FontWarningNotice[];
+  missingCccdList?: MissingCccdNotice[];
   sessionYear: number;
   selectedFileName?: string;
 }
@@ -19,6 +20,7 @@ export const ImportReportView: React.FC<ImportReportViewProps> = ({
   errorList,
   deferredExemptList,
   fontWarningList,
+  missingCccdList = [],
   sessionYear,
   selectedFileName
 }) => {
@@ -70,6 +72,57 @@ export const ImportReportView: React.FC<ImportReportViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Thông báo Cán bộ: Danh sách Công dân thiếu số CCCD (Hệ thống vẫn cho nhập & Đã tự động lưu dữ liệu) */}
+      {missingCccdList.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl space-y-3">
+          <div className="flex items-center justify-between border-b border-blue-200 pb-2">
+            <h4 className="text-xs font-black text-blue-950 uppercase flex items-center gap-2">
+              <AlertCircle size={16} className="text-blue-600" />
+              Thông báo Cán bộ: Phát hiện {missingCccdList.length} công dân thiếu / chưa có số CCCD (Đã tự động lưu vào CSDL)
+            </h4>
+            <span className="text-[10px] font-black bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full uppercase font-bold">
+              Đã lưu CSDL
+            </span>
+          </div>
+
+          <p className="text-[11px] text-blue-900 font-medium">
+            Tất cả công dân thiếu CCCD dưới đây đều đã được nhập thành công vào cơ sở dữ liệu (không bị bỏ qua). Cán bộ vui lòng kiểm tra và bổ sung Số CCCD / Mã định danh sau:
+          </p>
+
+          <div className="max-h-44 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
+            {missingCccdList.map((item, idx) => (
+              <div key={idx} className="bg-white p-2.5 rounded-xl border border-blue-100 text-xs flex items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono font-bold text-gray-500">#{item.rowNum}</span>
+                  <span className="font-black text-gray-900">{item.fullName}</span>
+                  {item.dob && (
+                    <span className="text-[10px] font-mono bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-bold">
+                      NS: {item.dob}
+                    </span>
+                  )}
+                  {item.village && (
+                    <span className="text-[10px] bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded font-bold border border-blue-100">
+                      {item.village}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  {item.matchedExisting ? (
+                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 flex items-center gap-1">
+                      <UserCheck size={12} /> Cập nhật hồ sơ trùng tên ({item.matchedExisting.dob || 'Đã có CSDL'})
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                      ⚠️ Thiếu CCCD (Đã tạo hồ sơ)
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Thông báo Công dân có lý do Tạm hoãn / Miễn NVQS */}
       {deferredExemptList.length > 0 && (

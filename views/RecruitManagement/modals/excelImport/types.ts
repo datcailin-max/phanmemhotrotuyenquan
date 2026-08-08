@@ -1,5 +1,20 @@
 import { Recruit, User } from '../../../../types';
 
+export interface MissingCccdNotice {
+  rowNum: number;
+  fullName: string;
+  dob?: string;
+  village?: string;
+  address?: string;
+  matchedExisting?: {
+    citizenId?: string;
+    fullName: string;
+    dob: string;
+    village: string;
+    reason: string;
+  };
+}
+
 export interface ExcelImportModalProps {
   recruits: Recruit[];
   activeTabId: string;

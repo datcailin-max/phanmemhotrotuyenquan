@@ -9,8 +9,11 @@ import {
   ProcessError,
   ProcessSuccess,
   DeferredExemptNotice,
-  FontWarningNotice
+  FontWarningNotice,
+  MissingCccdNotice
 } from './excelImport/types';
+
+import { removeVietnameseTones } from '../../../constants';
 
 import {
   getDefaultStatusForTab,
@@ -55,6 +58,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [successList, setSuccessList] = useState<ProcessSuccess[]>([]);
   const [deferredExemptList, setDeferredExemptList] = useState<DeferredExemptNotice[]>([]);
   const [fontWarningList, setFontWarningList] = useState<FontWarningNotice[]>([]);
+  const [missingCccdList, setMissingCccdList] = useState<MissingCccdNotice[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -64,6 +68,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       setSuccessList([]);
       setDeferredExemptList([]);
       setFontWarningList([]);
+      setMissingCccdList([]);
       setProgressPercent(0);
       setInsertedCount(0);
       setUpdatedCount(0);
@@ -86,6 +91,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     setErrorList([]);
     setSuccessList([]);
     setDeferredExemptList([]);
+    setFontWarningList([]);
+    setMissingCccdList([]);
 
     try {
       const buffer = await selectedFile.arrayBuffer();
@@ -306,6 +313,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       const successes: ProcessSuccess[] = [];
       const deferredExempts: DeferredExemptNotice[] = [];
       const fontWarnings: FontWarningNotice[] = [];
+      const missingCccdNotices: MissingCccdNotice[] = [];
 
       let inserted = 0;
       let updated = 0;
@@ -418,28 +426,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           continue;
         }
 
-        if (!rawCccd) {
-          errors.push({
-            rowNum: rowNumberInExcel,
-            name: cleanedName,
-            errorType: 'THIEU_CCCD',
-            reason: `Công dân "${cleanedName}" chưa có Số thẻ CCCD / Mã định danh cá nhân.`,
-            suggestion: "Bổ sung chính xác Số CCCD (12 chữ số) hoặc CMND (9 chữ số) cho công dân này."
-          });
-          continue;
-        }
-
-        if (!/^\d{9,12}$/.test(rawCccd)) {
-          errors.push({
-            rowNum: rowNumberInExcel,
-            name: cleanedName,
-            cccd: rawCccd,
-            errorType: 'CCCD_SAI_DINH_DANG',
-            reason: `Số CCCD "${rawCccd}" không đủ hoặc vượt quá 9-12 chữ số.`,
-            suggestion: "Kiểm tra lại số CCCD, loại bỏ ký tự chữ hoặc dấu cách thừa."
-          });
-          continue;
-        }
+        const cleanRawCccd = rawCccd ? rawCccd.trim() : '';
+        const isCccdMissing = !cleanRawCccd || !/^\d{9,12}$/.test(cleanRawCccd);
 
         // Cảnh báo lỗi font chữ / vỡ mã tiếng Việt (KHÔNG CHẶN NHẬP - Đã làm sạch & Lưu thành công)
         if (fontWarning.isWarning) {
@@ -557,8 +545,87 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           }
         }
 
-        // 3. ĐỐI CHIẾU SỐ CCCD VỚI CƠ SỞ DỮ LIỆU CÔNG DÂN
-        const existingIndex = currentRecruitsState.findIndex(r => r.citizenId?.trim() === rawCccd);
+        // 3. ĐỐI CHIẾU SỐ CCCD & TRÙNG TÊN VỚI CƠ SỞ DỮ LIỆU CÔNG DÂN
+        let existingIndex = -1;
+
+        // Ưu tiên 1: Tìm theo Số CCCD nếu có số CCCD hợp lệ (9-12 chữ số)
+        if (cleanRawCccd && /^\d{9,12}$/.test(cleanRawCccd)) {
+          existingIndex = currentRecruitsState.findIndex(r => r.citizenId?.trim() === cleanRawCccd);
+        }
+
+        // Ưu tiên 2: Nếu chưa tìm thấy theo CCCD (hoặc công dân trong Excel/CSDL thiếu CCCD),
+        // tiến hành đối chiếu Công dân trùng tên với các dữ liệu khác (Ngày sinh, Thôn/Ấp, Địa chỉ, Tên Cha...)
+        if (existingIndex === -1 && cleanedName) {
+          const normCleanedName = removeVietnameseTones(cleanedName.toLowerCase()).trim();
+          const cleanedBirthYear = formattedDob ? formattedDob.split('-')[0] : '';
+          const normVillage = village ? removeVietnameseTones(village.toLowerCase()).trim() : '';
+          const normAddress = address ? removeVietnameseTones(address.toLowerCase()).trim() : '';
+
+          existingIndex = currentRecruitsState.findIndex(r => {
+            if (!r.fullName) return false;
+            const normExistingName = removeVietnameseTones(r.fullName.toLowerCase()).trim();
+            if (normExistingName !== normCleanedName) return false;
+
+            // Đã trùng Họ tên -> Kiểm tra bổ sung các trường dữ liệu khác
+            const existingDob = r.dob || '';
+            const existingBirthYear = existingDob ? existingDob.split('-')[0] : '';
+            const existingVillage = r.address?.village ? removeVietnameseTones(r.address.village.toLowerCase()).trim() : '';
+            const existingStreet = r.address?.street ? removeVietnameseTones(r.address.street.toLowerCase()).trim() : '';
+
+            // So sánh Ngày sinh hoặc Năm sinh
+            const isSameDob = Boolean(formattedDob && existingDob && formattedDob === existingDob);
+            const isSameBirthYear = Boolean(cleanedBirthYear && existingBirthYear && cleanedBirthYear === existingBirthYear);
+            const isDobMatch = isSameDob || isSameBirthYear;
+
+            // So sánh Thôn / Ấp hoặc Địa chỉ chi tiết
+            const isSameVillage = Boolean(normVillage && existingVillage && (
+              normVillage === existingVillage ||
+              normVillage.includes(existingVillage) ||
+              existingVillage.includes(normVillage)
+            ));
+            const isSameAddress = Boolean(normAddress && existingStreet && (
+              normAddress === existingStreet ||
+              normAddress.includes(existingStreet) ||
+              existingStreet.includes(normAddress)
+            ));
+            const isAddressMatch = isSameVillage || isSameAddress;
+
+            // So sánh Họ tên Cha nếu có
+            const existingFather = r.family?.father?.fullName ? removeVietnameseTones(r.family.father.fullName.toLowerCase()).trim() : '';
+            const newFather = parsedParents?.father?.fullName ? removeVietnameseTones(parsedParents.father.fullName.toLowerCase()).trim() : '';
+            const isFatherMatch = Boolean(existingFather && newFather && (existingFather === newFather || existingFather.includes(newFather) || newFather.includes(existingFather)));
+
+            // Nếu trùng Ngày/Năm sinh HOẶC Địa chỉ HOẶC Họ tên Cha -> Coi là cùng 1 công dân trong CSDL
+            if (isDobMatch || isAddressMatch || isFatherMatch) {
+              return true;
+            }
+
+            // Nếu cả 2 đều không có ngày sinh và địa chỉ chi tiết, coi như cùng 1 công dân do trùng họ tên trong cùng đơn vị
+            if (!cleanedBirthYear && !existingBirthYear && !normVillage && !existingVillage) {
+              return true;
+            }
+
+            return false;
+          });
+        }
+
+        // Ghi nhận thông báo cho Cán bộ biết nếu công dân thiếu CCCD
+        if (isCccdMissing) {
+          missingCccdNotices.push({
+            rowNum: rowNumberInExcel,
+            fullName: cleanedName,
+            dob: formattedDob || '',
+            village: village || '',
+            address: address || '',
+            matchedExisting: existingIndex > -1 ? {
+              citizenId: currentRecruitsState[existingIndex].citizenId,
+              fullName: currentRecruitsState[existingIndex].fullName,
+              dob: currentRecruitsState[existingIndex].dob,
+              village: currentRecruitsState[existingIndex].address?.village || '',
+              reason: 'Khớp trùng tên & ngày sinh/địa chỉ (đã cập nhật hồ sơ)'
+            } : undefined
+          });
+        }
 
         if (existingIndex > -1) {
           // CẬP NHẬT CÔNG DÂN ĐÃ TỒN TẠI
@@ -579,6 +646,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
           const updatedRecruit: Recruit = {
             ...existing,
+            citizenId: (cleanRawCccd && /^\d{9,12}$/.test(cleanRawCccd)) ? cleanRawCccd : (existing.citizenId || cleanRawCccd || ''),
             fullName: cleanedName || existing.fullName,
             dob: formattedDob || existing.dob,
             address: {
@@ -629,7 +697,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           successes.push({
             rowNum: rowNumberInExcel,
             fullName: cleanedName,
-            cccd: rawCccd,
+            cccd: updatedRecruit.citizenId || 'Thiếu CCCD',
             isUpdate: true
           });
 
@@ -642,7 +710,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
           const newRecruit: Recruit = {
             id: Date.now().toString(36) + Math.random().toString(36).substring(2) + idx,
-            citizenId: rawCccd,
+            citizenId: cleanRawCccd || '',
             fullName: cleanedName,
             dob: formattedDob,
             phoneNumber: '',
@@ -707,7 +775,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           successes.push({
             rowNum: rowNumberInExcel,
             fullName: cleanedName,
-            cccd: rawCccd,
+            cccd: newRecruit.citizenId || 'Thiếu CCCD',
             isUpdate: false
           });
         }
@@ -723,6 +791,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       setSuccessList(successes);
       setDeferredExemptList(deferredExempts);
       setFontWarningList(fontWarnings);
+      setMissingCccdList(missingCccdNotices);
       setIsProcessing(false);
       setIsCompleted(true);
 
@@ -884,6 +953,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               errorList={errorList}
               deferredExemptList={deferredExemptList}
               fontWarningList={fontWarningList}
+              missingCccdList={missingCccdList}
               sessionYear={sessionYear}
               selectedFileName={selectedFile?.name}
             />
