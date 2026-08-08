@@ -509,10 +509,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             if (!cellStr) return;
 
             const lower = cellStr.toLowerCase();
-            // Bắt buộc chứa từ chỉ thân nhân HOẶC chứa định dạng Họ tên + Năm sinh (19xx)
+            // Bắt buộc chứa từ chỉ thân nhân HOẶC chứa định dạng Họ tên + Năm sinh / Tuổi (19xx hoặc 2 chữ số / tuổi)
             if (
               /\b(cha|bố|mẹ|thân nhân|phụ huynh)\b/i.test(lower) ||
-              (/[a-zA-Zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ\s]{3,}/i.test(cellStr) && /\b(19[3-9]\d|20[0-2]\d)\b/.test(cellStr))
+              (/[a-zA-Zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ\s]{3,}/i.test(cellStr) && /\b(19[2-9]\d|20[0-2]\d|[3-9]\d|\d{2}\s*tuổi|\d{2}t)\b/i.test(cellStr))
             ) {
               if (!parentTexts.includes(cellStr)) {
                 parentTexts.push(cellStr);

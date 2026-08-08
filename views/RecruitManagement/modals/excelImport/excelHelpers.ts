@@ -525,32 +525,67 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
 
   if (lines.length === 0) return result;
 
-  // Trích xuất Năm sinh (xử lý cả 4 chữ số 19xx/20xx, 2 chữ số 7x/8x/9x, ngoặc đơn (1975), tiền tố SN, NS, sinh năm...)
+  // Trích xuất Năm sinh (xử lý cả 4 chữ số 19xx/20xx, tuổi 51t/51 tuổi, 2 chữ số 7x/8x/9x, ngoặc đơn (1975), tiền tố SN, NS, sinh năm...)
   const extractBirthYear = (str: string): { birthYear: string; cleanStr: string } => {
-    // 1. Tìm năm 4 chữ số (1930-2029 hoặc 19xx, 197x)
-    const year4Match = str.match(/(?:SN|S\.N|Năm\s*sinh|sinh\s*năm|NS|N\.S|S\/N|sinh|tuổi)?\s*[:\-\(\[\s]*\b(19[3-9]\d|20[0-2]\d|19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b[:\-\)\]\s]*/i);
+    if (!str) return { birthYear: '', cleanStr: '' };
+
+    // 1. Full date (VD: 15/08/1975, 1975-08-15, 15.8.1975, 08/1975)
+    const fullDateMatch = str.match(/(?:\b\d{1,2}[\/\.-]\d{1,2}[\/\.-]|\b\d{1,2}[\/\.-])(19[2-9]\d|20[0-2]\d)\b/);
+    if (fullDateMatch) {
+      const birthYear = fullDateMatch[1];
+      const cleanStr = str.replace(fullDateMatch[0], ' ').replace(/\s+/g, ' ').trim();
+      return { birthYear, cleanStr };
+    }
+
+    // 2. Tuổi (VD: "51t", "51 tuổi", "51T", "48 tuổi") -> quy đổi năm sinh = (2026 - tuổi)
+    const ageMatch = str.match(/\b([2-8]\d)\s*(?:tuổi|t)\b/i);
+    if (ageMatch) {
+      const age = parseInt(ageMatch[1], 10);
+      if (age >= 25 && age <= 85) {
+        const currentYr = new Date().getFullYear() || 2026;
+        const birthYear = String(currentYr - age);
+        const cleanStr = str.replace(ageMatch[0], ' ').replace(/\s+/g, ' ').trim();
+        return { birthYear, cleanStr };
+      }
+    }
+
+    // 3. Tìm năm 4 chữ số (1920-2029 hoặc 19xx, 197x) - có hoặc không có tiền tố SN, NS, sinh...
+    const year4Match = str.match(/(?:SN|S\.N|Năm\s*sinh|sinh\s*năm|NS|N\.S|S\/N|sinh|tuổi|dob)?\s*[:\-\(\[\{]*\b(19[2-9]\d|20[0-2]\d|19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b[:\-\)\]\}]*/i);
     if (year4Match) {
       const birthYear = year4Match[1];
       const cleanStr = str.replace(year4Match[0], ' ').replace(/\s+/g, ' ').trim();
       return { birthYear, cleanStr };
     }
 
-    // 2. Tìm năm sinh đứng trong ngoặc đơn e.g. "(75)" hoặc "(1975)"
+    // 4. Tìm năm sinh đứng trong ngoặc đơn e.g. "(75)", "[75]", "(1975)"
     const parenYearMatch = str.match(/[\(\[\{]\s*(?:SN|NS|sinh)?\s*(\d{2,4})\s*[\)\]\}]/i);
     if (parenYearMatch) {
       let yr = parenYearMatch[1];
-      if (yr.length === 2 && parseInt(yr) >= 30) yr = '19' + yr;
+      if (yr.length === 2) {
+        const num = parseInt(yr, 10);
+        if (num >= 30 && num <= 99) yr = '19' + yr;
+        else if (num >= 0 && num <= 29) yr = '20' + yr;
+      }
       if (yr.length === 4) {
         const cleanStr = str.replace(parenYearMatch[0], ' ').replace(/\s+/g, ' ').trim();
         return { birthYear: yr, cleanStr };
       }
     }
 
-    // 3. Tìm năm sinh 2 chữ số có tiền tố (VD: "SN 75", "sinh 78")
+    // 5. Tìm năm sinh 2 chữ số có tiền tố (VD: "SN 75", "NS: 78", "sinh 80", "Năm sinh 82")
     const year2Match = str.match(/(?:SN|S\.N|Năm\s*sinh|sinh\s*năm|NS|N\.S|S\/N|sinh)\s*[:\-\(\[\s]*\b([3-9]\d)\b[:\-\)\]\s]*/i);
     if (year2Match) {
       const birthYear = '19' + year2Match[1];
       const cleanStr = str.replace(year2Match[0], ' ').replace(/\s+/g, ' ').trim();
+      return { birthYear, cleanStr };
+    }
+
+    // 6. Tìm năm sinh 2 chữ số đứng độc lập giữa các dấu phân cách (VD: "Cha: NGUYỄN NAM, 75, công nhân")
+    const standalone2digitMatch = str.match(/(?:^|[:,\-\s\(\/])\b([3-9]\d)\b(?:$|[:,\-\s\)\/])/);
+    if (standalone2digitMatch) {
+      const numStr = standalone2digitMatch[1];
+      const birthYear = '19' + numStr;
+      const cleanStr = str.replace(standalone2digitMatch[0], ' ').replace(/\s+/g, ' ').trim();
       return { birthYear, cleanStr };
     }
 
@@ -565,7 +600,10 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       .replace(/[:,\-\s\(\)]+$/, '')
       .trim();
 
-    text = text.replace(/^(năm sinh|nghề nghiệp|nghề|chuyên môn|làm|làm nghề)\s*[:\-]?\s*/i, '').trim();
+    text = text
+      .replace(/(?:^|[:,\-\s])(năm sinh|nghề nghiệp|nghề|chuyên môn|làm|làm nghề|họ và tên|họ tên|thông tin)\s*[:\-]?\s*/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     if (!text) return { name: '', job: '' };
 
@@ -693,6 +731,19 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       }
     }
   }
+
+  // Chuẩn hóa định dạng năm sinh thành 4 chữ số (VD: "75" -> "1975")
+  const formatYear4 = (yr: string): string => {
+    if (!yr) return '';
+    const m = yr.match(/\b(19[2-9]\d|20[0-2]\d)\b/);
+    if (m) return m[1];
+    const m2 = yr.match(/\b([3-9]\d)\b/);
+    if (m2) return '19' + m2[1];
+    return yr.replace(/\D/g, '').substring(0, 4);
+  };
+
+  result.father.birthYear = formatYear4(result.father.birthYear);
+  result.mother.birthYear = formatYear4(result.mother.birthYear);
 
   return result;
 };
