@@ -20,7 +20,8 @@ import {
   extractNameFromCell,
   checkFontWarning,
   isHeaderOrMetadataRow,
-  parseParentInfo
+  parseParentInfo,
+  extractBirthYearFromCCCD
 } from './excelImport/excelHelpers';
 
 import { hasDefermentReason, hasExemptionReason } from '../utils';
@@ -116,6 +117,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       let healthCol = -1;
       let reasonCol = -1;
       let isOfficialExportFormat = false;
+      let officialColIndex = -1;
 
       for (let i = 0; i < Math.min(rawRows.length, 25); i++) {
         const row = rawRows[i];
@@ -140,7 +142,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               !cellStr.includes('cha') && 
               !cellStr.includes('mẹ') && 
               !cellStr.includes('vợ') && 
-              !cellStr.includes('chồng')
+              !cellStr.includes('chồng') &&
+              !cellStr.includes('thân nhân') &&
+              !cellStr.includes('gia đình') &&
+              !cellStr.includes('phụ huynh')
             ) {
               if (
                 cellStr.includes('họ và tên') || 
@@ -149,56 +154,82 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 cellStr.includes('tên công dân') ||
                 cellStr.includes('khai sinh')
               ) {
-                nameCol = colIdx;
+                if (nameCol === -1) nameCol = colIdx;
               }
-            }
 
-            if (cellStr.includes('ngày sinh') || cellStr.includes('năm sinh') || cellStr.includes('dob')) {
-              dobCol = colIdx;
-            }
+              if (
+                cellStr.includes('ngày sinh') || 
+                cellStr.includes('năm sinh') || 
+                cellStr.includes('dob')
+              ) {
+                if (dobCol === -1) dobCol = colIdx;
+              }
 
-            if (cellStr.includes('cccd') || cellStr.includes('cmnd') || cellStr.includes('số định danh') || cellStr.includes('thẻ căn cước')) {
-              cccdCol = colIdx;
-            }
+              if (
+                cellStr.includes('cccd') || 
+                cellStr.includes('cmnd') || 
+                cellStr.includes('số định danh') || 
+                cellStr.includes('thẻ căn cước')
+              ) {
+                if (cccdCol === -1) cccdCol = colIdx;
+              }
 
-            if (cellStr.includes('thôn') || cellStr.includes('ấp') || cellStr.includes('tổ dân phố') || cellStr.includes('khóm')) {
-              villageCol = colIdx;
-            }
+              if (cellStr.includes('thôn') || cellStr.includes('ấp') || cellStr.includes('tổ dân phố') || cellStr.includes('khóm')) {
+                villageCol = colIdx;
+              }
 
-            if (cellStr.includes('thường trú') || cellStr.includes('địa chỉ') || cellStr.includes('quê quán') || cellStr.includes('hktt')) {
-              if (villageCol !== colIdx) addressCol = colIdx;
-            }
+              if (cellStr.includes('thường trú') || cellStr.includes('địa chỉ') || cellStr.includes('quê quán') || cellStr.includes('hktt')) {
+                if (villageCol !== colIdx) addressCol = colIdx;
+              }
 
-            if (cellStr.includes('văn hóa') || cellStr.includes('học vấn') || cellStr.includes('trình độ')) {
-              eduCol = colIdx;
-            }
+              if (cellStr.includes('văn hóa') || cellStr.includes('học vấn') || cellStr.includes('trình độ')) {
+                eduCol = colIdx;
+              }
 
-            if (cellStr.includes('chuyên môn') || cellStr.includes('kỹ thuật') || cellStr.includes('nghề nghiệp')) {
-              jobCol = colIdx;
-            }
+              if (cellStr.includes('chuyên môn') || cellStr.includes('kỹ thuật') || cellStr.includes('nghề nghiệp')) {
+                jobCol = colIdx;
+              }
 
-            if (cellStr.includes('sức khỏe') || cellStr.includes('loại sk') || cellStr.includes('phân loại')) {
-              healthCol = colIdx;
-            }
+              if (cellStr.includes('sức khỏe') || cellStr.includes('loại sk') || cellStr.includes('phân loại')) {
+                healthCol = colIdx;
+              }
 
-            if (
-              cellStr.includes('lý do') || 
-              cellStr.includes('tạm hoãn') || 
-              cellStr.includes('miễn') || 
-              cellStr.includes('ghi chú') || 
-              cellStr.includes('tình trạng')
-            ) {
-              reasonCol = colIdx;
+              if (
+                cellStr.includes('lý do') || 
+                cellStr.includes('tạm hoãn') || 
+                cellStr.includes('miễn') || 
+                cellStr.includes('ghi chú') || 
+                cellStr.includes('tình trạng')
+              ) {
+                reasonCol = colIdx;
+              }
+
+              // Kiểm tra nếu ô tiêu đề chứa đồng thời Họ tên + Ngày sinh/CCCD (Biểu mẫu gộp)
+              if (
+                (cellStr.includes('họ, chữ đệm') || cellStr.includes('khai sinh') || cellStr.includes('họ và tên')) &&
+                (cellStr.includes('ngày, tháng') || cellStr.includes('năm sinh') || cellStr.includes('căn cước') || cellStr.includes('cccd'))
+              ) {
+                isOfficialExportFormat = true;
+                officialColIndex = colIdx;
+                nameCol = colIdx;
+                dobCol = colIdx;
+                cccdCol = colIdx;
+              }
             }
           });
 
-          // Nếu cột B (Index 1) chứa thông tin gộp Họ tên + Ngày sinh + CCCD (Biểu mẫu xuất bản)
-          const col1HeaderStr = String(row[1] || '').toLowerCase();
-          if (col1HeaderStr.includes('họ, chữ đệm') || col1HeaderStr.includes('khai sinh') || col1HeaderStr.includes('căn cước')) {
-            isOfficialExportFormat = true;
-            nameCol = 1;
-            dobCol = 1;
-            cccdCol = 1;
+          // Dự phòng quét cột có tiêu đề gộp
+          if (!isOfficialExportFormat) {
+            row.forEach((c, idx) => {
+              const cStr = String(c || '').toLowerCase();
+              if ((cStr.includes('họ, chữ đệm') || cStr.includes('khai sinh')) && (cStr.includes('căn cước') || cStr.includes('ngày sinh'))) {
+                isOfficialExportFormat = true;
+                officialColIndex = idx;
+                nameCol = idx;
+                dobCol = idx;
+                cccdCol = idx;
+              }
+            });
           }
 
           break;
@@ -283,12 +314,13 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         let reason = '';
 
         if (isOfficialExportFormat) {
-          const col1Text = String(row[1] || '');
+          const mainColIdx = officialColIndex >= 0 ? officialColIndex : 1;
+          const col1Text = String(row[mainColIdx] || '');
           rawCccd = extractCCCD(col1Text) || extractCCCD(rowJoinedText);
-          rawName = extractNameFromCell(col1Text);
-          rawDob = parseExcelDate(col1Text) || parseExcelDate(rowJoinedText);
+          rawName = extractNameFromCell(col1Text) || extractNameFromCell(rowJoinedText);
+          rawDob = parseExcelDate(col1Text);
 
-          const col3Address = String(row[3] || '');
+          const col3Address = String(row[mainColIdx + 2] || row[3] || '');
           if (col3Address) {
             const firstLine = col3Address.split(/\r?\n/)[0] || '';
             const villageMatch = firstLine.split(',')[0] || firstLine;
@@ -296,7 +328,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             address = col3Address.replace(/\n/g, ', ');
           }
 
-          const col5Edu = String(row[5] || '');
+          const col5Edu = String(row[mainColIdx + 4] || row[5] || '');
           if (col5Edu) {
             const eduMatch = col5Edu.match(/(\d{1,2}\/\d{1,2}|Đại học|Cao đẳng|Trung cấp|Lớp \d{1,2})/i);
             if (eduMatch) edu = eduMatch[0];
@@ -313,7 +345,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           rawCccd = extractCCCD(cccdCellText) || extractCCCD(rowJoinedText);
 
           const dobCellVal = dobCol >= 0 ? row[dobCol] : '';
-          rawDob = parseExcelDate(dobCellVal) || parseExcelDate(rowJoinedText);
+          rawDob = parseExcelDate(dobCellVal);
+
+          // Nếu cột DOB riêng chưa trích xuất được, thử trích xuất từ cột Họ tên (trường hợp ô gộp)
+          if (!rawDob && nameCellText) {
+            rawDob = parseExcelDate(nameCellText);
+          }
 
           if (villageCol >= 0 && row[villageCol]) {
             village = String(row[villageCol]).trim();
@@ -399,7 +436,29 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           });
         }
 
-        const formattedDob = rawDob || '2005-01-01';
+        // TỰ ĐỘNG ĐỐI CHIẾU XÁC MINH NGÀY SINH & NĂM SINH THEO SỐ CCCD CỦA CÔNG DÂN
+        let finalDob = rawDob;
+        let parsedYear = finalDob ? parseInt(finalDob.split('-')[0]) : 0;
+
+        // Trích xuất năm sinh chính xác từ 12 số CCCD của công dân
+        const cccdBirthYear = extractBirthYearFromCCCD(rawCccd);
+
+        if (cccdBirthYear) {
+          if (!finalDob || isNaN(parsedYear) || parsedYear < 1985 || parsedYear > 2012) {
+            if (finalDob && finalDob.includes('-')) {
+              const parts = finalDob.split('-');
+              if (parts.length === 3 && parts[1] && parts[2] && parts[1] !== '01') {
+                finalDob = `${cccdBirthYear}-${parts[1]}-${parts[2]}`;
+              } else {
+                finalDob = `${cccdBirthYear}-01-01`;
+              }
+            } else {
+              finalDob = `${cccdBirthYear}-01-01`;
+            }
+          }
+        }
+
+        const formattedDob = finalDob || '2005-01-01';
         const birthYear = parseInt(formattedDob.split('-')[0] || '2005');
         const citizenAge = sessionYear - birthYear;
 

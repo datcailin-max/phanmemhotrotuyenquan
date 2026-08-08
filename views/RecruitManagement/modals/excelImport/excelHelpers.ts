@@ -50,7 +50,7 @@ export const getDefaultStatusForTab = (tabId: string): RecruitmentStatus => {
   }
 };
 
-// Trích xuất ngày sinh từ chuỗi hoặc số
+// Trích xuất ngày sinh từ chuỗi hoặc số (Lọc bỏ các dòng thông tin cha mẹ/thân nhân)
 export const parseExcelDate = (val: any): string => {
   if (!val) return '';
   
@@ -59,13 +59,22 @@ export const parseExcelDate = (val: any): string => {
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const dd = String(date.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    if (yyyy >= 1950 && yyyy <= 2030) {
+      return `${yyyy}-${mm}-${dd}`;
+    }
   }
 
   const str = String(val).trim();
 
-  // Dạng DD/MM/YYYY hoặc DD-MM-YYYY
-  const ddmmyyyy = str.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  // Lọc bỏ các dòng chứa thông tin cha, mẹ, thân nhân, gia đình để không lấy nhầm năm sinh của cha/mẹ
+  const cleanLines = str.split(/\r?\n/).filter(line => {
+    const lower = line.toLowerCase();
+    return !/cha\s*:|mẹ\s*:|thân nhân|gia đình|phụ huynh|ông\s*:|bà\s*:/i.test(lower);
+  });
+  const cleanText = cleanLines.join(' ');
+
+  // Dạng DD/MM/YYYY hoặc DD-MM-YYYY hoặc DD.MM.YYYY
+  const ddmmyyyy = cleanText.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
   if (ddmmyyyy) {
     const dd = ddmmyyyy[1].padStart(2, '0');
     const mm = ddmmyyyy[2].padStart(2, '0');
@@ -73,8 +82,8 @@ export const parseExcelDate = (val: any): string => {
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  // Dạng YYYY-MM-DD
-  const yyyymmdd = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  // Dạng YYYY-MM-DD hoặc YYYY/MM/DD
+  const yyyymmdd = cleanText.match(/(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
   if (yyyymmdd) {
     const yyyy = yyyymmdd[1];
     const mm = yyyymmdd[2].padStart(2, '0');
@@ -82,13 +91,52 @@ export const parseExcelDate = (val: any): string => {
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  // Chỉ nhập năm sinh (ví dụ: 2005)
-  const yearOnly = str.match(/\b(19\d{2}|20\d{2})\b/);
+  // Chỉ nhập năm sinh (ví dụ: 2005) - ưu tiên các năm trong độ tuổi nghĩa vụ quân sự (1990 - 2012)
+  const recruitYears = cleanText.match(/\b(199\d|20[0-1]\d|202[0-5])\b/);
+  if (recruitYears) {
+    return `${recruitYears[1]}-01-01`;
+  }
+
+  const yearOnly = cleanText.match(/\b(19\d{2}|20\d{2})\b/);
   if (yearOnly) {
     return `${yearOnly[1]}-01-01`;
   }
 
   return '';
+};
+
+// Trích xuất năm sinh chính xác từ 12 số CCCD của công dân
+export const extractBirthYearFromCCCD = (cccd: string): number | null => {
+  if (!cccd || typeof cccd !== 'string') return null;
+  const cleanCccd = cccd.replace(/\D/g, '');
+  if (cleanCccd.length !== 12) return null;
+
+  // Ký tự thứ 4 (index 3) là giới tính & thế kỷ:
+  // 0: Nam (19xx), 1: Nữ (19xx)
+  // 2: Nam (20xx), 3: Nữ (20xx)
+  // 4: Nam (21xx), 5: Nữ (21xx)
+  const centuryDigit = parseInt(cleanCccd[3]);
+  const yearTwoDigits = parseInt(cleanCccd.substring(4, 6));
+
+  if (isNaN(centuryDigit) || isNaN(yearTwoDigits)) return null;
+
+  let century = 1900;
+  if (centuryDigit === 2 || centuryDigit === 3) {
+    century = 2000;
+  } else if (centuryDigit === 0 || centuryDigit === 1) {
+    century = 1900;
+  } else if (centuryDigit === 4 || centuryDigit === 5) {
+    century = 2100;
+  } else {
+    return null;
+  }
+
+  const fullYear = century + yearTwoDigits;
+  if (fullYear >= 1950 && fullYear <= 2030) {
+    return fullYear;
+  }
+
+  return null;
 };
 
 // Trích xuất số CCCD từ ô dữ liệu
