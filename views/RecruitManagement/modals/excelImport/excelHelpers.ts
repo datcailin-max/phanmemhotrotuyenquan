@@ -421,12 +421,12 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
     if (
       (lower.includes('họ tên cha') || lower.includes('họ và tên cha')) && 
       (lower.includes('nghề nghiệp') || lower.includes('năm sinh')) && 
-      !lower.includes(':') && !/\b(19\d{2}|20\d{2})\b/.test(lower)
+      !lower.includes(':') && !/\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i.test(lower)
     ) return false;
     if (
       (lower.includes('họ tên mẹ') || lower.includes('họ và tên mẹ')) && 
       (lower.includes('nghề nghiệp') || lower.includes('năm sinh')) && 
-      !lower.includes(':') && !/\b(19\d{2}|20\d{2})\b/.test(lower)
+      !lower.includes(':') && !/\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i.test(lower)
     ) return false;
     if (lower.includes('thành phần gia đình') || lower.includes('thông tin thân nhân') || lower.includes('thông tin cha mẹ')) return false;
     return true;
@@ -435,15 +435,16 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
   if (lines.length === 0) return result;
 
   const parseYearAndJob = (str: string) => {
-    const yearMatch = str.match(/\b(19\d{2}|20\d{2})\b/);
+    const yearMatch = str.match(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b[:\-\)\]\s]*/i);
     const birthYear = yearMatch ? yearMatch[1] : '';
     let job = str;
-    if (birthYear) {
-      job = job.replace(birthYear, '');
+    if (yearMatch) {
+      job = job.replace(yearMatch[0], ' ');
     }
     job = job.replace(/^(cha|bố|mẹ|họ và tên cha|họ tên cha|họ và tên mẹ|họ tên mẹ)\s*[:\-]?\s*/i, '')
              .replace(/^[:,\-\s\(\)]+/, '')
              .replace(/[:,\-\s\(\)]+$/, '')
+             .replace(/\s+/g, ' ')
              .trim();
     return { birthYear, job };
   };
@@ -458,10 +459,11 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       const cleanLine = line.replace(/^(họ và tên cha|họ tên cha|thông tin cha|cha|bố)\s*[:\-]?\s*/i, '').trim();
       if (cleanLine) {
         const { birthYear, job } = parseYearAndJob(cleanLine);
-        const namePart = cleanLine.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
+        const namePart = cleanLine.replace(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b.*/i, '').replace(/[\(\)\-:]/g, '').trim();
         if (namePart && !isNonPersonName(namePart)) result.father.fullName = namePart;
         if (birthYear) result.father.birthYear = birthYear;
-        if (job && job !== namePart) result.father.job = job;
+        const cleanJob = job.replace(namePart, '').replace(/^[:,\-\s]+/, '').trim();
+        if (cleanJob) result.father.job = cleanJob;
       }
       continue;
     }
@@ -471,15 +473,16 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       const cleanLine = line.replace(/^(họ và tên mẹ|họ tên mẹ|thông tin mẹ|mẹ)\s*[:\-]?\s*/i, '').trim();
       if (cleanLine) {
         const { birthYear, job } = parseYearAndJob(cleanLine);
-        const namePart = cleanLine.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
+        const namePart = cleanLine.replace(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b.*/i, '').replace(/[\(\)\-:]/g, '').trim();
         if (namePart && !isNonPersonName(namePart)) result.mother.fullName = namePart;
         if (birthYear) result.mother.birthYear = birthYear;
-        if (job && job !== namePart) result.mother.job = job;
+        const cleanJob = job.replace(namePart, '').replace(/^[:,\-\s]+/, '').trim();
+        if (cleanJob) result.mother.job = cleanJob;
       }
       continue;
     }
 
-    const startsWithYear = line.match(/^\b(19\d{2}|20\d{2})\b/);
+    const startsWithYear = line.match(/^\s*(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i);
     if (startsWithYear) {
       const { birthYear, job } = parseYearAndJob(line);
       if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
@@ -492,7 +495,7 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       continue;
     }
 
-    if (!/\b(19\d{2}|20\d{2})\b/.test(line)) {
+    if (!/\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i.test(line)) {
       if (isNonPersonName(line)) {
         if (currentTarget === 'father' && result.father.fullName && !result.father.job) {
           result.father.job = line.trim();
@@ -513,27 +516,28 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
     }
 
     const { birthYear, job } = parseYearAndJob(line);
-    const namePart = line.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
+    const namePart = line.replace(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b.*/i, '').replace(/[\(\)\-:]/g, '').trim();
+    const cleanJob = job.replace(namePart, '').replace(/^[:,\-\s]+/, '').trim();
     
     if (!isNonPersonName(namePart) && namePart.length >= 2) {
       if (!result.father.fullName) {
         result.father.fullName = namePart;
         if (birthYear) result.father.birthYear = birthYear;
-        if (job) result.father.job = job;
+        if (cleanJob) result.father.job = cleanJob;
         currentTarget = 'father';
       } else if (!result.mother.fullName) {
         result.mother.fullName = namePart;
         if (birthYear) result.mother.birthYear = birthYear;
-        if (job) result.mother.job = job;
+        if (cleanJob) result.mother.job = cleanJob;
         currentTarget = 'mother';
       }
     } else {
       if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
         if (birthYear) result.father.birthYear = birthYear;
-        if (job && job !== namePart) result.father.job = job;
+        if (cleanJob) result.father.job = cleanJob;
       } else if (currentTarget === 'mother' || (!result.mother.birthYear && result.mother.fullName)) {
         if (birthYear) result.mother.birthYear = birthYear;
-        if (job && job !== namePart) result.mother.job = job;
+        if (cleanJob) result.mother.job = cleanJob;
       }
     }
   }

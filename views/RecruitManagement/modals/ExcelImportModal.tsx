@@ -508,7 +508,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             const cellStr = String(cell || '').trim();
             if (!cellStr) return;
 
-            if (/cha|bố|mẹ|thân nhân|phụ huynh|19\d{2}|20\d{2}/i.test(cellStr)) {
+            if (/cha|bố|mẹ|thân nhân|phụ huynh|19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2}/i.test(cellStr)) {
               parentTexts.push(cellStr);
             }
           });
