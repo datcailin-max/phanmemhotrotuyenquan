@@ -25,10 +25,11 @@ import {
   isHeaderOrMetadataRow,
   parseParentInfo,
   parseAddressInfo,
-  extractBirthYearFromCCCD
+  extractBirthYearFromCCCD,
+  parseEducationDegree
 } from './excelImport/excelHelpers';
 
-import { hasDefermentReason, hasExemptionReason } from '../utils';
+import { hasDefermentReason, hasExemptionReason, isRealDefermentReason } from '../utils';
 
 import {
   handleDownloadTemplate17,
@@ -354,8 +355,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
           const col5Edu = String(row[mainColIdx + 4] || row[5] || '');
           if (col5Edu) {
-            const eduMatch = col5Edu.match(/(\d{1,2}\/\d{1,2}|Đại học|Cao đẳng|Trung cấp|Lớp \d{1,2})/i);
-            if (eduMatch) edu = eduMatch[0];
+            edu = parseEducationDegree(col5Edu);
           }
 
           const lastColText = String(row[row.length - 1] || '');
@@ -384,7 +384,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           address = parsedAddr.street;
 
           if (eduCol >= 0 && row[eduCol]) {
-            edu = String(row[eduCol]).trim();
+            edu = parseEducationDegree(String(row[eduCol]));
           }
 
           if (jobCol >= 0 && row[jobCol]) {
@@ -471,14 +471,25 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         if (isOfficialExportFormat) {
           // Biểu mẫu xuất bản chính thức (Biểu mẫu NVQS): Cột 7 (Index = officialColIndex + 5) là cột Thông tin Cha, Mẹ
           const pCol = officialColIndex >= 0 ? officialColIndex + 5 : 6;
-          if (row[pCol]) {
-            parentTexts.push(String(row[pCol]).trim());
+          if (row[pCol] !== undefined && row[pCol] !== null) {
+            const valStr = String(row[pCol]).trim();
+            if (valStr) parentTexts.push(valStr);
           }
-        } else if (parentColIndices.length > 0) {
+        }
+
+        if (parentColIndices.length > 0) {
           parentColIndices.forEach(pCol => {
-            if (row[pCol]) parentTexts.push(String(row[pCol]).trim());
+            if (row[pCol] !== undefined && row[pCol] !== null) {
+              const valStr = String(row[pCol]).trim();
+              if (valStr && !parentTexts.includes(valStr)) {
+                parentTexts.push(valStr);
+              }
+            }
           });
-        } else {
+        }
+
+        // Nếu chưa tìm thấy parentTexts từ cột định danh, quét lọc các cột chưa phân ánh chứa từ khóa thân nhân hoặc Họ tên + Năm sinh
+        if (parentTexts.length === 0) {
           row.forEach((cell, cIdx) => {
             if (
               cIdx === nameCol || 
@@ -493,19 +504,30 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               cIdx === familyBgCol
             ) return;
 
-            const cellStr = String(cell || '').trim();
+            if (cell === undefined || cell === null) return;
+            const cellStr = String(cell).trim();
             if (!cellStr) return;
 
-            if (/cha|bố|mẹ|thân nhân|phụ huynh|19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2}/i.test(cellStr)) {
-              parentTexts.push(cellStr);
+            const lower = cellStr.toLowerCase();
+            // Bắt buộc chứa từ chỉ thân nhân HOẶC chứa định dạng Họ tên + Năm sinh (19xx)
+            if (
+              /\b(cha|bố|mẹ|thân nhân|phụ huynh)\b/i.test(lower) ||
+              (/[a-zA-Zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ\s]{3,}/i.test(cellStr) && /\b(19[3-9]\d|20[0-2]\d)\b/.test(cellStr))
+            ) {
+              if (!parentTexts.includes(cellStr)) {
+                parentTexts.push(cellStr);
+              }
             }
           });
         }
 
         const parsedParents = parseParentInfo(parentTexts);
 
-        // Ghi nhận nếu công dân có lý do Tạm hoãn / Miễn / Ghi chú đặc biệt
-        if (reason && reason !== '---') {
+        const isRealDefer = isRealDefermentReason(reason);
+        const isRealExempt = hasExemptionReason({ defermentReason: reason });
+
+        // Ghi nhận nếu công dân có lý do Tạm hoãn / Miễn / Ghi chú đặc biệt hợp lệ
+        if (reason && reason !== '---' && (isRealDefer || isRealExempt)) {
           deferredExempts.push({
             rowNum: rowNumberInExcel,
             fullName: cleanedName,
@@ -538,9 +560,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           }
           autoStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
         } else if (reason && reason !== '---' && reason.toLowerCase() !== 'không') {
-          if (hasExemptionReason({ defermentReason: reason })) {
+          if (isRealExempt) {
             autoStatus = RecruitmentStatus.EXEMPTED;
-          } else if (hasDefermentReason({ defermentReason: reason })) {
+          } else if (isRealDefer) {
             autoStatus = RecruitmentStatus.DEFERRED;
           }
         }
@@ -630,7 +652,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         if (existingIndex > -1) {
           // CẬP NHẬT CÔNG DÂN ĐÃ TỒN TẠI
           const existing = currentRecruitsState[existingIndex];
-          const finalReason = reason || existing.defermentReason;
           let targetStatus = existing.status;
 
           if (citizenAge < 18) {
@@ -639,6 +660,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             targetStatus = autoStatus;
           } else if (reason && autoStatus !== defaultStatus && autoStatus !== RecruitmentStatus.SOURCE) {
             targetStatus = autoStatus;
+          }
+
+          let finalReason = '';
+          if (targetStatus === RecruitmentStatus.DEFERRED || targetStatus === RecruitmentStatus.EXEMPTED || isRealDefer || isRealExempt) {
+            finalReason = reason || existing.defermentReason || '';
           }
 
           const existingStreet = existing.address?.street || '';
@@ -762,7 +788,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               children: ''
             },
             status: targetStatus,
-            defermentReason: reason,
+            defermentReason: (targetStatus === RecruitmentStatus.DEFERRED || targetStatus === RecruitmentStatus.EXEMPTED || isRealDefer || isRealExempt) ? (reason || '') : '',
             recruitmentYear: sessionYear,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()

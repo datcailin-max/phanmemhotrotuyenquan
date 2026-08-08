@@ -1,4 +1,72 @@
 import { RecruitmentStatus } from '../../../../types';
+import { EDUCATIONS } from '../../../../constants';
+
+// Chuẩn hóa và nhận diện Trình độ học vấn / Chuyên môn kỹ thuật từ chuỗi Excel
+export const parseEducationDegree = (rawStr: string): string => {
+  if (!rawStr) return 'Lớp 12';
+  const str = String(rawStr).trim();
+  if (!str) return 'Lớp 12';
+
+  const lower = str.toLowerCase();
+
+  // 1. Kiểm tra trình độ chuyên môn kỹ thuật (Đại học, Cao đẳng, Trung cấp)
+  if (lower.includes('trên đh') || lower.includes('thạc sĩ') || lower.includes('tiến sĩ')) {
+    return 'Trên ĐH';
+  }
+  if (lower.includes('đại học') || lower.includes('dai hoc') || /\bđh\b/i.test(str)) {
+    return lower.includes('đang học') ? 'Đang học ĐH' : 'Đại học';
+  }
+  if (lower.includes('cao đẳng') || lower.includes('cao dang') || /\bcđ\b/i.test(str)) {
+    return lower.includes('đang học') ? 'Đang học CĐ' : 'Cao đẳng';
+  }
+  if (lower.includes('trung cấp') || lower.includes('trung cap') || /\btc\b/i.test(str)) {
+    return 'Trung cấp';
+  }
+
+  // 2. Kiểm tra lớp văn hóa phổ thông (12/12, 11/12, Lớp 12, Lớp 11...)
+  if (lower.includes('12/12') || /\blớp\s*12\b/i.test(str) || /\b12\b/.test(str)) {
+    return lower.includes('đang học') ? 'Đang học lớp 12' : 'Lớp 12';
+  }
+  if (lower.includes('11/12') || /\blớp\s*11\b/i.test(str) || /\b11\b/.test(str)) {
+    return lower.includes('đang học') ? 'Đang học lớp 11' : 'Lớp 11';
+  }
+  if (lower.includes('10/12') || /\blớp\s*10\b/i.test(str) || /\b10\b/.test(str)) {
+    return 'Lớp 10';
+  }
+  if (lower.includes('9/12') || /\blớp\s*9\b/i.test(str) || /\b9\b/.test(str)) {
+    return 'Lớp 9';
+  }
+  if (lower.includes('8/12') || /\blớp\s*8\b/i.test(str) || /\b8\b/.test(str)) {
+    return 'Lớp 8';
+  }
+  if (lower.includes('7/12') || /\blớp\s*7\b/i.test(str) || /\b7\b/.test(str)) {
+    return 'Lớp 7';
+  }
+  if (lower.includes('6/12') || /\blớp\s*6\b/i.test(str) || /\b6\b/.test(str)) {
+    return 'Lớp 6';
+  }
+  if (lower.includes('5/12') || /\blớp\s*5\b/i.test(str) || /\b5\b/.test(str)) {
+    return 'Lớp 5';
+  }
+  if (lower.includes('4/12') || /\blớp\s*4\b/i.test(str) || /\b4\b/.test(str)) {
+    return 'Lớp 4';
+  }
+  if (lower.includes('3/12') || /\blớp\s*3\b/i.test(str) || /\b3\b/.test(str)) {
+    return 'Lớp 3';
+  }
+  if (lower.includes('2/12') || /\blớp\s*2\b/i.test(str) || /\b2\b/.test(str)) {
+    return 'Lớp 2';
+  }
+  if (lower.includes('1/12') || /\blớp\s*1\b/i.test(str) || /\b1\b/.test(str)) {
+    return 'Lớp 1';
+  }
+
+  if ((EDUCATIONS as readonly string[]).includes(str)) {
+    return str;
+  }
+
+  return 'Lớp 12';
+};
 
 // Trạng thái mặc định của công dân khi nhập vào dựa theo danh sách/tab hiện tại
 export const getDefaultStatusForTab = (tabId: string): RecruitmentStatus => {
@@ -407,46 +475,126 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
 
   if (!textInputs || textInputs.length === 0) return result;
 
+  // 1. Tách các dòng đầu vào theo dòng hoặc theo từ khóa phân cách Cha / Mẹ
   const rawLines: string[] = [];
   textInputs.forEach(input => {
     if (!input) return;
-    String(input).split(/\r?\n/).forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed) rawLines.push(trimmed);
+    const str = String(input).trim();
+    if (!str) return;
+
+    // Phân tách nếu 1 chuỗi chứa cả Cha và Mẹ (Ví dụ: "Cha: NGUYỄN NAM (1975) - công nhân; Mẹ: HÀ THỊ HỒNG DIỆU (1978) - công nhân")
+    const splitByParentKeyword = str.split(/(?=\b(?:mẹ|họ tên mẹ|thông tin mẹ|họ và tên mẹ|bố|cha|họ tên cha|thông tin cha|họ và tên cha)\b\s*[:\-]?)/i);
+
+    splitByParentKeyword.forEach(subStr => {
+      subStr.split(/\r?\n/).forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed) rawLines.push(trimmed);
+      });
     });
   });
 
+  // Lọc các dòng tiêu đề trùng lặp không chứa dữ liệu thực tế
   const lines = rawLines.filter(line => {
     const lower = line.toLowerCase();
     if (
-      (lower.includes('họ tên cha') || lower.includes('họ và tên cha')) && 
+      (lower.includes('họ tên cha') || lower.includes('họ và tên cha') || lower.includes('họ tên mẹ') || lower.includes('họ và tên mẹ')) && 
       (lower.includes('nghề nghiệp') || lower.includes('năm sinh')) && 
-      !lower.includes(':') && !/\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i.test(lower)
+      !lower.includes(':') && 
+      !/\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2}|\d{2})\b/i.test(lower)
     ) return false;
-    if (
-      (lower.includes('họ tên mẹ') || lower.includes('họ và tên mẹ')) && 
-      (lower.includes('nghề nghiệp') || lower.includes('năm sinh')) && 
-      !lower.includes(':') && !/\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i.test(lower)
-    ) return false;
-    if (lower.includes('thành phần gia đình') || lower.includes('thông tin thân nhân') || lower.includes('thông tin cha mẹ')) return false;
+
+    if (lower === 'thành phần gia đình' || lower === 'thông tin thân nhân' || lower === 'thông tin cha mẹ') return false;
+
     return true;
   });
 
   if (lines.length === 0) return result;
 
-  const parseYearAndJob = (str: string) => {
-    const yearMatch = str.match(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b[:\-\)\]\s]*/i);
-    const birthYear = yearMatch ? yearMatch[1] : '';
-    let job = str;
-    if (yearMatch) {
-      job = job.replace(yearMatch[0], ' ');
+  // Trích xuất Năm sinh (xử lý cả 4 chữ số 19xx/20xx, 2 chữ số 7x/8x/9x, ngoặc đơn (1975), tiền tố SN, NS, sinh năm...)
+  const extractBirthYear = (str: string): { birthYear: string; cleanStr: string } => {
+    // 1. Tìm năm 4 chữ số (1930-2029 hoặc 19xx, 197x)
+    const year4Match = str.match(/(?:SN|S\.N|Năm\s*sinh|sinh\s*năm|NS|N\.S|S\/N|sinh|tuổi)?\s*[:\-\(\[\s]*\b(19[3-9]\d|20[0-2]\d|19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b[:\-\)\]\s]*/i);
+    if (year4Match) {
+      const birthYear = year4Match[1];
+      const cleanStr = str.replace(year4Match[0], ' ').replace(/\s+/g, ' ').trim();
+      return { birthYear, cleanStr };
     }
-    job = job.replace(/^(cha|bố|mẹ|họ và tên cha|họ tên cha|họ và tên mẹ|họ tên mẹ)\s*[:\-]?\s*/i, '')
-             .replace(/^[:,\-\s\(\)]+/, '')
-             .replace(/[:,\-\s\(\)]+$/, '')
-             .replace(/\s+/g, ' ')
-             .trim();
-    return { birthYear, job };
+
+    // 2. Tìm năm sinh đứng trong ngoặc đơn e.g. "(75)" hoặc "(1975)"
+    const parenYearMatch = str.match(/[\(\[\{]\s*(?:SN|NS|sinh)?\s*(\d{2,4})\s*[\)\]\}]/i);
+    if (parenYearMatch) {
+      let yr = parenYearMatch[1];
+      if (yr.length === 2 && parseInt(yr) >= 30) yr = '19' + yr;
+      if (yr.length === 4) {
+        const cleanStr = str.replace(parenYearMatch[0], ' ').replace(/\s+/g, ' ').trim();
+        return { birthYear: yr, cleanStr };
+      }
+    }
+
+    // 3. Tìm năm sinh 2 chữ số có tiền tố (VD: "SN 75", "sinh 78")
+    const year2Match = str.match(/(?:SN|S\.N|Năm\s*sinh|sinh\s*năm|NS|N\.S|S\/N|sinh)\s*[:\-\(\[\s]*\b([3-9]\d)\b[:\-\)\]\s]*/i);
+    if (year2Match) {
+      const birthYear = '19' + year2Match[1];
+      const cleanStr = str.replace(year2Match[0], ' ').replace(/\s+/g, ' ').trim();
+      return { birthYear, cleanStr };
+    }
+
+    return { birthYear: '', cleanStr: str };
+  };
+
+  // Helper tách Tên và Nghề nghiệp
+  const parseNameAndJob = (str: string) => {
+    let text = str
+      .replace(/^(họ và tên cha|họ tên cha|thông tin cha|năm sinh cha|nghề nghiệp cha|cha|bố|họ và tên mẹ|họ tên mẹ|thông tin mẹ|năm sinh mẹ|nghề nghiệp mẹ|mẹ)\s*[:\-]?\s*/i, '')
+      .replace(/^[:,\-\s\(\)]+/, '')
+      .replace(/[:,\-\s\(\)]+$/, '')
+      .trim();
+
+    text = text.replace(/^(năm sinh|nghề nghiệp|nghề|chuyên môn|làm|làm nghề)\s*[:\-]?\s*/i, '').trim();
+
+    if (!text) return { name: '', job: '' };
+
+    if (isNonPersonName(text)) {
+      return { name: '', job: text };
+    }
+
+    const jobKeywords = [
+      'công nhân', 'nông dân', 'làm ruộng', 'buôn bán', 'tự do', 'lao động tự do',
+      'cán bộ', 'giáo viên', 'bộ đội', 'công chức', 'viên chức', 'hưu trí', 'nội trợ',
+      'làm vườn', 'kinh doanh', 'thất nghiệp', 'phụ giúp gia đình', 'bần nông', 'trung nông'
+    ];
+
+    let name = text;
+    let job = '';
+
+    for (const kw of jobKeywords) {
+      const idx = text.toLowerCase().lastIndexOf(kw);
+      if (idx > 0) {
+        name = text.substring(0, idx).replace(/[:,\-\s\(\)]+$/, '').trim();
+        job = text.substring(idx).replace(/^[:,\-\s\(\)]+/, '').trim();
+        break;
+      }
+    }
+
+    if (!job) {
+      const delims = [';', ',', '-', ':'];
+      for (const delim of delims) {
+        if (name.includes(delim)) {
+          const parts = name.split(delim).map(p => p.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            const potentialName = parts[0];
+            const potentialJob = parts.slice(1).join(' ').trim();
+            if (potentialName && !isNonPersonName(potentialName)) {
+              name = potentialName;
+              job = potentialJob;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return { name, job };
   };
 
   let currentTarget: 'father' | 'mother' | null = null;
@@ -454,90 +602,79 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/\b(cha|bố|họ tên cha|họ và tên cha|thông tin cha)\b/i.test(line)) {
+    const { birthYear, cleanStr } = extractBirthYear(line);
+
+    const isFatherExplicit = /\b(cha|bố|họ tên cha|họ và tên cha|thông tin cha|năm sinh cha|nghề nghiệp cha)\b/i.test(line);
+    const isMotherExplicit = /\b(mẹ|họ tên mẹ|họ và tên mẹ|thông tin mẹ|năm sinh mẹ|nghề nghiệp mẹ)\b/i.test(line);
+
+    if (isFatherExplicit) {
       currentTarget = 'father';
-      const cleanLine = line.replace(/^(họ và tên cha|họ tên cha|thông tin cha|cha|bố)\s*[:\-]?\s*/i, '').trim();
-      if (cleanLine) {
-        const { birthYear, job } = parseYearAndJob(cleanLine);
-        const namePart = cleanLine.replace(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b.*/i, '').replace(/[\(\)\-:]/g, '').trim();
-        if (namePart && !isNonPersonName(namePart)) result.father.fullName = namePart;
-        if (birthYear) result.father.birthYear = birthYear;
-        const cleanJob = job.replace(namePart, '').replace(/^[:,\-\s]+/, '').trim();
-        if (cleanJob) result.father.job = cleanJob;
-      }
+      if (birthYear) result.father.birthYear = birthYear;
+      const { name, job } = parseNameAndJob(cleanStr);
+      if (name && !isNonPersonName(name)) result.father.fullName = name;
+      if (job) result.father.job = job;
       continue;
     }
 
-    if (/\b(mẹ|họ tên mẹ|họ và tên mẹ|thông tin mẹ)\b/i.test(line)) {
+    if (isMotherExplicit) {
       currentTarget = 'mother';
-      const cleanLine = line.replace(/^(họ và tên mẹ|họ tên mẹ|thông tin mẹ|mẹ)\s*[:\-]?\s*/i, '').trim();
-      if (cleanLine) {
-        const { birthYear, job } = parseYearAndJob(cleanLine);
-        const namePart = cleanLine.replace(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b.*/i, '').replace(/[\(\)\-:]/g, '').trim();
-        if (namePart && !isNonPersonName(namePart)) result.mother.fullName = namePart;
-        if (birthYear) result.mother.birthYear = birthYear;
-        const cleanJob = job.replace(namePart, '').replace(/^[:,\-\s]+/, '').trim();
-        if (cleanJob) result.mother.job = cleanJob;
+      if (birthYear) result.mother.birthYear = birthYear;
+      const { name, job } = parseNameAndJob(cleanStr);
+      if (name && !isNonPersonName(name)) result.mother.fullName = name;
+      if (job) result.mother.job = job;
+      continue;
+    }
+
+    const { name, job } = parseNameAndJob(cleanStr);
+
+    // Trường hợp ô chỉ chứa năm sinh
+    if (birthYear && !name && !job) {
+      if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
+        result.father.birthYear = birthYear;
+      } else if (currentTarget === 'mother' || (!result.mother.birthYear && result.mother.fullName)) {
+        result.mother.birthYear = birthYear;
       }
       continue;
     }
 
-    const startsWithYear = line.match(/^\s*(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i);
-    if (startsWithYear) {
-      const { birthYear, job } = parseYearAndJob(line);
-      if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
+    // Trường hợp ô chỉ chứa nghề nghiệp
+    if (job && !name) {
+      if (currentTarget === 'father' && result.father.fullName && !result.father.job) {
+        result.father.job = job;
+      } else if (currentTarget === 'mother' && result.mother.fullName && !result.mother.job) {
+        result.mother.job = job;
+      }
+      continue;
+    }
+
+    // Trường hợp có Họ tên
+    if (name && !isNonPersonName(name)) {
+      if (!result.father.fullName) {
+        result.father.fullName = name;
         if (birthYear) result.father.birthYear = birthYear;
         if (job) result.father.job = job;
-      } else if (currentTarget === 'mother' || (!result.mother.birthYear && result.mother.fullName)) {
+        currentTarget = 'father';
+      } else if (!result.mother.fullName) {
+        result.mother.fullName = name;
         if (birthYear) result.mother.birthYear = birthYear;
         if (job) result.mother.job = job;
-      }
-      continue;
-    }
-
-    if (!/\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b/i.test(line)) {
-      if (isNonPersonName(line)) {
-        if (currentTarget === 'father' && result.father.fullName && !result.father.job) {
-          result.father.job = line.trim();
-        } else if (currentTarget === 'mother' && result.mother.fullName && !result.mother.job) {
-          result.mother.job = line.trim();
+        currentTarget = 'mother';
+      } else {
+        if (currentTarget === 'father') {
+          if (birthYear) result.father.birthYear = birthYear;
+          if (job) result.father.job = job;
+        } else if (currentTarget === 'mother') {
+          if (birthYear) result.mother.birthYear = birthYear;
+          if (job) result.mother.job = job;
         }
-        continue;
-      }
-
-      if (!result.father.fullName) {
-        result.father.fullName = line.trim();
-        currentTarget = 'father';
-      } else if (!result.mother.fullName) {
-        result.mother.fullName = line.trim();
-        currentTarget = 'mother';
-      }
-      continue;
-    }
-
-    const { birthYear, job } = parseYearAndJob(line);
-    const namePart = line.replace(/(?:SN|S\.N|Năm\s*sinh|NS)?\s*[:\-\(\[\s]*\b(19[0-9xX\?\*_]{2}|20[0-9xX\?\*_]{2})\b.*/i, '').replace(/[\(\)\-:]/g, '').trim();
-    const cleanJob = job.replace(namePart, '').replace(/^[:,\-\s]+/, '').trim();
-    
-    if (!isNonPersonName(namePart) && namePart.length >= 2) {
-      if (!result.father.fullName) {
-        result.father.fullName = namePart;
-        if (birthYear) result.father.birthYear = birthYear;
-        if (cleanJob) result.father.job = cleanJob;
-        currentTarget = 'father';
-      } else if (!result.mother.fullName) {
-        result.mother.fullName = namePart;
-        if (birthYear) result.mother.birthYear = birthYear;
-        if (cleanJob) result.mother.job = cleanJob;
-        currentTarget = 'mother';
       }
     } else {
-      if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
-        if (birthYear) result.father.birthYear = birthYear;
-        if (cleanJob) result.father.job = cleanJob;
-      } else if (currentTarget === 'mother' || (!result.mother.birthYear && result.mother.fullName)) {
-        if (birthYear) result.mother.birthYear = birthYear;
-        if (cleanJob) result.mother.job = cleanJob;
+      if (currentTarget === 'father') {
+        if (birthYear && !result.father.birthYear) result.father.birthYear = birthYear;
+        if (job && !result.father.job) result.father.job = job;
+      } else if (currentTarget === 'mother') {
+        if (birthYear && !result.mother.birthYear) result.mother.birthYear = birthYear;
+        if (job && !result.mother.job) result.mother.job = job;
       }
     }
   }

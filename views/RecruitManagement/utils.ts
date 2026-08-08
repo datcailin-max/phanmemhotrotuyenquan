@@ -16,11 +16,38 @@ export const hasExemptionReason = (r: { defermentReason?: string; legalReason?: 
   );
 };
 
+export const isRealDefermentReason = (str?: string): boolean => {
+  if (!str) return false;
+  const lower = str.toLowerCase().trim();
+  if (!lower || lower === '---' || lower === 'không' || lower === 'chưa có' || lower === 'bình thường' || lower === 'không nghề nghiệp') return false;
+
+  // Cụm từ thông thường không phải là lý do tạm hoãn (nghề nghiệp, dân tộc, gia cảnh, địa chỉ, đoàn thể...)
+  const nonDefermentPhrases = [
+    'lao động tự do', 'nông dân', 'công nhân', 'buôn bán', 'làm vườn', 'kinh doanh',
+    'trung nông', 'bần nông', 'phụ thuộc', 'kinh', 'thất nghiệp', 'phụ giúp gia đình',
+    'đoàn viên', 'đảng viên', 'độc thân', 'ấp mỹ an', 'thôn lộc thuận'
+  ];
+  if (nonDefermentPhrases.includes(lower)) return false;
+
+  // Kiểm tra trùng khớp với danh sách lý do tạm hoãn theo luật
+  if (LEGAL_DEFERMENT_REASONS.some(r => lower.includes(r.toLowerCase()))) return true;
+
+  // Từ khóa chỉ lý do tạm hoãn thực tế
+  const defermentKeywords = [
+    'tạm hoãn', 'hoãn', 'đang học', 'học sinh', 'sinh viên', 'trường', 'đại học', 'cao đẳng', 'trung cấp',
+    'đào tạo', 'niên khóa', 'niên khoá', 'học viện', 'phổ thông', 'dqtt', 'dân quân', 'tại ngũ',
+    'sức khỏe', 'sức khoẻ', 'bệnh', 'chữa bệnh', 'lao động duy nhất', 'nuôi dưỡng', 'khó khăn',
+    'da cam', 'bệnh binh', 'thương binh', 'liệt sĩ', 'thiệt hại', 'di dân', 'đặc biệt khó khăn', 'nghèo'
+  ];
+
+  return defermentKeywords.some(kw => lower.includes(kw));
+};
+
 export const hasDefermentReason = (r: { defermentReason?: string; legalReason?: string; notes?: string }): boolean => {
   const reason = [r.defermentReason, r.legalReason, r.notes].filter(Boolean).join(' ').trim();
   if (!reason || reason === '---' || reason.toLowerCase() === 'không') return false;
   if (hasExemptionReason(r)) return false;
-  return true;
+  return isRealDefermentReason(reason);
 };
 
 export const isRecruitDeferred = (r: Recruit, sessionYear: number): boolean => {

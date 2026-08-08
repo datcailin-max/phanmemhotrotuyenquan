@@ -65,6 +65,9 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
               disabled={isReadOnly}
             >
               {EDUCATIONS.map(e => <option key={e} value={e}>{e}</option>)}
+              {formData.details.education && !(EDUCATIONS as readonly string[]).includes(formData.details.education) && (
+                <option value={formData.details.education}>{formData.details.education}</option>
+              )}
             </select>
             
             {isClass7 && (
