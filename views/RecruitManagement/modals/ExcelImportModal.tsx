@@ -21,6 +21,7 @@ import {
   checkFontWarning,
   isHeaderOrMetadataRow,
   parseParentInfo,
+  parseAddressInfo,
   extractBirthYearFromCCCD
 } from './excelImport/excelHelpers';
 
@@ -116,6 +117,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       let jobCol = -1;
       let healthCol = -1;
       let reasonCol = -1;
+      let familyBgCol = -1;
+      let parentColIndices: number[] = [];
       let isOfficialExportFormat = false;
       let officialColIndex = -1;
 
@@ -137,6 +140,20 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
           row.forEach((cell, colIdx) => {
             const cellStr = String(cell || '').trim().toLowerCase();
+
+            if (cellStr.includes('thành phần gia đình') || cellStr.includes('thành phần bản thân') || cellStr.includes('dân tộc') || cellStr.includes('tôn giáo')) {
+              familyBgCol = colIdx;
+            }
+
+            if (
+              cellStr.includes('cha') || 
+              cellStr.includes('mẹ') || 
+              cellStr.includes('thân nhân') || 
+              cellStr.includes('phụ huynh') ||
+              cellStr.includes('ông, bà')
+            ) {
+              if (!parentColIndices.includes(colIdx)) parentColIndices.push(colIdx);
+            }
 
             if (
               !cellStr.includes('cha') && 
@@ -322,10 +339,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
           const col3Address = String(row[mainColIdx + 2] || row[3] || '');
           if (col3Address) {
-            const firstLine = col3Address.split(/\r?\n/)[0] || '';
-            const villageMatch = firstLine.split(',')[0] || firstLine;
-            if (villageMatch.trim()) village = villageMatch.trim();
-            address = col3Address.replace(/\n/g, ', ');
+            const parsedAddr = parseAddressInfo(col3Address, '', 'Ấp Mỹ An');
+            village = parsedAddr.village;
+            address = parsedAddr.street;
           }
 
           const col5Edu = String(row[mainColIdx + 4] || row[5] || '');
@@ -352,13 +368,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             rawDob = parseExcelDate(nameCellText);
           }
 
-          if (villageCol >= 0 && row[villageCol]) {
-            village = String(row[villageCol]).trim();
-          }
+          const rawVillageVal = villageCol >= 0 && row[villageCol] ? String(row[villageCol]).trim() : '';
+          const rawStreetVal = addressCol >= 0 && row[addressCol] ? String(row[addressCol]).trim() : '';
 
-          if (addressCol >= 0 && row[addressCol]) {
-            address = String(row[addressCol]).trim();
-          }
+          const parsedAddr = parseAddressInfo(rawStreetVal, rawVillageVal, 'Ấp Mỹ An');
+          village = parsedAddr.village;
+          address = parsedAddr.street;
 
           if (eduCol >= 0 && row[eduCol]) {
             edu = String(row[eduCol]).trim();
@@ -464,14 +479,41 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         // Quét tự động nhận dạng thông tin Cha / Mẹ từ các ô trong hàng
         const parentTexts: string[] = [];
-        row.forEach((cell, cIdx) => {
-          if (cIdx === nameCol || cIdx === cccdCol || cIdx === dobCol) return;
-          const cellStr = String(cell || '').trim();
-          if (!cellStr) return;
-          if (/cha|bố|mẹ|thân nhân|gia đình|phụ huynh|nông dân|công nhân|làm vườn|nội trợ|bộ đội|giáo viên|19\d{2}|20\d{2}/i.test(cellStr)) {
-            parentTexts.push(cellStr);
+
+        if (isOfficialExportFormat) {
+          // Biểu mẫu xuất bản chính thức (Biểu mẫu NVQS): Cột 7 (Index = officialColIndex + 5) là cột Thông tin Cha, Mẹ
+          const pCol = officialColIndex >= 0 ? officialColIndex + 5 : 6;
+          if (row[pCol]) {
+            parentTexts.push(String(row[pCol]).trim());
           }
-        });
+        } else if (parentColIndices.length > 0) {
+          parentColIndices.forEach(pCol => {
+            if (row[pCol]) parentTexts.push(String(row[pCol]).trim());
+          });
+        } else {
+          row.forEach((cell, cIdx) => {
+            if (
+              cIdx === nameCol || 
+              cIdx === cccdCol || 
+              cIdx === dobCol || 
+              cIdx === villageCol || 
+              cIdx === addressCol || 
+              cIdx === eduCol || 
+              cIdx === jobCol || 
+              cIdx === healthCol || 
+              cIdx === reasonCol ||
+              cIdx === familyBgCol
+            ) return;
+
+            const cellStr = String(cell || '').trim();
+            if (!cellStr) return;
+
+            if (/cha|bố|mẹ|thân nhân|phụ huynh|19\d{2}|20\d{2}/i.test(cellStr)) {
+              parentTexts.push(cellStr);
+            }
+          });
+        }
+
         const parsedParents = parseParentInfo(parentTexts);
 
         // Ghi nhận nếu công dân có lý do Tạm hoãn / Miễn / Ghi chú đặc biệt
@@ -532,6 +574,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             targetStatus = autoStatus;
           }
 
+          const existingStreet = existing.address?.street || '';
+          const cleanExistingStreet = (existingStreet.toLowerCase() === village.toLowerCase()) ? '' : existingStreet;
+
           const updatedRecruit: Recruit = {
             ...existing,
             fullName: cleanedName || existing.fullName,
@@ -540,7 +585,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               province: existing.address?.province || userProvince,
               commune: existing.address?.commune || userCommune,
               village: village || existing.address?.village || 'Ấp Mỹ An',
-              street: address || existing.address?.street || ''
+              street: address || cleanExistingStreet
             },
             physical: {
               height: existing.physical?.height || 0,

@@ -266,6 +266,134 @@ export const isHeaderOrMetadataRow = (row: any[]): boolean => {
   return false;
 };
 
+export interface ParsedAddress {
+  village: string;
+  street: string;
+}
+
+export const parseAddressInfo = (
+  rawAddressText: string,
+  rawVillageText?: string,
+  defaultVillage: string = 'Ấp Mỹ An'
+): ParsedAddress => {
+  let village = (rawVillageText || '').trim();
+  let street = (rawAddressText || '').trim();
+
+  // Làm sạch xuống dòng
+  village = village.replace(/[\r\n]+/g, ', ').replace(/\s+/g, ' ').trim();
+  street = street.replace(/[\r\n]+/g, ', ').replace(/\s+/g, ' ').trim();
+
+  // Nếu street và village giống nhau hoàn toàn
+  if (street.toLowerCase() === village.toLowerCase()) {
+    street = '';
+  }
+
+  // Hàm loại bỏ thông tin hành chính cấp Xã/Phường/Huyện/Tỉnh thừa ở cuối chuỗi
+  const cleanAdminUnits = (str: string) => {
+    return str
+      .replace(/,\s*(xã|phường|thị trấn|huyện|thị xã|thành phố|tp|tỉnh)\s+[^,]+/gi, '')
+      .replace(/,\s*việt nam$/gi, '')
+      .trim();
+  };
+
+  street = cleanAdminUnits(street);
+  village = cleanAdminUnits(village);
+
+  // Helper kiểm tra xem chuỗi có CHỈ là tên Thôn/Ấp/Tổ/Khu phố mà KHÔNG có số nhà/đường không
+  const isOnlyVillageInfo = (str: string): boolean => {
+    if (!str) return false;
+    const lower = str.toLowerCase();
+    
+    // Nếu chứa các từ số nhà/đường/hẻm/ngõ -> Không phải chỉ là thôn/ấp
+    if (/\b(số\s*\d+|số\s*nhà|đường|hẻm|ngõ|ngách|kdc|chung\s*cư|khu\s*dân\s*cư)\b/i.test(lower)) {
+      return false;
+    }
+    // Nếu bắt đầu bằng số nhà (vd: "30 Lê Hoàn", "12/3 Nguyễn Trãi") -> Không phải chỉ là thôn/ấp
+    if (/^\d+[\d\/\-A-Za-z]*\s+[a-zàáảãạăắằẳẵặânấầnẩẫậneéèẻẽẹêếềểễệiíìỉĩịoóòỏõọôốồổỗộơớờởỡợuúùủũụưứừửữựyýỳỷỹỵ]/i.test(lower)) {
+      return false;
+    }
+
+    // Có chứa các từ chỉ địa danh thôn, ấp, tổ, khu phố, khóm, xóm...
+    return /\b(tổ\s*\d*|khu\s*phố\s*\d*|kp\s*\d*|thôn\s*\d*|ấp\s*\d*|khóm\s*\d*|xóm\s*\d*|đội\s*\d*|buôn|sóc)\b/i.test(lower);
+  };
+
+  // Trường hợp không có rawVillageText, nhưng rawAddressText chứa dữ liệu địa chỉ
+  if (!village && street) {
+    if (isOnlyVillageInfo(street)) {
+      // Ví dụ: "Tổ 10 kp Ninh Thịnh" hoặc "Thôn 5 Lộc Thuận"
+      village = street;
+      street = '';
+    } else {
+      // Ví dụ: "30 đường Lê Hoàn, tổ 10 kp Ninh Thịnh"
+      const villageMatch = street.match(/,\s*(\b(tổ\s*\d*|khu\s*phố\s*\d*|kp\s*\d*|thôn\s*\d*|ấp\s*\d*|khóm\s*\d*|xóm\s*\d*|đội\s*\d*)\b.*)/i);
+      if (villageMatch) {
+        village = villageMatch[1].trim();
+        street = street.replace(villageMatch[0], '').trim();
+      }
+    }
+  }
+
+  // Trường hợp đã có village, và street cũng có nội dung
+  if (village && street) {
+    // Nếu street bằng village hoặc street chỉ là thông tin thôn/ấp
+    if (street.toLowerCase() === village.toLowerCase() || isOnlyVillageInfo(street)) {
+      street = '';
+    } else {
+      // Nếu street chứa village ở cuối, cắt village khỏi street
+      const lowerStreet = street.toLowerCase();
+      const lowerVillage = village.toLowerCase();
+      if (lowerStreet.endsWith(lowerVillage)) {
+        street = street.substring(0, street.length - village.length).replace(/,$/g, '').trim();
+      }
+    }
+  }
+
+  if (!village) {
+    village = defaultVillage;
+  }
+
+  return { village, street };
+};
+
+export const isNonPersonName = (str: string): boolean => {
+  if (!str) return true;
+  const clean = str.toLowerCase().replace(/[:,\-\.\(\)]/g, ' ').trim();
+  if (clean.length < 2) return true;
+
+  if (
+    clean.includes('thành phần gia đình') ||
+    clean.includes('thành phần bản thân') ||
+    clean.includes('thông tin cha') ||
+    clean.includes('thông tin mẹ') ||
+    clean.includes('họ và tên cha') ||
+    clean.includes('họ và tên mẹ') ||
+    clean.includes('họ tên cha') ||
+    clean.includes('họ tên mẹ') ||
+    clean.includes('năm sinh') ||
+    clean.includes('nghề nghiệp') ||
+    clean.includes('chuyên môn') ||
+    clean.includes('dân tộc') ||
+    clean.includes('tôn giáo') ||
+    clean.includes('trình độ')
+  ) {
+    return true;
+  }
+
+  const exactKeywords = [
+    'nông dân', 'phụ thuộc', 'kinh', 'tày', 'nùng', 'hoa', 'dao', 'chăm', 'khơ me', 'mường', 'sán dìu', 'sán rìu',
+    'không', 'phật giáo', 'thiên chúa', 'công giáo', 'tin lành', 'cao đài', 'hòa hảo',
+    'đảng viên', 'đoàn viên', 'học sinh', 'sinh viên', 'thất nghiệp', 'tự do', 'phụ giúp gia đình',
+    'công nhân', 'làm vườn', 'nội trợ', 'bộ đội', 'giáo viên', 'buôn bán', 'làm nông', 'kinh doanh', 'cán bộ',
+    'chưa có', 'không nghề nghiệp', 'hộ khẩu', 'tạm trú', 'thường trú', 'quê quán'
+  ];
+
+  if (exactKeywords.some(kw => clean === kw || clean === kw + ' gia đình')) {
+    return true;
+  }
+
+  return false;
+};
+
 export interface ParentInfoParsed {
   father: { fullName: string; birthYear: string; job: string };
   mother: { fullName: string; birthYear: string; job: string };
@@ -331,7 +459,7 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       if (cleanLine) {
         const { birthYear, job } = parseYearAndJob(cleanLine);
         const namePart = cleanLine.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
-        if (namePart) result.father.fullName = namePart;
+        if (namePart && !isNonPersonName(namePart)) result.father.fullName = namePart;
         if (birthYear) result.father.birthYear = birthYear;
         if (job && job !== namePart) result.father.job = job;
       }
@@ -344,7 +472,7 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       if (cleanLine) {
         const { birthYear, job } = parseYearAndJob(cleanLine);
         const namePart = cleanLine.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
-        if (namePart) result.mother.fullName = namePart;
+        if (namePart && !isNonPersonName(namePart)) result.mother.fullName = namePart;
         if (birthYear) result.mother.birthYear = birthYear;
         if (job && job !== namePart) result.mother.job = job;
       }
@@ -365,6 +493,15 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
     }
 
     if (!/\b(19\d{2}|20\d{2})\b/.test(line)) {
+      if (isNonPersonName(line)) {
+        if (currentTarget === 'father' && result.father.fullName && !result.father.job) {
+          result.father.job = line.trim();
+        } else if (currentTarget === 'mother' && result.mother.fullName && !result.mother.job) {
+          result.mother.job = line.trim();
+        }
+        continue;
+      }
+
       if (!result.father.fullName) {
         result.father.fullName = line.trim();
         currentTarget = 'father';
@@ -377,16 +514,27 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
 
     const { birthYear, job } = parseYearAndJob(line);
     const namePart = line.replace(/\b(19\d{2}|20\d{2})\b.*/, '').replace(/[\(\)\-:]/g, '').trim();
-    if (!result.father.fullName) {
-      result.father.fullName = namePart;
-      if (birthYear) result.father.birthYear = birthYear;
-      if (job) result.father.job = job;
-      currentTarget = 'father';
-    } else if (!result.mother.fullName) {
-      result.mother.fullName = namePart;
-      if (birthYear) result.mother.birthYear = birthYear;
-      if (job) result.mother.job = job;
-      currentTarget = 'mother';
+    
+    if (!isNonPersonName(namePart) && namePart.length >= 2) {
+      if (!result.father.fullName) {
+        result.father.fullName = namePart;
+        if (birthYear) result.father.birthYear = birthYear;
+        if (job) result.father.job = job;
+        currentTarget = 'father';
+      } else if (!result.mother.fullName) {
+        result.mother.fullName = namePart;
+        if (birthYear) result.mother.birthYear = birthYear;
+        if (job) result.mother.job = job;
+        currentTarget = 'mother';
+      }
+    } else {
+      if (currentTarget === 'father' || (!result.father.birthYear && result.father.fullName)) {
+        if (birthYear) result.father.birthYear = birthYear;
+        if (job && job !== namePart) result.father.job = job;
+      } else if (currentTarget === 'mother' || (!result.mother.birthYear && result.mother.fullName)) {
+        if (birthYear) result.mother.birthYear = birthYear;
+        if (job && job !== namePart) result.mother.job = job;
+      }
     }
   }
 
