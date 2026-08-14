@@ -18,11 +18,36 @@ export const removeVietnameseTones = (str: string) => {
     return str;
 }
 
+export const cleanCommuneForUsername = (commune: string): string => {
+    if (!commune) return '';
+    let clean = commune.trim();
+    
+    // 1. Loại bỏ các tiền tố hành chính tiếng Việt: Xã, Phường, Thị trấn, TT., TT, Đặc khu
+    clean = clean.replace(/^(xã|phường|thị\s*trấn|tt\.|tt|đặc\s*khu)\s+/i, '');
+    clean = clean.replace(/^(xa|phuong|thi\s*tran|tt\.|tt|dac\s*khu)\s+/i, '');
+    
+    // 2. Bỏ dấu tiếng Việt và loại bỏ khoảng trắng / ký tự không phải chữ số
+    let code = removeVietnameseTones(clean).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    // 3. Loại bỏ tiền tố XA, PHUONG, THITRAN, DACKHU nếu chuỗi gốc không có dấu (ví dụ: XALOCNINH -> LOCNINH)
+    if (code.startsWith('XA') && code.length > 2) {
+        code = code.substring(2);
+    } else if (code.startsWith('PHUONG') && code.length > 6) {
+        code = code.substring(6);
+    } else if (code.startsWith('THITRAN') && code.length > 7) {
+        code = code.substring(7);
+    } else if (code.startsWith('DACKHU') && code.length > 6) {
+        code = code.substring(6);
+    }
+    
+    return code;
+};
+
 export const generateUnitUsername = (province: string, commune: string, type: '1' | '2' | 'PROVINCE') => {
-    const pCode = removeVietnameseTones(province).toUpperCase().replace(/\s+/g, '');
+    const pCode = removeVietnameseTones(province).toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (type === 'PROVINCE') {
         return `TINH_${pCode}`;
     }
-    const cCode = removeVietnameseTones(commune).toUpperCase().replace(/\s+/g, '');
+    const cCode = cleanCommuneForUsername(commune);
     return `${pCode}_${cCode}_${type}`;
 }

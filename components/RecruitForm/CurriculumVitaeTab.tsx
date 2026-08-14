@@ -54,6 +54,38 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
 
   return (
     <div className="space-y-6 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 animate-in fade-in duration-200">
+      {/* Top Action Bar for Quick Sync & Word Export */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-blue-50/70 border border-blue-200 rounded-xl">
+        <div>
+          <h3 className="text-sm font-black text-blue-950 flex items-center gap-2">
+            <FileText size={18} className="text-blue-700" /> SƠ YẾU LÝ LỊCH NGHĨA VỤ QUÂN SỰ
+          </h3>
+          <p className="text-xs text-blue-700 font-medium mt-0.5">
+            Dữ liệu dùng để in và xuất file Word lý lịch NVQS theo quy định chuẩn của Bộ Quốc phòng
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleSyncFromProfile}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white text-blue-800 hover:bg-blue-100/60 border border-blue-300 rounded-lg text-xs font-black uppercase transition-all shadow-sm"
+            title="Tự động điền và đồng bộ lại các trường từ thông tin hồ sơ bên ngoài"
+          >
+            <RefreshCw size={14} className="text-blue-700" />
+            <span>Đồng bộ từ hồ sơ</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleExportWord}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-black uppercase transition-all shadow-md active:scale-95"
+            title="Xuất file Word (.docx) Lý lịch NVQS của công dân"
+          >
+            <Download size={14} />
+            <span>Xuất Lý lịch NVQS (.docx)</span>
+          </button>
+        </div>
+      </div>
+
       {/* SECTION I FORM FIELDS */}
       <div className="space-y-6">
         <h4 className="text-xs font-black uppercase text-gray-500 tracking-wider border-b border-gray-200 pb-2 flex items-center gap-2">

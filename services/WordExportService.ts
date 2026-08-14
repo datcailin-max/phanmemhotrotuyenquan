@@ -3,22 +3,83 @@ import { saveAs } from 'file-saver';
 import Docxtemplater from 'docxtemplater';
 // @ts-ignore
 import PizZip from 'pizzip';
+import { 
+  Document, 
+  Paragraph, 
+  TextRun, 
+  Table, 
+  TableRow, 
+  TableCell, 
+  AlignmentType, 
+  WidthType, 
+  TabStopType, 
+  Packer, 
+  BorderStyle, 
+  convertMillimetersToTwip 
+} from 'docx';
 import { Recruit, CurriculumVitae } from '../types';
 import { api } from '../api';
 
+const DEFAULT_DOTS_SHORT = '............';
+const DEFAULT_DOTS_MED = '................................';
+const DEFAULT_DOTS_LONG = '...................................................................';
+
+export const getVal = (val?: string | number, fallback?: string | number, defaultDots: string = DEFAULT_DOTS_MED): string => {
+  if (val !== undefined && val !== null) {
+    const s = String(val).trim();
+    if (s !== '' && s.toLowerCase() !== 'chưa cập nhật' && s.toLowerCase() !== 'chua cap nhat') {
+      return s;
+    }
+  }
+  if (fallback !== undefined && fallback !== null) {
+    const s = String(fallback).trim();
+    if (s !== '' && s.toLowerCase() !== 'chưa cập nhật' && s.toLowerCase() !== 'chua cap nhat') {
+      return s;
+    }
+  }
+  return defaultDots;
+};
+
+export const formatFamilyBirthDate = (val?: string | number): string => {
+  if (!val) return '.. tháng...... ..năm ........';
+  const str = String(val).trim();
+  if (str === '' || str.toLowerCase() === 'chưa cập nhật' || str.toLowerCase() === 'chua cap nhat') {
+    return '.. tháng...... ..năm ........';
+  }
+  if (/^\d{4}$/.test(str)) {
+    return `.. tháng...... ..năm ${str}`;
+  }
+  const parts = str.split(/[-/.]/);
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `ngày ${parts[2]} tháng ${parts[1]} năm ${parts[0]}`;
+    }
+    return `ngày ${parts[0]} tháng ${parts[1]} năm ${parts[2]}`;
+  }
+  return str;
+};
+
+export const formatBirthDateCitizen = (day?: string, month?: string, year?: string, fullDob?: string): string => {
+  if (day && month && year && day !== '...' && month !== '...') {
+    return `ngày ${day} tháng ${month} năm ${year}`;
+  }
+  if (fullDob) {
+    const parts = fullDob.split(/[-/.]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `ngày ${parts[2]} tháng ${parts[1]} năm ${parts[0]}`;
+      }
+      return `ngày ${parts[0]} tháng ${parts[1]} năm ${parts[2]}`;
+    }
+    if (parts.length === 1 && parts[0].length === 4) {
+      return `.. tháng...... ..năm ${parts[0]}`;
+    }
+    return fullDob;
+  }
+  return `ngày ${day || '..'} tháng ${month || '......'} ..năm ${year || '........'}`;
+};
+
 export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record<string, any> => {
-  const DEFAULT_VAL = 'Chưa cập nhật';
-
-  const getVal = (val?: string | number, fallback?: string | number): string => {
-    if (val !== undefined && val !== null && String(val).trim() !== '') {
-      return String(val).trim();
-    }
-    if (fallback !== undefined && fallback !== null && String(fallback).trim() !== '') {
-      return String(fallback).trim();
-    }
-    return DEFAULT_VAL;
-  };
-
   let dobStr = recruit.dob || '';
   if (!dobStr && (cv.birthDay || cv.birthMonth || cv.birthYear)) {
     const d = cv.birthDay || '...';
@@ -27,56 +88,121 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
     dobStr = `${d}/${m}/${y}`;
   }
 
+  const birthDayVal = getVal(cv.birthDay, undefined, '..');
+  const birthMonthVal = getVal(cv.birthMonth, undefined, '..');
+  const birthYearVal = getVal(cv.birthYear, undefined, '....');
+
+  const fatherBirthFormatted = formatFamilyBirthDate(cv.fatherBirthDate || recruit.family?.father?.birthYear);
+  const motherBirthFormatted = formatFamilyBirthDate(cv.motherBirthDate || recruit.family?.mother?.birthYear);
+  const spouseBirthFormatted = formatFamilyBirthDate(cv.spouseBirthDate);
+
+  const ethnicityVal = getVal(cv.ethnicity, recruit.details?.ethnicity, 'Kinh');
+  const religionVal = getVal(cv.religion, recruit.details?.religion, 'Không');
+  const nationalityVal = getVal(cv.nationality, 'Việt Nam');
+
+  const familyClassVal = getVal(cv.familyClass, recruit.details?.familyComposition, '........................');
+  const personalClassVal = getVal(cv.personalClass, recruit.details?.personalComposition, '........................');
+
+  const educationLevelVal = getVal(cv.educationLevel, recruit.details?.education, '12/12');
+  const qualificationLevelVal = getVal(cv.qualificationLevel, recruit.details?.school, '........................');
+  const languageLevelVal = getVal(cv.languageLevel, undefined, '............................................');
+
+  const majorVal = getVal(cv.major, recruit.details?.major, DEFAULT_DOTS_LONG);
+  const partyJoinedVal = getVal(cv.communistPartyJoinedDate, recruit.details?.partyEntryDate, DEFAULT_DOTS_MED);
+  const partyOfficialVal = getVal(cv.communistPartyOfficialDate, undefined, '.........................');
+  const youthUnionVal = getVal(cv.youthUnionJoinedDate, undefined, DEFAULT_DOTS_MED);
+
+  const commendationsVal = getVal(cv.commendations, recruit.details?.rewards, '........................................');
+  const disciplinaryVal = getVal(cv.disciplinaryAction, recruit.details?.disciplines, '............................');
+
+  const jobVal = getVal(cv.job, recruit.details?.job, '........................');
+  const salaryGradeVal = getVal(cv.salaryGrade, recruit.details?.gradeGroup, '..................');
+  const salaryRankVal = getVal(cv.salaryRank, recruit.details?.salaryLevel, '..........................');
+  const workplaceVal = getVal(cv.workplace, recruit.details?.workAddress, DEFAULT_DOTS_LONG);
+  const foreignTravelVal = getVal(cv.foreignTravel, undefined, DEFAULT_DOTS_LONG);
+
+  const fatherNameVal = getVal(cv.fatherName, recruit.family?.father?.fullName, DEFAULT_DOTS_MED);
+  const fatherStatusVal = getVal(cv.fatherStatus, undefined, 'Sống');
+  const fatherJobVal = getVal(cv.fatherJob, recruit.family?.father?.job, DEFAULT_DOTS_MED);
+
+  const motherNameVal = getVal(cv.motherName, recruit.family?.mother?.fullName, DEFAULT_DOTS_MED);
+  const motherStatusVal = getVal(cv.motherStatus, undefined, 'Sống');
+  const motherJobVal = getVal(cv.motherJob, recruit.family?.mother?.job, DEFAULT_DOTS_MED);
+
+  const spouseNameVal = getVal(cv.spouseName, recruit.family?.wife?.fullName, DEFAULT_DOTS_MED);
+  const spouseJobVal = getVal(cv.spouseJob, recruit.family?.wife?.job, DEFAULT_DOTS_MED);
+
+  const childrenCountNum = cv.childrenCount ? String(cv.childrenCount).padStart(2, '0') : '00';
+  const totalSiblingsNum = cv.totalSiblings ? String(cv.totalSiblings).padStart(2, '0') : '01';
+  const maleSiblingsNum = cv.maleSiblings ? String(cv.maleSiblings).padStart(2, '0') : '01';
+  const femaleSiblingsNum = cv.femaleSiblings ? String(cv.femaleSiblings).padStart(2, '0') : '00';
+  const siblingOrderNum = cv.siblingOrder ? String(cv.siblingOrder).padStart(2, '0') : '01';
+
   const data: Record<string, any> = {
-    fullNameUpper: getVal(cv.fullNameUpper, recruit.fullName?.toUpperCase()),
-    fullName: getVal(recruit.fullName),
-    aliasName: getVal(cv.aliasName, recruit.fullName),
-    birthDay: getVal(cv.birthDay),
-    birthMonth: getVal(cv.birthMonth),
-    birthYear: getVal(cv.birthYear),
-    dob: getVal(dobStr),
+    fullNameUpper: getVal(cv.fullNameUpper, recruit.fullName?.toUpperCase(), DEFAULT_DOTS_MED),
+    fullName: getVal(recruit.fullName, undefined, DEFAULT_DOTS_MED),
+    aliasName: getVal(cv.aliasName, recruit.fullName, DEFAULT_DOTS_MED),
+    birthDay: birthDayVal,
+    birthMonth: birthMonthVal,
+    birthYear: birthYearVal,
+    dob: getVal(dobStr, undefined, DEFAULT_DOTS_MED),
     gender: getVal(cv.gender, 'Nam'),
-    citizenId: getVal(cv.citizenId, recruit.citizenId),
-    placeOfBirth: getVal(cv.placeOfBirth),
-    hometown: getVal(cv.hometown),
-    ethnicity: getVal(cv.ethnicity, recruit.details?.ethnicity),
-    religion: getVal(cv.religion, recruit.details?.religion),
-    nationality: getVal(cv.nationality, 'Việt Nam'),
-    permanentAddress: getVal(cv.permanentAddress),
-    temporaryAddress: getVal(cv.temporaryAddress),
-    familyClass: getVal(cv.familyClass, recruit.details?.familyComposition),
-    personalClass: getVal(cv.personalClass, recruit.details?.personalComposition),
-    educationLevel: getVal(cv.educationLevel, recruit.details?.education),
-    qualificationLevel: getVal(cv.qualificationLevel, recruit.details?.school),
-    languageLevel: getVal(cv.languageLevel),
-    major: getVal(cv.major, recruit.details?.major),
-    communistPartyJoinedDate: getVal(cv.communistPartyJoinedDate, recruit.details?.partyEntryDate),
-    communistPartyOfficialDate: getVal(cv.communistPartyOfficialDate),
-    youthUnionJoinedDate: getVal(cv.youthUnionJoinedDate),
-    commendations: getVal(cv.commendations, recruit.details?.rewards),
-    disciplinaryAction: getVal(cv.disciplinaryAction, recruit.details?.disciplines),
-    job: getVal(cv.job, recruit.details?.job),
-    salary: getVal(cv.salary),
-    salaryGrade: getVal(cv.salaryGrade, recruit.details?.gradeGroup),
-    salaryRank: getVal(cv.salaryRank, recruit.details?.salaryLevel),
-    workplace: getVal(cv.workplace, recruit.details?.workAddress),
-    foreignTravel: getVal(cv.foreignTravel, 'Chưa đi nước ngoài'),
-    fatherName: getVal(cv.fatherName, recruit.family?.father?.fullName),
-    fatherStatus: getVal(cv.fatherStatus, 'Sống'),
-    fatherBirthDate: getVal(cv.fatherBirthDate, recruit.family?.father?.birthYear),
-    fatherJob: getVal(cv.fatherJob, recruit.family?.father?.job),
-    motherName: getVal(cv.motherName, recruit.family?.mother?.fullName),
-    motherStatus: getVal(cv.motherStatus, 'Sống'),
-    motherBirthDate: getVal(cv.motherBirthDate, recruit.family?.mother?.birthYear),
-    motherJob: getVal(cv.motherJob, recruit.family?.mother?.job),
-    spouseName: getVal(cv.spouseName, recruit.family?.wife?.fullName),
-    spouseBirthDate: getVal(cv.spouseBirthDate),
-    spouseJob: getVal(cv.spouseJob, recruit.family?.wife?.job),
-    childrenCount: getVal(cv.childrenCount, recruit.family?.children),
-    totalSiblings: getVal(cv.totalSiblings, recruit.details?.siblingCount),
-    maleSiblings: getVal(cv.maleSiblings),
-    femaleSiblings: getVal(cv.femaleSiblings),
-    siblingOrder: getVal(cv.siblingOrder, recruit.details?.birthOrder),
+    citizenId: getVal(cv.citizenId, recruit.citizenId, DEFAULT_DOTS_MED),
+    placeOfBirth: getVal(cv.placeOfBirth, undefined, DEFAULT_DOTS_LONG),
+    hometown: getVal(cv.hometown, undefined, DEFAULT_DOTS_LONG),
+    ethnicity: ethnicityVal,
+    religion: religionVal,
+    nationality: nationalityVal,
+    permanentAddress: getVal(cv.permanentAddress, undefined, DEFAULT_DOTS_LONG),
+    temporaryAddress: getVal(cv.temporaryAddress, undefined, DEFAULT_DOTS_LONG),
+    familyClass: familyClassVal,
+    personalClass: personalClassVal,
+    educationLevel: educationLevelVal,
+    qualificationLevel: qualificationLevelVal,
+    languageLevel: languageLevelVal,
+    major: majorVal,
+    communistPartyJoinedDate: partyJoinedVal,
+    communistPartyOfficialDate: partyOfficialVal,
+    youthUnionJoinedDate: youthUnionVal,
+    commendations: commendationsVal,
+    disciplinaryAction: disciplinaryVal,
+    job: jobVal,
+    salary: getVal(cv.salary, undefined, DEFAULT_DOTS_MED),
+    salaryGrade: salaryGradeVal,
+    salaryRank: salaryRankVal,
+    workplace: workplaceVal,
+    foreignTravel: foreignTravelVal,
+    fatherName: fatherNameVal,
+    fatherStatus: fatherStatusVal,
+    fatherBirthDate: fatherBirthFormatted,
+    fatherJob: fatherJobVal,
+    motherName: motherNameVal,
+    motherStatus: motherStatusVal,
+    motherBirthDate: motherBirthFormatted,
+    motherJob: motherJobVal,
+    spouseName: spouseNameVal,
+    spouseBirthDate: spouseBirthFormatted,
+    spouseJob: spouseJobVal,
+    childrenCount: childrenCountNum,
+    totalSiblings: totalSiblingsNum,
+    maleSiblings: maleSiblingsNum,
+    femaleSiblings: femaleSiblingsNum,
+    siblingOrder: siblingOrderNum,
+
+    // COMPOSITE ROWS WITH PROPER TABS
+    ROW_ETHNICITY_RELIGION_NATIONALITY: `Dân tộc: ${ethnicityVal};\tTôn giáo: ${religionVal};\tQuốc tịch: ${nationalityVal}`,
+    ROW_FAMILY_PERSONAL_CLASS: `Thành phần gia đình: ${familyClassVal}\tBản thân: ${personalClassVal}`,
+    ROW_QUALIFICATION_LANGUAGE: `Trình độ đào tạo: ${qualificationLevelVal}\tNgoại ngữ: ${languageLevelVal}`,
+    ROW_PARTY_DATES: `Ngày vào Đảng CSVN: ${partyJoinedVal}\tChính thức: ${partyOfficialVal}`,
+    ROW_COMMENDATION_DISCIPLINE: `Khen thưởng: ${commendationsVal}\tKỷ luật: ${disciplinaryVal}`,
+    ROW_JOB_SALARY: `Nghề nghiệp: ${jobVal}\tLương: Ngạch ${salaryGradeVal} bậc ${salaryRankVal}`,
+    ROW_FATHER_STATUS: `Họ tên cha: ${fatherNameVal}\t(Sống, chết): ${fatherStatusVal}`,
+    ROW_FATHER_BIRTH_JOB: `Sinh ngày ${fatherBirthFormatted}\tNghề nghiệp: ${fatherJobVal}`,
+    ROW_MOTHER_STATUS: `Họ tên mẹ: ${motherNameVal}\t(Sống, chết): ${motherStatusVal}`,
+    ROW_MOTHER_BIRTH_JOB: `Sinh ngày ${motherBirthFormatted}\tNghề nghiệp: ${motherJobVal}`,
+    ROW_SPOUSE_BIRTH: `Họ tên vợ (chồng): ${spouseNameVal}\tSinh ngày ${spouseBirthFormatted}`,
+    ROW_SPOUSE_JOB_CHILDREN: `Nghề nghiệp: ${spouseJobVal}\tBản thân đã có  ${childrenCountNum} con`,
+    ROW_SIBLINGS: `Cha mẹ có ${totalSiblingsNum} người con, ${maleSiblingsNum} trai ${femaleSiblingsNum} gái; bản thân là con thứ ${siblingOrderNum}`,
   };
 
   // UPPERCASE Aliases & Vietnamese Tag Names for Template Matching
@@ -240,20 +366,20 @@ export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
     familyClass: existingCV.familyClass || recruit.details?.familyComposition || 'Nông dân',
     personalClass: existingCV.personalClass || recruit.details?.personalComposition || 'Học sinh / Lao động',
     educationLevel: existingCV.educationLevel || recruit.details?.education || '12/12',
-    qualificationLevel: existingCV.qualificationLevel || recruit.details?.school || 'Chưa qua đào tạo',
-    languageLevel: existingCV.languageLevel || 'Không',
+    qualificationLevel: existingCV.qualificationLevel || recruit.details?.school || '',
+    languageLevel: existingCV.languageLevel || '',
     major: existingCV.major || recruit.details?.major || '',
     communistPartyJoinedDate: existingCV.communistPartyJoinedDate || recruit.details?.partyEntryDate || '',
     communistPartyOfficialDate: existingCV.communistPartyOfficialDate || '',
     youthUnionJoinedDate: existingCV.youthUnionJoinedDate || '',
-    commendations: existingCV.commendations || recruit.details?.rewards || 'Không',
-    disciplinaryAction: existingCV.disciplinaryAction || recruit.details?.disciplines || 'Không',
-    job: existingCV.job || recruit.details?.job || 'Tự do',
+    commendations: existingCV.commendations || recruit.details?.rewards || '',
+    disciplinaryAction: existingCV.disciplinaryAction || recruit.details?.disciplines || '',
+    job: existingCV.job || recruit.details?.job || '',
     salary: existingCV.salary || '',
     salaryGrade: existingCV.salaryGrade || recruit.details?.gradeGroup || '',
     salaryRank: existingCV.salaryRank || recruit.details?.salaryLevel || '',
     workplace: existingCV.workplace || recruit.details?.workAddress || '',
-    foreignTravel: existingCV.foreignTravel || 'Chưa đi nước ngoài',
+    foreignTravel: existingCV.foreignTravel || '',
     fatherName: existingCV.fatherName || recruit.family?.father?.fullName || '',
     fatherStatus: existingCV.fatherStatus || 'Sống',
     fatherBirthDate: existingCV.fatherBirthDate || recruit.family?.father?.birthYear || '',
@@ -265,12 +391,504 @@ export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
     spouseName: existingCV.spouseName || recruit.family?.wife?.fullName || '',
     spouseBirthDate: existingCV.spouseBirthDate || '',
     spouseJob: existingCV.spouseJob || recruit.family?.wife?.job || '',
-    childrenCount: existingCV.childrenCount || recruit.family?.children || '0',
-    totalSiblings: existingCV.totalSiblings || recruit.details?.siblingCount || '1',
+    childrenCount: existingCV.childrenCount || recruit.family?.children || '',
+    totalSiblings: existingCV.totalSiblings || recruit.details?.siblingCount || '',
     maleSiblings: existingCV.maleSiblings || '',
     femaleSiblings: existingCV.femaleSiblings || '',
     siblingOrder: existingCV.siblingOrder || recruit.details?.birthOrder || '1',
   };
+};
+
+/**
+ * Tạo trực tiếp file Word Lý lịch Nghĩa vụ Quân sự chuẩn bằng thư viện docx
+ * Đảm bảo tab stop chuẩn xác, các trường trống để chấm lửng (không để "chưa cập nhật")
+ */
+export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: CurriculumVitae): Promise<Blob> => {
+  const data = buildTemplateData(recruit, cv);
+
+  const FONT_FAMILY = 'Times New Roman';
+  const FONT_SIZE_BODY = 26; // 13pt
+  const FONT_SIZE_HEADING = 28; // 14pt
+  const FONT_SIZE_TITLE = 32; // 16pt
+
+  // Tab stop constants for exact column alignments
+  // Page width A4 = 11906 twips. Left margin = 1417 twips, Right margin = 1134 twips. Printable width = 9355 twips.
+  const TAB_POS_2COL = 4800; // ~8.5cm from left
+  const TAB_POS_3COL_1 = 3800; // ~6.7cm from left
+  const TAB_POS_3COL_2 = 6800; // ~12cm from left
+
+  const createBodyParagraph = (runs: TextRun[], tabStops?: { type: typeof TabStopType.LEFT; position: number }[]) => {
+    return new Paragraph({
+      tabStops: tabStops || [
+        { type: TabStopType.LEFT, position: TAB_POS_2COL }
+      ],
+      spacing: { after: 100, line: 276 },
+      children: runs.map(r => {
+        return new TextRun({
+          font: FONT_FAMILY,
+          size: FONT_SIZE_BODY,
+          ...r
+        });
+      }),
+    });
+  };
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: FONT_FAMILY,
+            size: FONT_SIZE_BODY,
+          },
+        },
+      },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: convertMillimetersToTwip(20),
+              bottom: convertMillimetersToTwip(20),
+              left: convertMillimetersToTwip(25),
+              right: convertMillimetersToTwip(15),
+            },
+          },
+        },
+        children: [
+          // HEADER TABLE: Left - Cơ quan, Right - Quốc hiệu Tiêu ngữ
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 40, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "HỘI ĐỒNG NVQS", font: FONT_FAMILY, size: 22, bold: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ 
+                            text: (recruit.address?.commune ? `XÃ/PHƯỜNG ${recruit.address.commune.toUpperCase()}` : "CẤP XÃ/PHƯỜNG"), 
+                            font: FONT_FAMILY, 
+                            size: 22, 
+                            bold: true 
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 60, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", font: FONT_FAMILY, size: 24, bold: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "Độc lập - Tự do - Hạnh phúc", font: FONT_FAMILY, size: 26, bold: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "-----------------------", font: FONT_FAMILY, size: 20 }),
+                        ],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          // SPACING
+          new Paragraph({ spacing: { after: 180 }, children: [] }),
+
+          // MAIN TITLE
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+            children: [
+              new TextRun({
+                text: "SƠ YẾU LÝ LỊCH NGHĨA VỤ QUÂN SỰ",
+                font: FONT_FAMILY,
+                size: FONT_SIZE_TITLE,
+                bold: true,
+              }),
+            ],
+          }),
+
+          // BASIC PROFILE TABLE (Ảnh 4x6 & Tên, ngày sinh, CCCD)
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 24, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
+                      bottom: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
+                      left: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
+                      right: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
+                    },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { before: 500, after: 500 },
+                        children: [
+                          new TextRun({ text: "Ảnh 4 x 6 cm", font: FONT_FAMILY, size: 20, italics: true, color: "777777" }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 76, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({
+                        spacing: { after: 80, line: 260 },
+                        children: [
+                          new TextRun({ text: "  Họ, chữ đệm và tên khai sinh: ", font: FONT_FAMILY, size: FONT_SIZE_BODY }),
+                          new TextRun({ text: data.fullNameUpper, font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        spacing: { after: 80, line: 260 },
+                        children: [
+                          new TextRun({ text: "  Họ, chữ đệm và tên thường dùng: ", font: FONT_FAMILY, size: FONT_SIZE_BODY }),
+                          new TextRun({ text: data.aliasName, font: FONT_FAMILY, size: FONT_SIZE_BODY }),
+                        ],
+                      }),
+                      new Paragraph({
+                        spacing: { after: 80, line: 260 },
+                        tabStops: [{ type: TabStopType.LEFT, position: 4000 }],
+                        children: [
+                          new TextRun({ 
+                            text: `  Sinh ngày ${data.birthDay} tháng ${data.birthMonth} năm ${data.birthYear}`, 
+                            font: FONT_FAMILY, 
+                            size: FONT_SIZE_BODY 
+                          }),
+                          new TextRun({ text: `\tGiới tính: ${data.gender}`, font: FONT_FAMILY, size: FONT_SIZE_BODY }),
+                        ],
+                      }),
+                      new Paragraph({
+                        spacing: { after: 80, line: 260 },
+                        children: [
+                          new TextRun({ text: "  Số thẻ căn cước / CCCD: ", font: FONT_FAMILY, size: FONT_SIZE_BODY }),
+                          new TextRun({ text: data.citizenId, font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
+                        ],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new Paragraph({ spacing: { after: 120 }, children: [] }),
+
+          // SECTION I: LÝ LỊCH BẢN THÂN
+          new Paragraph({
+            spacing: { before: 120, after: 120 },
+            children: [
+              new TextRun({
+                text: "I. LÝ LỊCH BẢN THÂN",
+                font: FONT_FAMILY,
+                size: FONT_SIZE_HEADING,
+                bold: true,
+              }),
+            ],
+          }),
+
+          createBodyParagraph([
+            new TextRun("Nơi đăng ký khai sinh: "),
+            new TextRun(data.placeOfBirth),
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Quê quán: "),
+            new TextRun(data.hometown),
+          ]),
+
+          // Dân tộc; Tôn giáo; Quốc tịch (3 columns with Tabs)
+          createBodyParagraph([
+            new TextRun("Dân tộc: "),
+            new TextRun(data.ethnicity),
+            new TextRun(";\tTôn giáo: "),
+            new TextRun(data.religion),
+            new TextRun(";\tQuốc tịch: "),
+            new TextRun(data.nationality),
+          ], [
+            { type: TabStopType.LEFT, position: TAB_POS_3COL_1 },
+            { type: TabStopType.LEFT, position: TAB_POS_3COL_2 },
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Nơi thường trú của gia đình: "),
+            new TextRun(data.permanentAddress),
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Nơi ở hiện tại của bản thân: "),
+            new TextRun(data.temporaryAddress),
+          ]),
+
+          // Thành phần gia đình / Bản thân
+          createBodyParagraph([
+            new TextRun("Thành phần gia đình: "),
+            new TextRun(data.familyClass),
+            new TextRun("\tBản thân: "),
+            new TextRun(data.personalClass),
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Trình độ giáo dục phổ thông: "),
+            new TextRun(data.educationLevel),
+          ]),
+
+          // Trình độ đào tạo / Ngoại ngữ
+          createBodyParagraph([
+            new TextRun("Trình độ đào tạo: "),
+            new TextRun(data.qualificationLevel),
+            new TextRun("\tNgoại ngữ: "),
+            new TextRun(data.languageLevel),
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Chuyên ngành đào tạo: "),
+            new TextRun(data.major),
+          ]),
+
+          // Ngày vào Đảng / Chính thức
+          createBodyParagraph([
+            new TextRun("Ngày vào Đảng CSVN: "),
+            new TextRun(data.communistPartyJoinedDate),
+            new TextRun("\tChính thức: "),
+            new TextRun(data.communistPartyOfficialDate),
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Ngày vào Đoàn TNCS Hồ Chí Minh: "),
+            new TextRun(data.youthUnionJoinedDate),
+          ]),
+
+          // Khen thưởng / Kỷ luật
+          createBodyParagraph([
+            new TextRun("Khen thưởng: "),
+            new TextRun(data.commendations),
+            new TextRun("\tKỷ luật: "),
+            new TextRun(data.disciplinaryAction),
+          ]),
+
+          // Nghề nghiệp / Lương: Ngạch... bậc...
+          createBodyParagraph([
+            new TextRun("Nghề nghiệp: "),
+            new TextRun(data.job),
+            new TextRun(`\tLương: Ngạch ${data.salaryGrade} bậc ${data.salaryRank}`),
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Nơi làm việc, (học tập): "),
+            new TextRun(data.workplace),
+          ]),
+
+          createBodyParagraph([
+            new TextRun("Đã đi nước ngoài (tên nước, thời gian, lý do): "),
+            new TextRun(data.foreignTravel),
+          ]),
+
+          // SECTION II: THÀNH PHẦN GIA ĐÌNH
+          new Paragraph({
+            spacing: { before: 180, after: 120 },
+            children: [
+              new TextRun({
+                text: "II. THÀNH PHẦN GIA ĐÌNH",
+                font: FONT_FAMILY,
+                size: FONT_SIZE_HEADING,
+                bold: true,
+              }),
+            ],
+          }),
+
+          // Cha: Họ tên / Tình trạng
+          createBodyParagraph([
+            new TextRun("Họ tên cha: "),
+            new TextRun(data.fatherName),
+            new TextRun("\t(Sống, chết): "),
+            new TextRun(data.fatherStatus),
+          ]),
+
+          // Cha: Ngày sinh / Nghề nghiệp
+          createBodyParagraph([
+            new TextRun(`Sinh ngày ${data.fatherBirthDate}`),
+            new TextRun("\tNghề nghiệp: "),
+            new TextRun(data.fatherJob),
+          ]),
+
+          // Mẹ: Họ tên / Tình trạng
+          createBodyParagraph([
+            new TextRun("Họ tên mẹ: "),
+            new TextRun(data.motherName),
+            new TextRun("\t(Sống, chết): "),
+            new TextRun(data.motherStatus),
+          ]),
+
+          // Mẹ: Ngày sinh / Nghề nghiệp
+          createBodyParagraph([
+            new TextRun(`Sinh ngày ${data.motherBirthDate}`),
+            new TextRun("\tNghề nghiệp: "),
+            new TextRun(data.motherJob),
+          ]),
+
+          // Vợ (chồng): Họ tên / Sinh ngày
+          createBodyParagraph([
+            new TextRun("Họ tên vợ (chồng): "),
+            new TextRun(data.spouseName),
+            new TextRun(`\tSinh ngày ${data.spouseBirthDate}`),
+          ]),
+
+          // Vợ: Nghề nghiệp / Đã có ... con
+          createBodyParagraph([
+            new TextRun("Nghề nghiệp: "),
+            new TextRun(data.spouseJob),
+            new TextRun(`\tBản thân đã có  ${data.childrenCount} con`),
+          ]),
+
+          // Anh chị em
+          createBodyParagraph([
+            new TextRun(`Cha mẹ có ${data.totalSiblings} người con, ${data.maleSiblings} trai ${data.femaleSiblings} gái; bản thân là con thứ ${data.siblingOrder}`),
+          ]),
+
+          // SECTION III: CAM ĐOAN & XÁC NHẬN
+          new Paragraph({
+            spacing: { before: 180, after: 120 },
+            children: [
+              new TextRun({
+                text: "III. LỜI CAM ĐOAN CỦA BẢN THÂN VÀ XÁC NHẬN",
+                font: FONT_FAMILY,
+                size: FONT_SIZE_HEADING,
+                bold: true,
+              }),
+            ],
+          }),
+
+          new Paragraph({
+            spacing: { after: 140, line: 276 },
+            children: [
+              new TextRun({
+                text: "Tôi xin cam đoan những lời khai trên đây là đúng sự thật, nếu có điều gì sai trái tôi xin hoàn toàn chịu trách nhiệm trước pháp luật.",
+                font: FONT_FAMILY,
+                size: FONT_SIZE_BODY,
+                italics: true,
+              }),
+            ],
+          }),
+
+          // SIGNATURE TABLE
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "TM. HỘI ĐỒNG NGHĨA VỤ QUÂN SỰ", font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "CHỈ HUY TRƯỞNG BAN CHQS", font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "(Ký tên, đóng dấu)", font: FONT_FAMILY, size: 22, italics: true }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "Ngày ..... tháng ..... năm 202...", font: FONT_FAMILY, size: 24, italics: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "NGƯỜI KHAI LÝ LỊCH", font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: "(Ký và ghi rõ họ tên)", font: FONT_FAMILY, size: 22, italics: true }),
+                        ],
+                      }),
+                      new Paragraph({
+                        spacing: { before: 800 },
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                          new TextRun({ text: data.fullName, font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
+                        ],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  return await Packer.toBlob(doc);
 };
 
 export const generateCurriculumVitaeWordDoc = async (
@@ -286,20 +904,27 @@ export const generateCurriculumVitaeWordDoc = async (
   let masterUrl: string | undefined;
   try {
     const master = await api.getMasterWordTemplate().catch(() => null);
-    if (master?.url && master.url !== DEFAULT_SAMPLE_URL) {
+    if (master?.url && master.url !== DEFAULT_SAMPLE_URL && !master.url.includes('UEsDBBQAAAAIAAAAIQAAAAAA')) {
       masterUrl = master.url;
     }
   } catch (e) {
     console.warn("Không thể lấy mẫu file Word từ Admin:", e);
   }
 
-  let activeUrl = (templateUrl && templateUrl !== DEFAULT_SAMPLE_URL) ? templateUrl : masterUrl;
+  let activeUrl = (templateUrl && templateUrl !== DEFAULT_SAMPLE_URL && !templateUrl.includes('UEsDBBQAAAAIAAAAIQAAAAAA')) 
+    ? templateUrl 
+    : masterUrl;
 
+  const filename = `Ly_Lich_NVQS_${recruit.fullName ? recruit.fullName.replace(/\s+/g, '_') : 'Cong_Dan'}.docx`;
+
+  // If no custom template URL, generate using standard docx generator directly!
   if (!activeUrl) {
-    throw new Error("Chưa có tệp mẫu Word (.docx) do Admin / Cấp trên tải lên. Vui lòng vào mục Quản lý tệp Word để tải mẫu file Word chuẩn của cấp trên!");
+    const blob = await generateStandardLyLichNVQSDocx(recruit, cv);
+    saveAs(blob, filename);
+    return true;
   }
 
-  const tryGenerate = async (urlToUse: string): Promise<boolean> => {
+  const tryGenerateDocxtemplater = async (urlToUse: string): Promise<boolean> => {
     let arrayBuffer: ArrayBuffer;
     if (urlToUse.startsWith('data:')) {
       const base64Data = urlToUse.split(';base64,').pop() || '';
@@ -317,7 +942,6 @@ export const generateCurriculumVitaeWordDoc = async (
 
     const zip = new PizZip(arrayBuffer);
     
-    // Check if the zip file contains word/document.xml (standard .docx requirement)
     if (!zip.files || !zip.files['word/document.xml']) {
       throw new Error(
         "Tệp mẫu Word không đúng định dạng .docx tiêu chuẩn (thiếu word/document.xml)."
@@ -343,11 +967,11 @@ export const generateCurriculumVitaeWordDoc = async (
                 }
               }
             }
-            return scope[cleanTag] ?? '';
+            return scope[cleanTag] ?? DEFAULT_DOTS_MED;
           }
         };
       },
-      nullGetter() { return ''; }
+      nullGetter() { return DEFAULT_DOTS_MED; }
     });
 
     const dataPayload = buildTemplateData(recruit, cv);
@@ -358,33 +982,17 @@ export const generateCurriculumVitaeWordDoc = async (
       mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     });
 
-    const filename = `Ho_So_NVQS_${recruit.fullName ? recruit.fullName.replace(/\s+/g, '_') : 'Cong_Dan'}.docx`;
     saveAs(outBlob, filename);
     return true;
   };
 
   try {
-    await tryGenerate(activeUrl);
-  } catch (firstErr: any) {
-    // If passed templateUrl (e.g. custom file) failed, and we have a masterUrl from Admin, fallback to masterUrl!
-    if (masterUrl && activeUrl !== masterUrl) {
-      console.warn("Mẫu tệp Word riêng của công dân bị lỗi hoặc là file .doc cũ. Tự động chuyển sang dùng Mẫu Word chuẩn của Admin:", firstErr);
-      try {
-        await tryGenerate(masterUrl);
-        return;
-      } catch (masterErr: any) {
-        console.error("Lỗi cả trên mẫu Admin:", masterErr);
-      }
-    }
-
-    console.error("Lỗi khi trộn dữ liệu vào file Word mẫu:", firstErr);
-    if (firstErr.message && (firstErr.message.includes('filetype') || firstErr.message.includes('corrupted') || firstErr.message.includes('word/document.xml'))) {
-      throw new Error(
-        "Tệp mẫu Word do Admin/Cấp trên tải lên không đúng định dạng .docx tiêu chuẩn.\n\n" +
-        "👉 Nguyên nhân: Tệp đang ở định dạng .doc cũ (Word 97-2003) hoặc file bị lỗi cấu trúc zip.\n" +
-        "👉 Cách xử lý: Hãy mở tệp này bằng Microsoft Word -> Chọn File -> Save As -> Chọn kiểu 'Word Document (*.docx)' và tải lại lên hệ thống."
-      );
-    }
-    throw new Error(`Lỗi khi điền dữ liệu vào tệp mẫu Word của Admin: ${firstErr.message || firstErr}`);
+    await tryGenerateDocxtemplater(activeUrl);
+  } catch (err: any) {
+    console.warn("Lỗi khi trộn dữ liệu với mẫu tải lên, tự động xuất bằng Mẫu Lý Lịch Chuẩn định dạng Quân sự:", err);
+    // Fallback directly to the standard docx generator
+    const blob = await generateStandardLyLichNVQSDocx(recruit, cv);
+    saveAs(blob, filename);
   }
+  return true;
 };
