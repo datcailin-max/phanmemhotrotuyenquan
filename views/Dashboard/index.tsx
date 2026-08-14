@@ -51,10 +51,10 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
       />
 
       <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 overflow-hidden relative">
-         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-2">
+         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-3">
              <div>
                 <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2 uppercase tracking-tight">
-                    <Activity className="text-military-600 animate-pulse" /> TIẾN ĐỘ THỰC HIỆN NĂM {props.sessionYear}
+                    <Activity className="text-military-600 animate-pulse" /> TIẾN ĐỘ THỰC HIỆN TUYỂN QUÂN NĂM {props.sessionYear}
                 </h2>
                 <p className="text-[11px] font-bold text-military-600 uppercase tracking-widest mt-1">Đơn vị: {scopeName}</p>
              </div>
@@ -62,22 +62,26 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                  {canTransfer && !filterProvince && !filterCommune && (
                     <button 
                         onClick={() => setShowTransferModal(true)}
-                        className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg hover:bg-amber-700 transition-all active:scale-95 duration-200"
+                        className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-sm hover:bg-amber-700 transition-all active:scale-95 duration-200"
                     >
-                        <RefreshCw size={16} /> Kết chuyển dữ liệu
+                        <RefreshCw size={15} /> Kết chuyển dữ liệu
                     </button>
                  )}
                  {canDeleteYear && !filterProvince && !filterCommune && (
                     <button 
                         onClick={() => setShowDeleteYearModal(true)}
-                        className="flex items-center gap-2 bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-lg hover:bg-red-800 transition-all active:scale-95 duration-200"
+                        className="flex items-center gap-2 bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-sm hover:bg-red-800 transition-all active:scale-95 duration-200"
                     >
-                        <Trash2 size={16} /> Xóa dữ liệu năm
+                        <Trash2 size={15} /> Xóa dữ liệu năm
                     </button>
                  )}
-                 <div className="bg-military-50 px-3 py-1.5 rounded-lg border border-military-100 text-[10px] font-bold text-military-700 uppercase shrink-0">Trạng thái: Trực tuyến</div>
+                 <div className="bg-military-50 px-3 py-1.5 rounded-lg border border-military-200 text-[10px] font-bold text-military-700 uppercase shrink-0 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    Trực tuyến
+                 </div>
              </div>
          </div>
+
          <ProgressSection stats={stats.counts} onNavigate={props.onNavigate} />
       </div>
 

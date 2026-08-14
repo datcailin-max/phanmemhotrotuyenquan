@@ -324,7 +324,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
             </div>
           )}
 
-          {/* TAB CHUYỂN ĐỔI GIỮA HỒ SƠ CHUNG VÀ SƠ YẾU LÝ LỊCH (MỤC I) */}
+          {/* TAB CHUYỂN ĐỔI GIỮA THÔNG TIN CHUNG VÀ SƠ YẾU LÝ LỊCH (MỤC I) */}
           <div className="flex items-center gap-3 mb-6 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
             <button
               type="button"
@@ -335,7 +335,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/60'
               }`}
             >
-              <UserIcon size={18} /> Hồ sơ chung quân nhân
+              <UserIcon size={18} /> Thông tin chung
             </button>
 
             <button
@@ -477,13 +477,6 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
                         province={formData.address.province} commune={formData.address.commune} village={formData.address.village} street={formData.address.street}
                         isLocalityFixed={!!user.unit.commune} isReadOnly={isReadOnly} onUpdate={handleChange}
                      />
-                     <div className="mt-8">
-                       <LocationFields 
-                          label="Quê quán" icon={null} prefix="hometown"
-                          province={formData.hometown.province} commune={formData.hometown.commune} village={formData.hometown.village}
-                          isReadOnly={isReadOnly} onUpdate={handleChange}
-                       />
-                     </div>
                    </div>
 
                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
