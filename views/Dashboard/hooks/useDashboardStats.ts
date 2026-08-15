@@ -184,7 +184,7 @@ export const useDashboardStats = ({
             political: {
                 dangVien: validSource.filter(r => r.details.politicalStatus === 'Dang_Vien').length,
                 doanVien: validSource.filter(r => r.details.politicalStatus === 'Doan_Vien').length,
-                total: validSource.length || 1
+                total: validSource.length
             },
             charts: {
                 eduData,

@@ -20,9 +20,10 @@ import {
 import { Recruit, CurriculumVitae } from '../types';
 import { api } from '../api';
 
+const DEFAULT_DOTS_TINY = '........';
 const DEFAULT_DOTS_SHORT = '............';
-const DEFAULT_DOTS_MED = '................................';
-const DEFAULT_DOTS_LONG = '...................................................................';
+const DEFAULT_DOTS_MED = '..................';
+const DEFAULT_DOTS_LONG = '........................................';
 
 export const getVal = (val?: string | number, fallback?: string | number, defaultDots: string = DEFAULT_DOTS_MED): string => {
   if (val !== undefined && val !== null) {
@@ -111,24 +112,24 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const religionVal = getVal(cv.religion, recruit.details?.religion, 'Không');
   const nationalityVal = getVal(cv.nationality, 'Việt Nam');
 
-  const familyClassVal = getVal(cv.familyClass, recruit.details?.familyComposition, '........................');
-  const personalClassVal = getVal(cv.personalClass, recruit.details?.personalComposition, '........................');
+  const familyClassVal = getVal(cv.familyClass, recruit.details?.familyComposition, DEFAULT_DOTS_MED);
+  const personalClassVal = getVal(cv.personalClass, recruit.details?.personalComposition, DEFAULT_DOTS_MED);
 
   const educationLevelVal = getVal(cv.educationLevel, recruit.details?.education, '12/12');
-  const qualificationLevelVal = getVal(cv.qualificationLevel, recruit.details?.school, '........................');
-  const languageLevelVal = getVal(cv.languageLevel, undefined, '............................................');
+  const qualificationLevelVal = getVal(cv.qualificationLevel, recruit.details?.school, DEFAULT_DOTS_MED);
+  const languageLevelVal = getVal(cv.languageLevel, undefined, DEFAULT_DOTS_MED);
 
   const majorVal = getVal(cv.major, recruit.details?.major, DEFAULT_DOTS_LONG);
   const partyJoinedVal = getVal(cv.communistPartyJoinedDate, recruit.details?.partyEntryDate, DEFAULT_DOTS_MED);
-  const partyOfficialVal = getVal(cv.communistPartyOfficialDate, undefined, '.........................');
+  const partyOfficialVal = getVal(cv.communistPartyOfficialDate, undefined, DEFAULT_DOTS_MED);
   const youthUnionVal = getVal(cv.youthUnionJoinedDate, undefined, DEFAULT_DOTS_MED);
 
-  const commendationsVal = getVal(cv.commendations, recruit.details?.rewards, '........................................');
-  const disciplinaryVal = getVal(cv.disciplinaryAction, recruit.details?.disciplines, '............................');
+  const commendationsVal = getVal(cv.commendations, recruit.details?.rewards, DEFAULT_DOTS_MED);
+  const disciplinaryVal = getVal(cv.disciplinaryAction, recruit.details?.disciplines, DEFAULT_DOTS_MED);
 
-  const jobVal = getVal(cv.job, recruit.details?.job, '........................');
-  const salaryGradeVal = getVal(cv.salaryGrade, recruit.details?.gradeGroup, '..................');
-  const salaryRankVal = getVal(cv.salaryRank, recruit.details?.salaryLevel, '..........................');
+  const jobVal = getVal(cv.job, recruit.details?.job, DEFAULT_DOTS_MED);
+  const salaryGradeVal = getVal(cv.salaryGrade, recruit.details?.gradeGroup, DEFAULT_DOTS_TINY);
+  const salaryRankVal = getVal(cv.salaryRank, recruit.details?.salaryLevel, DEFAULT_DOTS_TINY);
   const workplaceVal = getVal(cv.workplace, recruit.details?.workAddress, DEFAULT_DOTS_LONG);
   const foreignTravelVal = getVal(cv.foreignTravel, undefined, DEFAULT_DOTS_LONG);
 
@@ -141,7 +142,7 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const motherJobVal = getVal(cv.motherJob, recruit.family?.mother?.job, DEFAULT_DOTS_MED);
 
   const spouseNameVal = getVal(cv.spouseName, recruit.family?.wife?.fullName, DEFAULT_DOTS_MED);
-  const spouseJobVal = getVal(cv.spouseJob, recruit.family?.wife?.job, DEFAULT_DOTS_MED);
+  const spouseJobVal = getVal(cv.spouseJob, recruit.family?.wife?.job, DEFAULT_DOTS_SHORT);
 
   const childrenCountNum = cv.childrenCount ? String(cv.childrenCount).padStart(2, '0') : '00';
   const totalSiblingsNum = cv.totalSiblings ? String(cv.totalSiblings).padStart(2, '0') : '01';

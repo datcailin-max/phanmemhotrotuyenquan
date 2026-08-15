@@ -14,14 +14,14 @@ interface AnalyticsChartsProps {
 }
 
 export default function AnalyticsCharts({ stats }: AnalyticsChartsProps) {
-    const totalPolitical = stats.political.total || 1;
-    const dangVien = stats.political.dangVien || 0;
-    const doanVien = stats.political.doanVien || 0;
+    const totalPolitical = stats.political?.total || 0;
+    const dangVien = stats.political?.dangVien || 0;
+    const doanVien = stats.political?.doanVien || 0;
     const quanChung = Math.max(0, totalPolitical - dangVien - doanVien);
 
-    const dangVienPct = ((dangVien / totalPolitical) * 100).toFixed(1);
-    const doanVienPct = ((doanVien / totalPolitical) * 100).toFixed(1);
-    const quanChungPct = ((quanChung / totalPolitical) * 100).toFixed(1);
+    const dangVienPct = totalPolitical > 0 ? ((dangVien / totalPolitical) * 100).toFixed(1) : '0.0';
+    const doanVienPct = totalPolitical > 0 ? ((doanVien / totalPolitical) * 100).toFixed(1) : '0.0';
+    const quanChungPct = totalPolitical > 0 ? ((quanChung / totalPolitical) * 100).toFixed(1) : '0.0';
 
     // Dữ liệu sức khỏe
     const healthGradeData = stats.charts.healthGradeData || [];
@@ -258,7 +258,7 @@ export default function AnalyticsCharts({ stats }: AnalyticsChartsProps) {
                         ) : (
                             <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
                                 {geoData.slice(0, 7).map((item: any, idx: number) => {
-                                    const pct = ((item.value / totalPolitical) * 100).toFixed(1);
+                                    const pct = totalPolitical > 0 ? ((item.value / totalPolitical) * 100).toFixed(1) : '0.0';
                                     const barWidth = Math.max(8, (item.value / maxGeoValue) * 100);
                                     return (
                                         <div key={item.name || idx} className="space-y-1">
