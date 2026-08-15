@@ -37,7 +37,11 @@ export const isRealDefermentReason = (str?: string): boolean => {
     'tạm hoãn', 'hoãn', 'đang học', 'học sinh', 'sinh viên', 'trường', 'đại học', 'cao đẳng', 'trung cấp',
     'đào tạo', 'niên khóa', 'niên khoá', 'học viện', 'phổ thông', 'dqtt', 'dân quân', 'tại ngũ',
     'sức khỏe', 'sức khoẻ', 'bệnh', 'chữa bệnh', 'lao động duy nhất', 'nuôi dưỡng', 'khó khăn',
-    'da cam', 'bệnh binh', 'thương binh', 'liệt sĩ', 'thiệt hại', 'di dân', 'đặc biệt khó khăn', 'nghèo'
+    'da cam', 'bệnh binh', 'thương binh', 'liệt sĩ', 'thiệt hại', 'di dân', 'đặc biệt khó khăn', 'nghèo',
+    'loại 3', 'loại 4', 'loại 5', 'loại 6', 'loai 3', 'loai 4', 'loai 5', 'loai 6',
+    'loại sơ tuyển', 'khám loại', 'sơ tuyển loại', 'bmi', 'chiều cao', 'cân nặng', 'thể lực',
+    'cận thị', 'viễn thị', 'loạn thị', 'khúc xạ', 'tật khúc xạ', 'răng', 'khớp cắn', 'tai mũi họng',
+    'mắt', 'huyết áp', 'tim mạch', 'xquang', 'vẹo cột sống', 'chấn thương', 'mổ', 'phẫu thuật', 'điều trị'
   ];
 
   return defermentKeywords.some(kw => lower.includes(kw));
@@ -215,6 +219,135 @@ export const isTotalSource = (r: Recruit, sessionYear: number) => {
   return true;
 };
 
+export const getDefermentSubCategory = (r: {
+  defermentReason?: string;
+  legalReason?: string;
+  notes?: string;
+  details?: {
+    workAddress?: string;
+    note?: string;
+  };
+}): 'DQTT' | 'EDUCATION' | 'POLICY' | 'HEALTH' => {
+  const reasonParts = [
+    r.defermentReason,
+    r.legalReason,
+    r.notes,
+    r.details?.note,
+    r.details?.workAddress
+  ].filter(Boolean);
+  const text = reasonParts.join(' ').toLowerCase();
+
+  // 1. DQTT (8.4 - Hoãn về Dân quân thường trực)
+  if (
+    text.includes('dqtt') ||
+    text.includes('dân quân thường trực') ||
+    text.includes('dan quan thuong truc') ||
+    text.includes('dân quân') ||
+    text.includes('dan quan') ||
+    text.startsWith('8.') ||
+    text.includes('điều 41.1.h') ||
+    text.includes('khoản 1 điểm h') ||
+    r.defermentReason === LEGAL_DEFERMENT_REASONS[7]
+  ) {
+    return 'DQTT';
+  }
+
+  // 2. EDUCATION (8.2 - Hoãn về học vấn / Cơ sở giáo dục)
+  if (
+    text.includes('đang học') ||
+    text.includes('dang hoc') ||
+    text.includes('học sinh') ||
+    text.includes('sinh viên') ||
+    text.includes('đại học') ||
+    text.includes('dai hoc') ||
+    text.includes('cao đẳng') ||
+    text.includes('cao dang') ||
+    text.includes('trung cấp') ||
+    text.includes('trung cap') ||
+    text.includes('học viện') ||
+    text.includes('hoc vien') ||
+    text.includes('đào tạo') ||
+    text.includes('dao tao') ||
+    text.includes('trường') ||
+    text.includes('truong') ||
+    text.includes('phổ thông') ||
+    text.includes('thpt') ||
+    text.includes('thcs') ||
+    text.includes('niên khóa') ||
+    text.includes('niên khoá') ||
+    text.includes('khóa học') ||
+    text.includes('khoá học') ||
+    text.includes('giáo dục') ||
+    text.includes('du học') ||
+    text.includes('bổ túc') ||
+    text.startsWith('7.') ||
+    text.startsWith('9.') ||
+    text.includes('điều 41.1.g') ||
+    text.includes('khoản 1 điểm g') ||
+    r.defermentReason === LEGAL_DEFERMENT_REASONS[6] ||
+    r.defermentReason === LEGAL_DEFERMENT_REASONS[8]
+  ) {
+    return 'EDUCATION';
+  }
+
+  // 3. POLICY (8.3 - Hoãn về chính sách / Gia cảnh / Thân nhân)
+  const policyReasons = [
+    LEGAL_DEFERMENT_REASONS[1], 
+    LEGAL_DEFERMENT_REASONS[2], 
+    LEGAL_DEFERMENT_REASONS[3], 
+    LEGAL_DEFERMENT_REASONS[4], 
+    LEGAL_DEFERMENT_REASONS[5]
+  ];
+  if (
+    policyReasons.includes(r.defermentReason || '') ||
+    text.includes('lao động duy nhất') ||
+    text.includes('lao dong duy nhat') ||
+    text.includes('nuôi dưỡng') ||
+    text.includes('nuoi duong') ||
+    text.includes('chính sách') ||
+    text.includes('chinh sach') ||
+    text.includes('thương binh') ||
+    text.includes('thuong binh') ||
+    text.includes('bệnh binh') ||
+    text.includes('benh binh') ||
+    text.includes('liệt sĩ') ||
+    text.includes('liet si') ||
+    text.includes('da cam') ||
+    text.includes('chất độc') ||
+    text.includes('di dân') ||
+    text.includes('giãn dân') ||
+    text.includes('đặc biệt khó khăn') ||
+    text.includes('hoàn cảnh') ||
+    text.includes('hộ nghèo') ||
+    text.includes('cận nghèo') ||
+    text.includes('anh trai') ||
+    text.includes('em trai') ||
+    text.includes('anh ruột') ||
+    text.includes('em ruột') ||
+    text.includes('chị ruột') ||
+    text.includes('tại ngũ') ||
+    text.includes('nhập ngũ') ||
+    text.includes('công an') ||
+    text.includes('cand') ||
+    text.includes('thanh niên xung phong') ||
+    text.includes('mồ côi') ||
+    text.includes('con một') ||
+    text.includes('con duy nhất') ||
+    text.startsWith('2.') ||
+    text.startsWith('3.') ||
+    text.startsWith('4.') ||
+    text.startsWith('5.') ||
+    text.startsWith('6.') ||
+    text.includes('l1.') ||
+    text.includes('l2.')
+  ) {
+    return 'POLICY';
+  }
+
+  // 4. HEALTH (8.1 - Sức khỏe - Mặc định cho tất cả các lý do sức khỏe, thể lực, BMI, khám sơ tuyển, loại 3,4,5,6...)
+  return 'HEALTH';
+};
+
 export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): boolean => {
   // Loại bỏ tuyệt đối công dân đã xóa hoặc đã đưa ra khỏi nguồn ở các danh sách không thuộc phạm vi
   if (tabId !== 'DELETED_LIST' && r.status === RecruitmentStatus.DELETED) {
@@ -306,68 +439,17 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
     case 'DEFERRED_LIST':
       return isRecruitDeferred(r, sessionYear);
 
-    case 'DEFERRED_HEALTH': {
-      if (!isRecruitDeferred(r, sessionYear)) return false;
-      return reason === LEGAL_DEFERMENT_REASONS[0] || 
-             reason.startsWith('1.') || 
-             reason.toLowerCase().includes('sức khỏe') || 
-             reason.toLowerCase().includes('sức khoẻ');
-    }
+    case 'DEFERRED_HEALTH':
+      return isRecruitDeferred(r, sessionYear) && getDefermentSubCategory(r) === 'HEALTH';
 
-    case 'DEFERRED_EDUCATION': {
-      if (!isRecruitDeferred(r, sessionYear)) return false;
-      return reason === LEGAL_DEFERMENT_REASONS[6] || 
-             reason === LEGAL_DEFERMENT_REASONS[8] || 
-             reason.startsWith('7.') || 
-             reason.startsWith('9.') || 
-             reason.toLowerCase().includes('học') || 
-             reason.toLowerCase().includes('đào tạo') || 
-             reason.toLowerCase().includes('trường') || 
-             reason.toLowerCase().includes('sinh viên') || 
-             reason.toLowerCase().includes('học sinh') || 
-             reason.toLowerCase().includes('giáo dục');
-    }
+    case 'DEFERRED_EDUCATION':
+      return isRecruitDeferred(r, sessionYear) && getDefermentSubCategory(r) === 'EDUCATION';
 
-    case 'DEFERRED_POLICY': {
-      if (!isRecruitDeferred(r, sessionYear)) return false;
-      const policyReasons = [
-        LEGAL_DEFERMENT_REASONS[1], 
-        LEGAL_DEFERMENT_REASONS[2], 
-        LEGAL_DEFERMENT_REASONS[3], 
-        LEGAL_DEFERMENT_REASONS[4], 
-        LEGAL_DEFERMENT_REASONS[5]
-      ];
-      const lowerReason = reason.toLowerCase();
-      return policyReasons.includes(reason) || 
-             reason.startsWith('2.') || 
-             reason.startsWith('3.') || 
-             reason.startsWith('4.') || 
-             reason.startsWith('5.') || 
-             reason.startsWith('6.') || 
-             lowerReason.includes('lao động') || 
-             lowerReason.includes('chính sách') || 
-             lowerReason.includes('thương binh') || 
-             lowerReason.includes('liệt sĩ') || 
-             lowerReason.includes('nuôi') || 
-             lowerReason.includes('bệnh tật') || 
-             lowerReason.includes('anh trai') || 
-             lowerReason.includes('em trai') || 
-             lowerReason.includes('anh ruột') || 
-             lowerReason.includes('em ruột') || 
-             lowerReason.includes('nhập ngũ') || 
-             lowerReason.includes('hoàn cảnh') || 
-             lowerReason.includes('duy nhất') || 
-             lowerReason.includes('l1.') || 
-             lowerReason.includes('l2.');
-    }
+    case 'DEFERRED_POLICY':
+      return isRecruitDeferred(r, sessionYear) && getDefermentSubCategory(r) === 'POLICY';
 
-    case 'DEFERRED_DQTT': {
-      if (!isRecruitDeferred(r, sessionYear)) return false;
-      return reason === LEGAL_DEFERMENT_REASONS[7] || 
-             reason.startsWith('8.') || 
-             reason.toUpperCase().includes('DQTT') || 
-             reason.toLowerCase().includes('dân quân');
-    }
+    case 'DEFERRED_DQTT':
+      return isRecruitDeferred(r, sessionYear) && getDefermentSubCategory(r) === 'DQTT';
 
     case 'EXEMPTED_LIST':
       return isRecruitExempted(r, sessionYear);
@@ -376,13 +458,13 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
       return [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status);
 
     case 'FINAL_OFFICIAL':
-      return [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status) && r.enlistmentType === 'OFFICIAL';
+      return [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status) && r.enlistmentType !== 'RESERVE';
 
     case 'FINAL_RESERVE':
       return [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status) && r.enlistmentType === 'RESERVE';
 
     case 'ENLISTED':
-      return r.status === RecruitmentStatus.ENLISTED && r.enlistmentType === 'OFFICIAL';
+      return r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE';
 
     case 'REMOVED':
       return r.status === RecruitmentStatus.REMOVED_FROM_SOURCE;

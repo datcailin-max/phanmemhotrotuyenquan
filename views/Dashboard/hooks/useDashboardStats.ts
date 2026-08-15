@@ -1,7 +1,13 @@
 
 import { useMemo } from 'react';
 import { Recruit, RecruitmentStatus, UserRole } from '../../../types';
-import { isMilitarySchoolRecruit, isTransferredRecruit, isRecruitDeferred, isRecruitExempted } from '../../RecruitManagement/utils';
+import { 
+  isMilitarySchoolRecruit, 
+  isTransferredRecruit, 
+  isRecruitDeferred, 
+  isRecruitExempted,
+  isRecruitInTab
+} from '../../RecruitManagement/utils';
 
 interface UseDashboardStatsProps {
     recruits: Recruit[];
@@ -33,97 +39,51 @@ export const useDashboardStats = ({
     }, [recruits, sessionYear, filterProvince, filterCommune, userRole, userUnit]);
 
     const stats = useMemo(() => {
-        // Tuổi được tính cho năm thực hiện (sessionYear - 1)
-        const checkAge = (r: Recruit, year: number) => (year - 1) - parseInt(r.dob.split('-')[0] || '0');
-
-        const isExpiredInCurrentSession = (period?: string) => {
-            if (!period) return false;
-            const parts = period.split('-');
-            const lastPart = parts[parts.length - 1].trim();
-            
-            const yearStr = lastPart.includes('/') ? lastPart.split('/').pop() : lastPart;
-            const endYear = parseInt(yearStr || '0');
-            
-            return endYear > 0 && endYear < sessionYear; 
-        };
-
-        // --- TÍNH TOÁN CÁC CON SỐ TIẾN ĐỘ ---
+        // --- TÍNH TOÁN CÁC CON SỐ TIẾN ĐỘ ĐỒNG NHẤT 100% VỚI DANH SÁCH ---
         const activeYearRecruits = currentYearRecruits.filter(r => r.status !== RecruitmentStatus.DELETED);
 
-        const countNotAllowed = activeYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION).length;
-        const countExemptReg = activeYearRecruits.filter(r => r.status === RecruitmentStatus.EXEMPT_REGISTRATION).length;
-        const countFirstTime = activeYearRecruits.filter(r => r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION).length;
-        
-        const ds4_recruits = activeYearRecruits.filter(r => {
-            if ([
-                RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
-                RecruitmentStatus.EXEMPT_REGISTRATION, 
-                RecruitmentStatus.FIRST_TIME_REGISTRATION
-            ].includes(r.status)) return false;
-            
-            const age = checkAge(r, sessionYear);
-            if (r.status === RecruitmentStatus.SOURCE && age < 18) return false;
-            
-            return true;
-        });
-        const countTotalSource = ds4_recruits.length;
+        const countNotAllowed = activeYearRecruits.filter(r => isRecruitInTab(r, 'NOT_ALLOWED_REG', sessionYear)).length;
+        const countExemptReg = activeYearRecruits.filter(r => isRecruitInTab(r, 'EXEMPT_REG', sessionYear)).length;
+        const countFirstTime = activeYearRecruits.filter(r => isRecruitInTab(r, 'FIRST_TIME_REG', sessionYear)).length;
+        const countTotalSource = activeYearRecruits.filter(r => isRecruitInTab(r, 'ALL', sessionYear)).length;
 
         // Tính toán chi tiết Danh sách 5
-        const countKTC = activeYearRecruits.filter(r => [RecruitmentStatus.NOT_SELECTED_TT50, RecruitmentStatus.KTC_KHONG_TUYEN_CHON].includes(r.status as RecruitmentStatus)).length;
-        const countCGNN = activeYearRecruits.filter(r => r.status === RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU).length;
-        const countTT50 = countKTC + countCGNN;
-        
-        const countDeferred = activeYearRecruits.filter(r => isRecruitDeferred(r, sessionYear)).length;
-        const countExempted = activeYearRecruits.filter(r => isRecruitExempted(r, sessionYear)).length;
-        const countRemoved = activeYearRecruits.filter(r => r.status === RecruitmentStatus.REMOVED_FROM_SOURCE).length;
-        
-        const countRemovedMilitary = activeYearRecruits.filter(r => {
-            if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-            return isMilitarySchoolRecruit(r);
-        }).length;
+        const countKTC = activeYearRecruits.filter(r => isRecruitInTab(r, 'KTC_SUB1', sessionYear)).length;
+        const countCGNN = activeYearRecruits.filter(r => isRecruitInTab(r, 'KTC_SUB2', sessionYear)).length;
+        const countTT50 = activeYearRecruits.filter(r => isRecruitInTab(r, 'TT50', sessionYear)).length;
 
-        const countRemovedTransferred = activeYearRecruits.filter(r => {
-            if (r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-            return !isMilitarySchoolRecruit(r) && isTransferredRecruit(r);
-        }).length;
+        const ds6_count = activeYearRecruits.filter(r => isRecruitInTab(r, 'PRE_CHECK', sessionYear)).length;
+        const countPreCheckPass = activeYearRecruits.filter(r => isRecruitInTab(r, 'PRE_CHECK_PASS', sessionYear)).length;
+        const countPreCheckFail = activeYearRecruits.filter(r => isRecruitInTab(r, 'PRE_CHECK_FAIL', sessionYear)).length;
 
-        const countRemovedOther = countRemoved - countRemovedMilitary - countRemovedTransferred;
+        const countMedExam = activeYearRecruits.filter(r => isRecruitInTab(r, 'MED_EXAM', sessionYear)).length;
+        const countMedPass = activeYearRecruits.filter(r => isRecruitInTab(r, 'MED_EXAM_PASS', sessionYear)).length;
+        const countMedFail = activeYearRecruits.filter(r => isRecruitInTab(r, 'MED_EXAM_FAIL', sessionYear)).length;
 
-        const tt50Statuses = [
-            RecruitmentStatus.NOT_SELECTED_TT50, 
-            RecruitmentStatus.KTC_KHONG_TUYEN_CHON, 
-            RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU
-        ];
-        
-        const ds6_count = ds4_recruits.filter(r => 
-            !tt50Statuses.includes(r.status as RecruitmentStatus) &&
-            r.status !== RecruitmentStatus.REMOVED_FROM_SOURCE &&
-            !isRecruitDeferred(r, sessionYear) &&
-            !isRecruitExempted(r, sessionYear)
-        ).length;
+        const countDeferred = activeYearRecruits.filter(r => isRecruitInTab(r, 'DEFERRED_LIST', sessionYear)).length;
+        const countExempted = activeYearRecruits.filter(r => isRecruitInTab(r, 'EXEMPTED_LIST', sessionYear)).length;
 
-        const countPreCheckPass = ds4_recruits.filter(r => [RecruitmentStatus.PRE_CHECK_PASSED, RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.MED_EXAM_FAILED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status)).length;
-        const countPreCheckFail = ds4_recruits.filter(r => r.status === RecruitmentStatus.PRE_CHECK_FAILED).length;
-        const countMedPass = ds4_recruits.filter(r => [RecruitmentStatus.MED_EXAM_PASSED, RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status)).length;
-        const countMedFail = ds4_recruits.filter(r => r.status === RecruitmentStatus.MED_EXAM_FAILED).length;
-        
-        const finalized = activeYearRecruits.filter(r => [RecruitmentStatus.FINALIZED, RecruitmentStatus.ENLISTED].includes(r.status));
-        const countEnlisted = activeYearRecruits.filter(r => (r.status === RecruitmentStatus.ENLISTED && r.enlistmentType !== 'RESERVE') || (r.status === RecruitmentStatus.FINALIZED && r.enlistmentType === 'OFFICIAL')).length;
-        
-        const countRemaining = ds4_recruits.filter(r => {
-            if (r.status === RecruitmentStatus.REMOVED_FROM_SOURCE) return false;
-            const isEnlistedOfficial = (r.status === RecruitmentStatus.FINALIZED || r.status === RecruitmentStatus.ENLISTED) && r.enlistmentType === 'OFFICIAL';
-            return !isEnlistedOfficial;
-        }).length;
+        const countFinalized = activeYearRecruits.filter(r => isRecruitInTab(r, 'FINAL', sessionYear)).length;
+        const countFinalizedOfficial = activeYearRecruits.filter(r => isRecruitInTab(r, 'FINAL_OFFICIAL', sessionYear)).length;
+        const countFinalizedReserve = activeYearRecruits.filter(r => isRecruitInTab(r, 'FINAL_RESERVE', sessionYear)).length;
 
-        const countNextYearSource = countRemaining + countFirstTime;
+        const countEnlisted = activeYearRecruits.filter(r => isRecruitInTab(r, 'ENLISTED', sessionYear)).length;
 
-        // --- CÔNG DÂN HẾT HẠN ---
-        const expiringEdu = activeYearRecruits.filter(r => r.status === RecruitmentStatus.DEFERRED && isExpiredInCurrentSession(r.details.educationPeriod));
-        const expiringSentence = activeYearRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInCurrentSession(r.details.sentencePeriod));
+        const countRemoved = activeYearRecruits.filter(r => isRecruitInTab(r, 'REMOVED', sessionYear)).length;
+        const countRemovedMilitary = activeYearRecruits.filter(r => isRecruitInTab(r, 'REMOVED_MILITARY_SCHOOL', sessionYear)).length;
+        const countRemovedTransferred = activeYearRecruits.filter(r => isRecruitInTab(r, 'REMOVED_TRANSFERRED', sessionYear)).length;
+        const countRemovedOther = activeYearRecruits.filter(r => isRecruitInTab(r, 'REMOVED_OTHER', sessionYear)).length;
+
+        const countRemaining = activeYearRecruits.filter(r => isRecruitInTab(r, 'REMAINING', sessionYear)).length;
+        const countNextYearSource = activeYearRecruits.filter(r => isRecruitInTab(r, 'NEXT_YEAR_SOURCE', sessionYear)).length;
+
+        // --- CÔNG DÂN HẾT HẠN CẦN RÀ SOÁT ---
+        const expiringCount = activeYearRecruits.filter(r => isRecruitInTab(r, 'EXPIRING_LIST', sessionYear)).length;
+        const expiringEduCount = activeYearRecruits.filter(r => isRecruitInTab(r, 'EXPIRING_EDU', sessionYear)).length;
+        const expiringSentenceCount = activeYearRecruits.filter(r => isRecruitInTab(r, 'EXPIRING_SENTENCE', sessionYear)).length;
 
         // --- TÍNH TOÁN DỮ LIỆU BIỂU ĐỒ ---
-        const validSource = ds4_recruits;
+        const validSource = activeYearRecruits.filter(r => isRecruitInTab(r, 'ALL', sessionYear));
         
         const createMap = (arr: any[], keyPath: string) => {
             const map: Record<string, number> = {};
@@ -210,15 +170,16 @@ export const useDashboardStats = ({
             counts: {
                 countNotAllowed, countExemptReg, countFirstTime, countTotalSource, countTT50,
                 countKTC, countCGNN,
-                countPreCheckPass, countPreCheckFail, countMedPass, countMedFail,
-                countDeferred, countExempted, countFinalized: finalized.length,
-                countFinalizedOfficial: finalized.filter(r => r.enlistmentType === 'OFFICIAL').length,
-                countFinalizedReserve: finalized.filter(r => r.enlistmentType === 'RESERVE').length,
+                countPreCheckPass, countPreCheckFail, countMedExam, countMedPass, countMedFail,
+                countDeferred, countExempted, 
+                countFinalized,
+                countFinalizedOfficial,
+                countFinalizedReserve,
                 countEnlisted, countRemoved, countRemovedMilitary, countRemovedTransferred, countRemovedOther, countRemaining, countNextYearSource,
                 ds6_count,
-                expiringCount: expiringEdu.length + expiringSentence.length,
-                expiringEduCount: expiringEdu.length,
-                expiringSentenceCount: expiringSentence.length
+                expiringCount,
+                expiringEduCount,
+                expiringSentenceCount
             },
             political: {
                 dangVien: validSource.filter(r => r.details.politicalStatus === 'Dang_Vien').length,

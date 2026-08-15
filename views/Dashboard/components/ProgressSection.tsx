@@ -161,7 +161,7 @@ const ProgressSection: React.FC<ProgressSectionProps> = ({ stats, onNavigate }) 
                 <Card 
                     listNumber="DS 07"
                     title="Đủ điều kiện khám tuyển" 
-                    count={stats.countPreCheckPass} 
+                    count={stats.countMedExam} 
                     icon={Stethoscope} 
                     badgeBg="bg-indigo-600" 
                     borderColor="border-indigo-300"
