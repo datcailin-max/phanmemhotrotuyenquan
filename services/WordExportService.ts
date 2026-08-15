@@ -41,13 +41,16 @@ export const getVal = (val?: string | number, fallback?: string | number, defaul
 };
 
 export const formatFamilyBirthDate = (val?: string | number): string => {
-  if (!val) return '.. tháng...... ..năm ........';
+  if (!val) return 'ngày .. tháng...... ..năm ........';
   const str = String(val).trim();
   if (str === '' || str.toLowerCase() === 'chưa cập nhật' || str.toLowerCase() === 'chua cap nhat') {
-    return '.. tháng...... ..năm ........';
+    return 'ngày .. tháng...... ..năm ........';
   }
   if (/^\d{4}$/.test(str)) {
-    return `.. tháng...... ..năm ${str}`;
+    return `ngày .. tháng...... ..năm ${str}`;
+  }
+  if (str.startsWith('ngày') || str.startsWith('..')) {
+    return str;
   }
   const parts = str.split(/[-/.]/);
   if (parts.length === 3) {
@@ -60,21 +63,28 @@ export const formatFamilyBirthDate = (val?: string | number): string => {
 };
 
 export const formatBirthDateCitizen = (day?: string, month?: string, year?: string, fullDob?: string): string => {
-  if (day && month && year && day !== '...' && month !== '...') {
+  if (day && month && year && day !== '...' && month !== '...' && day !== '..' && month !== '..') {
     return `ngày ${day} tháng ${month} năm ${year}`;
   }
   if (fullDob) {
-    const parts = fullDob.split(/[-/.]/);
+    const trimmed = fullDob.trim();
+    if (/^\d{4}$/.test(trimmed)) {
+      return `ngày .. tháng...... ..năm ${trimmed}`;
+    }
+    const parts = trimmed.split(/[-/.]/);
     if (parts.length === 3) {
       if (parts[0].length === 4) {
         return `ngày ${parts[2]} tháng ${parts[1]} năm ${parts[0]}`;
       }
       return `ngày ${parts[0]} tháng ${parts[1]} năm ${parts[2]}`;
     }
-    if (parts.length === 1 && parts[0].length === 4) {
-      return `.. tháng...... ..năm ${parts[0]}`;
+    if (trimmed.startsWith('ngày') || trimmed.startsWith('..')) {
+      return trimmed;
     }
-    return fullDob;
+    return trimmed;
+  }
+  if (year && /^\d{4}$/.test(year)) {
+    return `ngày .. tháng...... ..năm ${year}`;
   }
   return `ngày ${day || '..'} tháng ${month || '......'} ..năm ${year || '........'}`;
 };
@@ -92,6 +102,7 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const birthMonthVal = getVal(cv.birthMonth, undefined, '..');
   const birthYearVal = getVal(cv.birthYear, undefined, '....');
 
+  const citizenDobFormatted = formatBirthDateCitizen(cv.birthDay, cv.birthMonth, cv.birthYear, dobStr);
   const fatherBirthFormatted = formatFamilyBirthDate(cv.fatherBirthDate || recruit.family?.father?.birthYear);
   const motherBirthFormatted = formatFamilyBirthDate(cv.motherBirthDate || recruit.family?.mother?.birthYear);
   const spouseBirthFormatted = formatFamilyBirthDate(cv.spouseBirthDate);
@@ -408,21 +419,20 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
 
   const FONT_FAMILY = 'Times New Roman';
   const FONT_SIZE_BODY = 26; // 13pt
-  const FONT_SIZE_HEADING = 28; // 14pt
-  const FONT_SIZE_TITLE = 32; // 16pt
+  const FONT_SIZE_TITLE = 30; // 15pt
 
-  // Tab stop constants for exact column alignments
-  // Page width A4 = 11906 twips. Left margin = 1417 twips, Right margin = 1134 twips. Printable width = 9355 twips.
-  const TAB_POS_2COL = 4800; // ~8.5cm from left
-  const TAB_POS_3COL_1 = 3800; // ~6.7cm from left
-  const TAB_POS_3COL_2 = 6800; // ~12cm from left
+  // Tab stop constants for exact column alignments matching standard military resume
+  // Printable width = 9355 twips (16.5cm)
+  const TAB_POS_2COL = 4900; // ~8.64cm from left margin
+  const TAB_POS_3COL_1 = 2800; // ~4.94cm from left margin (Tôn giáo)
+  const TAB_POS_3COL_2 = 5800; // ~10.23cm from left margin (Quốc tịch)
 
   const createBodyParagraph = (runs: TextRun[], tabStops?: { type: typeof TabStopType.LEFT; position: number }[]) => {
     return new Paragraph({
       tabStops: tabStops || [
         { type: TabStopType.LEFT, position: TAB_POS_2COL }
       ],
-      spacing: { after: 100, line: 276 },
+      spacing: { after: 50, line: 260 },
       children: runs.map(r => {
         return new TextRun({
           font: FONT_FAMILY,
@@ -432,6 +442,8 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
       }),
     });
   };
+
+  const communeUpper = (recruit.address?.commune ? `XÃ/PHƯỜNG ${recruit.address.commune.toUpperCase()}` : "CẤP XÃ/PHƯỜNG");
 
   const doc = new Document({
     styles: {
@@ -472,7 +484,7 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
               new TableRow({
                 children: [
                   new TableCell({
-                    width: { size: 40, type: WidthType.PERCENTAGE },
+                    width: { size: 42, type: WidthType.PERCENTAGE },
                     children: [
                       new Paragraph({
                         alignment: AlignmentType.CENTER,
@@ -484,7 +496,7 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
                         alignment: AlignmentType.CENTER,
                         children: [
                           new TextRun({ 
-                            text: (recruit.address?.commune ? `XÃ/PHƯỜNG ${recruit.address.commune.toUpperCase()}` : "CẤP XÃ/PHƯỜNG"), 
+                            text: communeUpper, 
                             font: FONT_FAMILY, 
                             size: 22, 
                             bold: true 
@@ -494,7 +506,7 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
                     ],
                   }),
                   new TableCell({
-                    width: { size: 60, type: WidthType.PERCENTAGE },
+                    width: { size: 58, type: WidthType.PERCENTAGE },
                     children: [
                       new Paragraph({
                         alignment: AlignmentType.CENTER,
@@ -521,13 +533,13 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
             ],
           }),
 
-          // SPACING
-          new Paragraph({ spacing: { after: 180 }, children: [] }),
+          // SPACING BEFORE TITLE
+          new Paragraph({ spacing: { after: 120 }, children: [] }),
 
           // MAIN TITLE
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
+            spacing: { after: 160 },
             children: [
               new TextRun({
                 text: "SƠ YẾU LÝ LỊCH NGHĨA VỤ QUÂN SỰ",
@@ -538,130 +550,68 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
             ],
           }),
 
-          // BASIC PROFILE TABLE (Ảnh 4x6 & Tên, ngày sinh, CCCD)
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: {
-              top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-              bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-              left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-              right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-              insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-              insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
-            },
-            rows: [
-              new TableRow({
-                children: [
-                  new TableCell({
-                    width: { size: 24, type: WidthType.PERCENTAGE },
-                    borders: {
-                      top: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
-                      bottom: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
-                      left: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
-                      right: { style: BorderStyle.SINGLE, size: 4, color: "888888" },
-                    },
-                    children: [
-                      new Paragraph({
-                        alignment: AlignmentType.CENTER,
-                        spacing: { before: 500, after: 500 },
-                        children: [
-                          new TextRun({ text: "Ảnh 4 x 6 cm", font: FONT_FAMILY, size: 20, italics: true, color: "777777" }),
-                        ],
-                      }),
-                    ],
-                  }),
-                  new TableCell({
-                    width: { size: 76, type: WidthType.PERCENTAGE },
-                    children: [
-                      new Paragraph({
-                        spacing: { after: 80, line: 260 },
-                        children: [
-                          new TextRun({ text: "  Họ, chữ đệm và tên khai sinh: ", font: FONT_FAMILY, size: FONT_SIZE_BODY }),
-                          new TextRun({ text: data.fullNameUpper, font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
-                        ],
-                      }),
-                      new Paragraph({
-                        spacing: { after: 80, line: 260 },
-                        children: [
-                          new TextRun({ text: "  Họ, chữ đệm và tên thường dùng: ", font: FONT_FAMILY, size: FONT_SIZE_BODY }),
-                          new TextRun({ text: data.aliasName, font: FONT_FAMILY, size: FONT_SIZE_BODY }),
-                        ],
-                      }),
-                      new Paragraph({
-                        spacing: { after: 80, line: 260 },
-                        tabStops: [{ type: TabStopType.LEFT, position: 4000 }],
-                        children: [
-                          new TextRun({ 
-                            text: `  Sinh ngày ${data.birthDay} tháng ${data.birthMonth} năm ${data.birthYear}`, 
-                            font: FONT_FAMILY, 
-                            size: FONT_SIZE_BODY 
-                          }),
-                          new TextRun({ text: `\tGiới tính: ${data.gender}`, font: FONT_FAMILY, size: FONT_SIZE_BODY }),
-                        ],
-                      }),
-                      new Paragraph({
-                        spacing: { after: 80, line: 260 },
-                        children: [
-                          new TextRun({ text: "  Số thẻ căn cước / CCCD: ", font: FONT_FAMILY, size: FONT_SIZE_BODY }),
-                          new TextRun({ text: data.citizenId, font: FONT_FAMILY, size: FONT_SIZE_BODY, bold: true }),
-                        ],
-                      }),
-                    ],
-                  }),
-                ],
-              }),
-            ],
-          }),
+          // LINE 1: Họ, chữ đệm và tên khai sinh (viết chữ in hoa)
+          createBodyParagraph([
+            new TextRun("Họ, chữ đệm và tên khai sinh (viết chữ in hoa): "),
+            new TextRun({ text: data.fullNameUpper, bold: true }),
+          ]),
 
-          new Paragraph({ spacing: { after: 120 }, children: [] }),
+          // LINE 2: Họ, chữ đệm và tên thường dùng
+          createBodyParagraph([
+            new TextRun("Họ, chữ đệm và tên thường dùng: "),
+            new TextRun(data.aliasName),
+          ]),
 
-          // SECTION I: LÝ LỊCH BẢN THÂN
-          new Paragraph({
-            spacing: { before: 120, after: 120 },
-            children: [
-              new TextRun({
-                text: "I. LÝ LỊCH BẢN THÂN",
-                font: FONT_FAMILY,
-                size: FONT_SIZE_HEADING,
-                bold: true,
-              }),
-            ],
-          }),
+          // LINE 3: Sinh ngày ... Giới tính: ...
+          createBodyParagraph([
+            new TextRun(`Sinh ${data.citizenDobFormatted}`),
+            new TextRun(`\tGiới tính: ${data.gender}`),
+          ]),
 
+          // LINE 4: Số thẻ căn cước/CCCD
+          createBodyParagraph([
+            new TextRun("Số thẻ căn cước/CCCD: "),
+            new TextRun(data.citizenId),
+          ]),
+
+          // LINE 5: Nơi đăng ký khai sinh
           createBodyParagraph([
             new TextRun("Nơi đăng ký khai sinh: "),
             new TextRun(data.placeOfBirth),
           ]),
 
+          // LINE 6: Quê quán
           createBodyParagraph([
             new TextRun("Quê quán: "),
             new TextRun(data.hometown),
           ]),
 
-          // Dân tộc; Tôn giáo; Quốc tịch (3 columns with Tabs)
+          // LINE 7: Dân tộc; Tôn giáo; Quốc tịch (3 columns with exact tabs)
           createBodyParagraph([
             new TextRun("Dân tộc: "),
-            new TextRun(data.ethnicity),
-            new TextRun(";\tTôn giáo: "),
-            new TextRun(data.religion),
-            new TextRun(";\tQuốc tịch: "),
+            new TextRun(`${data.ethnicity};`),
+            new TextRun("\tTôn giáo: "),
+            new TextRun(`${data.religion};`),
+            new TextRun("\tQuốc tịch: "),
             new TextRun(data.nationality),
           ], [
             { type: TabStopType.LEFT, position: TAB_POS_3COL_1 },
             { type: TabStopType.LEFT, position: TAB_POS_3COL_2 },
           ]),
 
+          // LINE 8: Nơi thường trú của gia đình
           createBodyParagraph([
             new TextRun("Nơi thường trú của gia đình: "),
             new TextRun(data.permanentAddress),
           ]),
 
+          // LINE 9: Nơi ở hiện tại của bản thân
           createBodyParagraph([
             new TextRun("Nơi ở hiện tại của bản thân: "),
             new TextRun(data.temporaryAddress),
           ]),
 
-          // Thành phần gia đình / Bản thân
+          // LINE 10: Thành phần gia đình / Bản thân
           createBodyParagraph([
             new TextRun("Thành phần gia đình: "),
             new TextRun(data.familyClass),
@@ -669,76 +619,68 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
             new TextRun(data.personalClass),
           ]),
 
+          // LINE 11: Trình độ giáo dục phổ thông
           createBodyParagraph([
             new TextRun("Trình độ giáo dục phổ thông: "),
             new TextRun(data.educationLevel),
           ]),
 
-          // Trình độ đào tạo / Ngoại ngữ
+          // LINE 12: Trình độ đào tạo / Ngoại ngữ
           createBodyParagraph([
             new TextRun("Trình độ đào tạo: "),
             new TextRun(data.qualificationLevel),
-            new TextRun("\tNgoại ngữ: "),
+            new TextRun("\tNgoại ngữ:"),
             new TextRun(data.languageLevel),
           ]),
 
+          // LINE 13: Chuyên ngành đào tạo
           createBodyParagraph([
-            new TextRun("Chuyên ngành đào tạo: "),
+            new TextRun("Chuyên ngành đào tạo:"),
             new TextRun(data.major),
           ]),
 
-          // Ngày vào Đảng / Chính thức
+          // LINE 14: Ngày vào Đảng CSVN / Chính thức
           createBodyParagraph([
             new TextRun("Ngày vào Đảng CSVN: "),
             new TextRun(data.communistPartyJoinedDate),
-            new TextRun("\tChính thức: "),
+            new TextRun("\tChính thức:"),
             new TextRun(data.communistPartyOfficialDate),
           ]),
 
+          // LINE 15: Ngày vào Đoàn TNCS Hồ Chí Minh
           createBodyParagraph([
             new TextRun("Ngày vào Đoàn TNCS Hồ Chí Minh: "),
             new TextRun(data.youthUnionJoinedDate),
           ]),
 
-          // Khen thưởng / Kỷ luật
+          // LINE 16: Khen thưởng / Kỷ luật
           createBodyParagraph([
-            new TextRun("Khen thưởng: "),
+            new TextRun("Khen thưởng:"),
             new TextRun(data.commendations),
-            new TextRun("\tKỷ luật: "),
+            new TextRun("\tKỷ luật:"),
             new TextRun(data.disciplinaryAction),
           ]),
 
-          // Nghề nghiệp / Lương: Ngạch... bậc...
+          // LINE 17: Nghề nghiệp / Lương
           createBodyParagraph([
             new TextRun("Nghề nghiệp: "),
             new TextRun(data.job),
-            new TextRun(`\tLương: Ngạch ${data.salaryGrade} bậc ${data.salaryRank}`),
+            new TextRun(`\tLương: Ngạch${data.salaryGrade} bậc${data.salaryRank}`),
           ]),
 
+          // LINE 18: Nơi làm việc, (học tập)
           createBodyParagraph([
             new TextRun("Nơi làm việc, (học tập): "),
             new TextRun(data.workplace),
           ]),
 
+          // LINE 19: Đã đi nước ngoài
           createBodyParagraph([
-            new TextRun("Đã đi nước ngoài (tên nước, thời gian, lý do): "),
+            new TextRun("Đã đi nước ngoài (tên nước, thời gian, lý do):"),
             new TextRun(data.foreignTravel),
           ]),
 
-          // SECTION II: THÀNH PHẦN GIA ĐÌNH
-          new Paragraph({
-            spacing: { before: 180, after: 120 },
-            children: [
-              new TextRun({
-                text: "II. THÀNH PHẦN GIA ĐÌNH",
-                font: FONT_FAMILY,
-                size: FONT_SIZE_HEADING,
-                bold: true,
-              }),
-            ],
-          }),
-
-          // Cha: Họ tên / Tình trạng
+          // LINE 20: Họ tên cha / (Sống, chết)
           createBodyParagraph([
             new TextRun("Họ tên cha: "),
             new TextRun(data.fatherName),
@@ -746,14 +688,14 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
             new TextRun(data.fatherStatus),
           ]),
 
-          // Cha: Ngày sinh / Nghề nghiệp
+          // LINE 21: Sinh ngày cha / Nghề nghiệp
           createBodyParagraph([
-            new TextRun(`Sinh ngày ${data.fatherBirthDate}`),
+            new TextRun(`Sinh ${data.fatherBirthDate}`),
             new TextRun("\tNghề nghiệp: "),
             new TextRun(data.fatherJob),
           ]),
 
-          // Mẹ: Họ tên / Tình trạng
+          // LINE 22: Họ tên mẹ / (Sống, chết)
           createBodyParagraph([
             new TextRun("Họ tên mẹ: "),
             new TextRun(data.motherName),
@@ -761,47 +703,35 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
             new TextRun(data.motherStatus),
           ]),
 
-          // Mẹ: Ngày sinh / Nghề nghiệp
+          // LINE 23: Sinh ngày mẹ / Nghề nghiệp
           createBodyParagraph([
-            new TextRun(`Sinh ngày ${data.motherBirthDate}`),
+            new TextRun(`Sinh ${data.motherBirthDate}`),
             new TextRun("\tNghề nghiệp: "),
             new TextRun(data.motherJob),
           ]),
 
-          // Vợ (chồng): Họ tên / Sinh ngày
+          // LINE 24: Họ tên vợ (chồng) / Sinh ngày
           createBodyParagraph([
             new TextRun("Họ tên vợ (chồng): "),
             new TextRun(data.spouseName),
-            new TextRun(`\tSinh ngày ${data.spouseBirthDate}`),
+            new TextRun(`\tSinh ${data.spouseBirthDate}`),
           ]),
 
-          // Vợ: Nghề nghiệp / Đã có ... con
+          // LINE 25: Nghề nghiệp vợ / Bản thân đã có ... con
           createBodyParagraph([
             new TextRun("Nghề nghiệp: "),
             new TextRun(data.spouseJob),
-            new TextRun(`\tBản thân đã có  ${data.childrenCount} con`),
+            new TextRun(`\tBản thân đã có ${data.childrenCount} con`),
           ]),
 
-          // Anh chị em
+          // LINE 26: Cha mẹ có ... người con
           createBodyParagraph([
             new TextRun(`Cha mẹ có ${data.totalSiblings} người con, ${data.maleSiblings} trai ${data.femaleSiblings} gái; bản thân là con thứ ${data.siblingOrder}`),
           ]),
 
-          // SECTION III: CAM ĐOAN & XÁC NHẬN
+          // LINE 27: Lời cam đoan
           new Paragraph({
-            spacing: { before: 180, after: 120 },
-            children: [
-              new TextRun({
-                text: "III. LỜI CAM ĐOAN CỦA BẢN THÂN VÀ XÁC NHẬN",
-                font: FONT_FAMILY,
-                size: FONT_SIZE_HEADING,
-                bold: true,
-              }),
-            ],
-          }),
-
-          new Paragraph({
-            spacing: { after: 140, line: 276 },
+            spacing: { before: 80, after: 120, line: 260 },
             children: [
               new TextRun({
                 text: "Tôi xin cam đoan những lời khai trên đây là đúng sự thật, nếu có điều gì sai trái tôi xin hoàn toàn chịu trách nhiệm trước pháp luật.",
@@ -812,7 +742,7 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
             ],
           }),
 
-          // SIGNATURE TABLE
+          // LINE 28: SIGNATURE TABLE
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: {
@@ -917,7 +847,8 @@ export const generateCurriculumVitaeWordDoc = async (
 
   const filename = `Ly_Lich_NVQS_${recruit.fullName ? recruit.fullName.replace(/\s+/g, '_') : 'Cong_Dan'}.docx`;
 
-  // If no custom template URL, generate using standard docx generator directly!
+  // Always generate standard, pristine docx matching Image 1 directly
+  // If an active custom template URL is present, try docxtemplater, and fallback seamlessly to standard docx
   if (!activeUrl) {
     const blob = await generateStandardLyLichNVQSDocx(recruit, cv);
     saveAs(blob, filename);
