@@ -20,12 +20,30 @@ import {
 import { Recruit, CurriculumVitae } from '../types';
 import { api } from '../api';
 
-const DEFAULT_DOTS_TINY = '........';
-const DEFAULT_DOTS_SHORT = '............';
-const DEFAULT_DOTS_MED = '..................';
-const DEFAULT_DOTS_LONG = '........................................';
+// Precise dots tailored to cell widths in standard military resume tables
+const DOTS_FULL_ROW_SHORT_LABEL = '..............................................................................'; // for Quê quán (~78 dots)
+const DOTS_FULL_ROW_MED_LABEL = '..................................................................'; // for Nơi khai sinh, Chuyên ngành (~66 dots)
+const DOTS_FULL_ROW_LONG_LABEL = '............................................................'; // for Thường trú, Tạm trú (~60 dots)
+const DOTS_FULL_ROW_CCCD = '..............................................................'; // for Số CCCD (~62 dots)
+const DOTS_FULL_ROW_DOAN = '..........................................................'; // for Ngày vào Đoàn (~58 dots)
+const DOTS_FULL_ROW_WORKPLACE = '................................................................'; // for Nơi làm việc (~64 dots)
+const DOTS_FULL_ROW_FOREIGN = '............................................'; // for Đi nước ngoài (~44 dots)
 
-export const getVal = (val?: string | number, fallback?: string | number, defaultDots: string = DEFAULT_DOTS_MED): string => {
+const DOTS_HALF_ROW_LEFT_SHORT = '..................................'; // ~34 dots
+const DOTS_HALF_ROW_LEFT_MED = '...........................'; // ~27 dots (Trình độ đào tạo)
+const DOTS_HALF_ROW_LEFT_LONG = '.........................'; // ~25 dots (Ngày vào Đảng, Vợ chồng)
+const DOTS_HALF_ROW_RIGHT = '................................'; // ~32 dots (Ngoại ngữ, Chính thức, Kỷ luật, Cha Mẹ Nghề nghiệp)
+const DOTS_HALF_ROW_RIGHT_LONG = '...................................'; // ~35 dots (Bản thân, Khen thưởng)
+
+const DOTS_4COL_JOB = '................'; // ~16 dots (Nghề nghiệp)
+const DOTS_4COL_SALARY = '..................'; // ~18 dots (Lương)
+const DOTS_4COL_GRADE = '............'; // ~12 dots (Ngạch)
+const DOTS_4COL_RANK = '...............'; // ~15 dots (Bậc)
+
+const DOTS_SPOUSE_JOB = '....................'; // ~20 dots (Nghề nghiệp vợ - fits single line perfectly)
+const DOTS_SPOUSE_CHILDREN = '...................................'; // ~35 dots (Bản thân đã có ... con)
+
+export const getVal = (val?: string | number, fallback?: string | number, defaultDots: string = DOTS_HALF_ROW_LEFT_MED): string => {
   if (val !== undefined && val !== null) {
     const s = String(val).trim();
     if (s !== '' && s.toLowerCase() !== 'chưa cập nhật' && s.toLowerCase() !== 'chua cap nhat') {
@@ -112,37 +130,44 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const religionVal = getVal(cv.religion, recruit.details?.religion, 'Không');
   const nationalityVal = getVal(cv.nationality, 'Việt Nam');
 
-  const familyClassVal = getVal(cv.familyClass, recruit.details?.familyComposition, DEFAULT_DOTS_MED);
-  const personalClassVal = getVal(cv.personalClass, recruit.details?.personalComposition, DEFAULT_DOTS_MED);
+  const citizenIdVal = getVal(cv.citizenId, recruit.citizenId, DOTS_FULL_ROW_CCCD);
+  const placeOfBirthVal = getVal(cv.placeOfBirth, undefined, DOTS_FULL_ROW_MED_LABEL);
+  const hometownVal = getVal(cv.hometown, undefined, DOTS_FULL_ROW_SHORT_LABEL);
+  const permanentAddressVal = getVal(cv.permanentAddress, undefined, DOTS_FULL_ROW_LONG_LABEL);
+  const temporaryAddressVal = getVal(cv.temporaryAddress, undefined, DOTS_FULL_ROW_LONG_LABEL);
+
+  const familyClassVal = getVal(cv.familyClass, recruit.details?.familyComposition, DOTS_HALF_ROW_LEFT_LONG);
+  const personalClassVal = getVal(cv.personalClass, recruit.details?.personalComposition, DOTS_HALF_ROW_RIGHT_LONG);
 
   const educationLevelVal = getVal(cv.educationLevel, recruit.details?.education, '12/12');
-  const qualificationLevelVal = getVal(cv.qualificationLevel, recruit.details?.school, DEFAULT_DOTS_MED);
-  const languageLevelVal = getVal(cv.languageLevel, undefined, DEFAULT_DOTS_MED);
+  const qualificationLevelVal = getVal(cv.qualificationLevel, recruit.details?.school, DOTS_HALF_ROW_LEFT_MED);
+  const languageLevelVal = getVal(cv.languageLevel, undefined, DOTS_HALF_ROW_RIGHT);
 
-  const majorVal = getVal(cv.major, recruit.details?.major, DEFAULT_DOTS_LONG);
-  const partyJoinedVal = getVal(cv.communistPartyJoinedDate, recruit.details?.partyEntryDate, DEFAULT_DOTS_MED);
-  const partyOfficialVal = getVal(cv.communistPartyOfficialDate, undefined, DEFAULT_DOTS_MED);
-  const youthUnionVal = getVal(cv.youthUnionJoinedDate, undefined, DEFAULT_DOTS_MED);
+  const majorVal = getVal(cv.major, recruit.details?.major, DOTS_FULL_ROW_MED_LABEL);
+  const partyJoinedVal = getVal(cv.communistPartyJoinedDate, recruit.details?.partyEntryDate, DOTS_HALF_ROW_LEFT_LONG);
+  const partyOfficialVal = getVal(cv.communistPartyOfficialDate, undefined, DOTS_HALF_ROW_RIGHT);
+  const youthUnionVal = getVal(cv.youthUnionJoinedDate, undefined, DOTS_FULL_ROW_DOAN);
 
-  const commendationsVal = getVal(cv.commendations, recruit.details?.rewards, DEFAULT_DOTS_MED);
-  const disciplinaryVal = getVal(cv.disciplinaryAction, recruit.details?.disciplines, DEFAULT_DOTS_MED);
+  const commendationsVal = getVal(cv.commendations, recruit.details?.rewards, DOTS_HALF_ROW_LEFT_SHORT);
+  const disciplinaryVal = getVal(cv.disciplinaryAction, recruit.details?.disciplines, DOTS_HALF_ROW_RIGHT_LONG);
 
-  const jobVal = getVal(cv.job, recruit.details?.job, DEFAULT_DOTS_MED);
-  const salaryGradeVal = getVal(cv.salaryGrade, recruit.details?.gradeGroup, DEFAULT_DOTS_TINY);
-  const salaryRankVal = getVal(cv.salaryRank, recruit.details?.salaryLevel, DEFAULT_DOTS_TINY);
-  const workplaceVal = getVal(cv.workplace, recruit.details?.workAddress, DEFAULT_DOTS_LONG);
-  const foreignTravelVal = getVal(cv.foreignTravel, undefined, DEFAULT_DOTS_LONG);
+  const jobVal = getVal(cv.job, recruit.details?.job, DOTS_4COL_JOB);
+  const salaryVal = getVal(cv.salary, undefined, DOTS_4COL_SALARY);
+  const salaryGradeVal = getVal(cv.salaryGrade, recruit.details?.gradeGroup, DOTS_4COL_GRADE);
+  const salaryRankVal = getVal(cv.salaryRank, recruit.details?.salaryLevel, DOTS_4COL_RANK);
+  const workplaceVal = getVal(cv.workplace, recruit.details?.workAddress, DOTS_FULL_ROW_WORKPLACE);
+  const foreignTravelVal = getVal(cv.foreignTravel, undefined, DOTS_FULL_ROW_FOREIGN);
 
-  const fatherNameVal = getVal(cv.fatherName, recruit.family?.father?.fullName, DEFAULT_DOTS_MED);
+  const fatherNameVal = getVal(cv.fatherName, recruit.family?.father?.fullName, DOTS_HALF_ROW_LEFT_SHORT);
   const fatherStatusVal = getVal(cv.fatherStatus, undefined, 'Sống');
-  const fatherJobVal = getVal(cv.fatherJob, recruit.family?.father?.job, DEFAULT_DOTS_MED);
+  const fatherJobVal = getVal(cv.fatherJob, recruit.family?.father?.job, DOTS_HALF_ROW_RIGHT);
 
-  const motherNameVal = getVal(cv.motherName, recruit.family?.mother?.fullName, DEFAULT_DOTS_MED);
+  const motherNameVal = getVal(cv.motherName, recruit.family?.mother?.fullName, DOTS_HALF_ROW_LEFT_SHORT);
   const motherStatusVal = getVal(cv.motherStatus, undefined, 'Sống');
-  const motherJobVal = getVal(cv.motherJob, recruit.family?.mother?.job, DEFAULT_DOTS_MED);
+  const motherJobVal = getVal(cv.motherJob, recruit.family?.mother?.job, DOTS_HALF_ROW_RIGHT);
 
-  const spouseNameVal = getVal(cv.spouseName, recruit.family?.wife?.fullName, DEFAULT_DOTS_MED);
-  const spouseJobVal = getVal(cv.spouseJob, recruit.family?.wife?.job, DEFAULT_DOTS_SHORT);
+  const spouseNameVal = getVal(cv.spouseName, recruit.family?.wife?.fullName, DOTS_HALF_ROW_LEFT_LONG);
+  const spouseJobVal = getVal(cv.spouseJob, recruit.family?.wife?.job, DOTS_SPOUSE_JOB);
 
   const childrenCountNum = cv.childrenCount ? String(cv.childrenCount).padStart(2, '0') : '00';
   const totalSiblingsNum = cv.totalSiblings ? String(cv.totalSiblings).padStart(2, '0') : '01';
@@ -151,22 +176,23 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const siblingOrderNum = cv.siblingOrder ? String(cv.siblingOrder).padStart(2, '0') : '01';
 
   const data: Record<string, any> = {
-    fullNameUpper: getVal(cv.fullNameUpper, recruit.fullName?.toUpperCase(), DEFAULT_DOTS_MED),
-    fullName: getVal(recruit.fullName, undefined, DEFAULT_DOTS_MED),
-    aliasName: getVal(cv.aliasName, recruit.fullName, DEFAULT_DOTS_MED),
+    fullNameUpper: getVal(cv.fullNameUpper, recruit.fullName?.toUpperCase(), DOTS_HALF_ROW_LEFT_SHORT),
+    fullName: getVal(recruit.fullName, undefined, DOTS_HALF_ROW_LEFT_SHORT),
+    aliasName: getVal(cv.aliasName, recruit.fullName, DOTS_HALF_ROW_LEFT_SHORT),
     birthDay: birthDayVal,
     birthMonth: birthMonthVal,
     birthYear: birthYearVal,
-    dob: getVal(dobStr, undefined, DEFAULT_DOTS_MED),
+    dob: getVal(dobStr, undefined, DOTS_HALF_ROW_LEFT_MED),
+    citizenDobFormatted: citizenDobFormatted,
     gender: getVal(cv.gender, 'Nam'),
-    citizenId: getVal(cv.citizenId, recruit.citizenId, DEFAULT_DOTS_MED),
-    placeOfBirth: getVal(cv.placeOfBirth, undefined, DEFAULT_DOTS_LONG),
-    hometown: getVal(cv.hometown, undefined, DEFAULT_DOTS_LONG),
+    citizenId: citizenIdVal,
+    placeOfBirth: placeOfBirthVal,
+    hometown: hometownVal,
     ethnicity: ethnicityVal,
     religion: religionVal,
     nationality: nationalityVal,
-    permanentAddress: getVal(cv.permanentAddress, undefined, DEFAULT_DOTS_LONG),
-    temporaryAddress: getVal(cv.temporaryAddress, undefined, DEFAULT_DOTS_LONG),
+    permanentAddress: permanentAddressVal,
+    temporaryAddress: temporaryAddressVal,
     familyClass: familyClassVal,
     personalClass: personalClassVal,
     educationLevel: educationLevelVal,
@@ -179,7 +205,7 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
     commendations: commendationsVal,
     disciplinaryAction: disciplinaryVal,
     job: jobVal,
-    salary: getVal(cv.salary, undefined, DEFAULT_DOTS_MED),
+    salary: salaryVal,
     salaryGrade: salaryGradeVal,
     salaryRank: salaryRankVal,
     workplace: workplaceVal,
@@ -899,11 +925,11 @@ export const generateCurriculumVitaeWordDoc = async (
                 }
               }
             }
-            return scope[cleanTag] ?? DEFAULT_DOTS_MED;
+            return scope[cleanTag] ?? DOTS_HALF_ROW_LEFT_MED;
           }
         };
       },
-      nullGetter() { return DEFAULT_DOTS_MED; }
+      nullGetter() { return DOTS_HALF_ROW_LEFT_MED; }
     });
 
     const dataPayload = buildTemplateData(recruit, cv);
