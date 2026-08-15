@@ -73,6 +73,29 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ user }) => {
     }
   };
 
+  const handleDeleteUnit = async (u: User) => {
+    if (u.username === 'ADMIN') {
+      alert("Không thể xóa tài khoản Master Admin cấp cao nhất.");
+      return;
+    }
+    
+    const isConfirmed = window.confirm(
+      `⚠️ CẢNH BÁO QUAN TRỌNG:\n\nBạn có chắc chắn muốn xóa vĩnh viễn tài khoản đơn vị "${u.fullName || u.username}" (${u.username}) khỏi hệ thống?\n\n- Toàn bộ quyền truy cập của đơn vị này sẽ bị hủy bỏ.\n- Thao tác này KHÔNG THỂ HOÀN TÁC.\n\nNhấn OK để xác nhận xóa.`
+    );
+
+    if (isConfirmed) {
+      setIsLoading(true);
+      const success = await api.deleteUser(u.username);
+      if (success) {
+        setUsers(prev => prev.filter(item => item.username !== u.username));
+        alert(`Đã xóa vĩnh viễn tài khoản đơn vị "${u.fullName || u.username}" thành công.`);
+      } else {
+        alert("Có lỗi xảy ra khi xóa tài khoản đơn vị. Vui lòng thử lại.");
+      }
+      setIsLoading(false);
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'ADMIN': return <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Master</span>;
@@ -267,9 +290,9 @@ const AccountManagement: React.FC<AccountManagementProps> = ({ user }) => {
                       </button>
                       
                       <button 
-                        className="p-2 bg-gray-50 text-gray-300 rounded-xl border border-gray-200 cursor-not-allowed"
-                        disabled
-                        title="Không có quyền xóa đơn vị"
+                        onClick={() => handleDeleteUnit(u)}
+                        className="p-2 bg-red-50 text-red-600 rounded-xl border border-red-200 hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-90"
+                        title={`Xóa vĩnh viễn tài khoản đơn vị ${u.username}`}
                       >
                         <Trash2 size={16} />
                       </button>

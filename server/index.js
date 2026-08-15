@@ -140,6 +140,21 @@ app.post('/api/users/sync', async (req, res) => {
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 app.put('/api/users/:username', async (req, res) => { try { const updateData = { ...req.body }; delete updateData._id; res.json(await User.findOneAndUpdate({ username: req.params.username }, updateData, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.delete('/api/users/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    if (username === 'ADMIN') {
+      return res.status(400).json({ message: 'Không thể xóa tài khoản Master Admin cấp cao nhất.' });
+    }
+    const deleted = await User.findOneAndDelete({ username });
+    if (!deleted) {
+      return res.status(404).json({ message: 'Không tìm thấy tài khoản cần xóa.' });
+    }
+    res.json({ success: true, message: 'Đã xóa tài khoản đơn vị thành công.' });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
 
 // --- RECRUIT API ---
 app.get('/api/recruits', async (req, res) => { try { res.json(await Recruit.find()); } catch (e) { res.status(500).json({ message: e.message }); } });

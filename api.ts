@@ -23,6 +23,7 @@ export const api = {
     } catch { return 'Lỗi kết nối máy chủ'; }
   },
   updateUser: async (u: string, d: any) => { if (isDemoMode()) return true; try { const res = await fetch(`${API_URL}/users/${u}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return res.ok; } catch { return false; } },
+  deleteUser: async (u: string) => { if (isDemoMode()) return true; try { const res = await fetch(`${API_URL}/users/${u}`, { method: 'DELETE' }); return res.ok; } catch { return false; } },
   syncAccount: async (d: any) => { if (isDemoMode()) return; try { await fetch(`${API_URL}/users/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); } catch {} },
 
   getRecruits: async () => { if (isDemoMode()) return getLocal('demo_recruits'); try { const res = await fetch(`${API_URL}/recruits`); const data = await res.json(); return Array.isArray(data) ? data : []; } catch { return []; } },
