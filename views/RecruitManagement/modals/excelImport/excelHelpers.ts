@@ -1,10 +1,22 @@
 import { RecruitmentStatus } from '../../../../types';
 import { EDUCATIONS } from '../../../../constants';
 
+// Chuẩn hóa chuỗi text nhiều dòng (hỗ trợ \r\n, \r, \n, _x000D_\n, _x000D_)
+export const normalizeMultilineText = (val: any): string => {
+  if (!val && val !== 0) return '';
+  return String(val)
+    .replace(/_x000D_\n/g, '\n')
+    .replace(/_x000D_/g, '\n')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
+};
+
 // Chuẩn hóa và nhận diện Trình độ học vấn / Chuyên môn kỹ thuật từ chuỗi Excel
 export const parseEducationDegree = (rawStr: string): string => {
   if (!rawStr) return 'Lớp 12';
-  const str = String(rawStr).trim();
+  const normalized = normalizeMultilineText(rawStr);
+  const str = normalized.trim();
   if (!str) return 'Lớp 12';
 
   const lower = str.toLowerCase();
@@ -214,41 +226,99 @@ export const extractCCCD = (str: string): string => {
   return match ? match[1] : '';
 };
 
-// Tự động làm sạch và chuẩn hóa Họ tên công dân
+// Tự động làm sạch và chuẩn hóa Họ tên công dân (lược bỏ hoàn toàn các chữ số tự nhiên trong họ tên)
 export const sanitizeName = (str: string): string => {
   if (!str) return '';
   let cleaned = str
     .replace(/[\x00-\x1F\x7F-\x9F\uFFFD]/g, '') // Bỏ ký tự điều khiển & replacement character
     .replace(/\?\?\?/g, '')
     .replace(/ï¿½/g, '')
-    .replace(/[@#$%^&*=+_<>\\\/~`]/g, '') // Bỏ ký tự đặc biệt rác
+    .replace(/[0-9]/g, ' ') // LƯỢC BỎ HOÀN TOÀN CÁC CHỮ SỐ TỰ NHIÊN TRONG HỌ VÀ TÊN
+    .replace(/[@#$%^&*=+_<>\\\/~`|!?;:()[\]{}'"]/g, ' ') // Bỏ ký tự đặc biệt rác
+    .replace(/[-–—•\*\+]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   return cleaned.toUpperCase();
 };
 
-// Trích xuất Họ tên công dân chính chủ từ dòng text
-export const extractNameFromCell = (cellText: string): string => {
-  if (!cellText) return '';
-  const lines = cellText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  
-  for (const line of lines) {
-    const lower = line.toLowerCase();
-    // Bỏ qua dòng tiêu đề phụ hoặc dòng thông tin thân nhân / nhãn tiêu đề
-    if (/cccd|cmnd|căn cước|định danh|ngày sinh|năm sinh|số thẻ|thẻ căn cước|số|loại|thôn|ấp|xã|cha:|mẹ:|vợ:|con:|họ, chữ đệm|họ và tên|khai sinh/i.test(lower)) continue;
-    if (/\b\d{9,12}\b/.test(line)) continue;
-    if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}\b/.test(line)) continue;
-    
-    if (/[a-zA-Zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ\s]{2,}/i.test(line)) {
-      return sanitizeName(line);
+// Trích xuất Họ tên công dân chính chủ từ ô text
+export const extractNameFromCell = (cellText: any): string => {
+  if (cellText === undefined || cellText === null || cellText === '') return '';
+  const normalized = normalizeMultilineText(cellText);
+  const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return '';
+
+  for (let line of lines) {
+    let cleanLine = line
+      .replace(/^[-–—•\*\+]\s*/, '') // bỏ dấu gạch đầu dòng
+      .replace(/^(họ và tên thường dùng|họ và tên khai sinh|họ, chữ đệm và tên thường dùng|họ, chữ đệm và tên khai sinh|họ và tên|họ tên|họ chữ đệm|họ tên khai sinh|tên công dân|họ và chữ đệm)\s*[:\-]?\s*/i, '')
+      .trim();
+
+    // Bỏ qua nếu dòng này là dòng thông tin thân nhân / nhãn tiêu đề / nơi ở / nghề nghiệp
+    const lower = cleanLine.toLowerCase();
+    if (/^(cha|mẹ|vợ|con|chồng|bố|phụ huynh|ông|bà)\s*:/i.test(lower)) continue;
+    if (isNonPersonName(cleanLine)) continue;
+    if (/^(cccd|cmnd|căn cước|định danh|ngày sinh|năm sinh|số thẻ|thẻ căn cước|nghề nghiệp|nơi làm việc|thành phần|học vấn|địa chỉ|thường trú|tạm trú|khen thưởng|kỷ luật|ghi chú)\b/i.test(lower)) continue;
+
+    // Loại bỏ ngày sinh / năm sinh / CCCD nếu nằm chung trên cùng một dòng (vd: "Đinh Quốc Trí - 04/04/2007" hoặc "Đinh Quốc Trí 04/04/2007")
+    cleanLine = cleanLine
+      .replace(/\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}\b/g, '')
+      .replace(/\b\d{9,12}\b/g, '')
+      .replace(/\b(199\d|20[0-2]\d)\b/g, '')
+      .replace(/[\(\[\{][^\)\]\}]*[\)\]\}]/g, '')
+      .replace(/[@#$%^&*=+_<>\\\/~`:]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanLine || isNonPersonName(cleanLine)) continue;
+
+    // Kiểm tra tên có chứa ít nhất 2 từ tiếng Việt hợp lệ (độ dài >= 3)
+    const words = cleanLine.split(/\s+/).filter(w => /[a-zA-Zàáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệđìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵ]/i.test(w));
+    if (words.length >= 2) {
+      return sanitizeName(cleanLine);
     }
   }
 
-  const firstClean = sanitizeName(lines[0] || '');
-  if (/căn cước|cccd|ngày sinh|định danh|số thẻ|họ và tên|họ, chữ đệm/i.test(firstClean.toLowerCase())) {
+  // Fallback: dòng đầu tiên được làm sạch
+  const firstLine = lines[0]
+    .replace(/^[-–—•\*\+]\s*/, '')
+    .replace(/^(họ và tên thường dùng|họ và tên khai sinh|họ, chữ đệm và tên thường dùng|họ, chữ đệm và tên khai sinh|họ và tên|họ tên|họ chữ đệm|họ tên khai sinh|tên công dân|họ và chữ đệm)\s*[:\-]?\s*/i, '')
+    .replace(/\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}\b/g, '')
+    .replace(/\b\d{9,12}\b/g, '')
+    .replace(/[\(\[\{][^\)\]\}]*[\)\]\}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const firstClean = sanitizeName(firstLine);
+  if (isNonPersonName(firstClean) || /căn cước|cccd|ngày sinh|định danh|số thẻ|họ và tên|họ, chữ đệm/i.test(firstClean.toLowerCase())) {
     return '';
   }
   return firstClean;
+};
+
+// Tự động quét tìm ô chứa Họ và tên công dân trong một hàng dữ liệu nếu cột được gán không tìm thấy
+export const findCitizenNameInRow = (row: any[], excludeColIndices: number[] = []): string => {
+  if (!Array.isArray(row)) return '';
+
+  for (let cIdx = 0; cIdx < row.length; cIdx++) {
+    if (excludeColIndices.includes(cIdx)) continue;
+    const cellVal = row[cIdx];
+    if (cellVal === undefined || cellVal === null || cellVal === '') continue;
+
+    const cellText = normalizeMultilineText(cellVal);
+    // Bỏ qua nếu ô chỉ là số STT thuần túy
+    if (/^\d{1,4}$/.test(cellText.trim())) continue;
+
+    const extracted = extractNameFromCell(cellText);
+    if (extracted && extracted.length >= 3 && !isNonPersonName(extracted)) {
+      const words = extracted.split(/\s+/).filter(Boolean);
+      if (words.length >= 2) {
+        return extracted;
+      }
+    }
+  }
+
+  return '';
 };
 
 // Kiểm tra cảnh báo font chữ, mã hóa UTF-8 hoặc chính tả (Không chặn nhập dữ liệu)
@@ -289,43 +359,66 @@ export const checkFontWarning = (str: string): { isWarning: boolean; detail?: st
 export const isHeaderOrMetadataRow = (row: any[]): boolean => {
   if (!Array.isArray(row) || row.length === 0) return true;
 
-  const joined = row.map(c => String(c || '').trim()).join(' ').toLowerCase();
-  if (!joined) return true;
+  const joined = row.map(c => normalizeMultilineText(c)).filter(Boolean).join(' ');
+  if (!joined || joined.trim().length === 0) return true;
 
-  const metadataKeywords = [
+  const lower = joined.toLowerCase();
+
+  // 1. Nếu dòng chứa các tiêu đề hành chính lớn ở đầu văn bản (Quyết định, Quốc hiệu, Tiêu ngữ, Tên bảng biểu)
+  const docHeaderKeywords = [
     'bộ chỉ huy quân sự',
     'cộng hòa xã hội chủ nghĩa',
+    'độc lập - tự do - hạnh phúc',
+    'hội đồng nghĩa vụ quân sự',
+    'ủy ban nhân dân',
     'danh sách công dân',
     'biểu số:',
     'khổ biểu:',
+    'mẫu biểu:',
+    'theo điều 5',
+    'theo điều 6',
+    'thông tư 50',
+    'quyết định số'
+  ];
+
+  for (const kw of docHeaderKeywords) {
+    if (lower.includes(kw)) return true;
+  }
+
+  // 2. Kiểm tra nếu hàng là dòng tiêu đề các cột của bảng (Chứa >= 2 từ khóa tiêu đề cột)
+  const colHeaderKeywords = [
     'số tt',
-    'stt',
     'họ, chữ đệm',
-    'họ và tên',
+    'họ và tên khai sinh',
+    'ngày,tháng, năm sinh',
     'ngày, tháng, năm sinh',
+    'số cccd',
     'số định danh cá nhân',
     'số thẻ căn cước',
     'thẻ căn cước/cccd',
-    'thẻ căn cước',
-    'căn cước công dân',
     'thành phần gia đình',
     'trình độ văn hóa',
     'họ và tên cha',
-    'họ và tên mẹ',
+    'họ tên cha, mẹ',
+    'họ tên cha, năm sinh',
+    'khen thưởng, kỷ luật',
     'đơn vị giao nhận',
-    'tính từ ngày',
-    'nơi thường trú',
     'chuyên môn kỹ thuật'
   ];
 
-  for (const kw of metadataKeywords) {
-    if (joined.includes(kw)) return true;
+  let matchCount = 0;
+  for (const kw of colHeaderKeywords) {
+    if (lower.includes(kw)) {
+      matchCount++;
+    }
   }
+  // Nếu có từ 2 tiêu đề cột trở lên trong cùng 1 dòng -> chắc chắn là dòng tiêu đề bảng
+  if (matchCount >= 2) return true;
 
-  // Dòng đánh số thứ tự cột [1], [2], [3], [4]...
+  // 3. Dòng đánh số thứ tự cột [1], [2], [3], [4]...
   const nonNumCells = row.filter(c => {
     const s = String(c || '').trim();
-    return s !== '' && !/^\d{1,2}$/.test(s);
+    return s !== '' && !/^\(?\d{1,2}\)?$/.test(s);
   });
   if (nonNumCells.length === 0 && row.filter(c => String(c || '').trim() !== '').length >= 3) {
     return true;
@@ -478,14 +571,45 @@ export const isNonPersonName = (str: string): boolean => {
 };
 
 export interface ParentInfoParsed {
-  father: { fullName: string; birthYear: string; job: string };
-  mother: { fullName: string; birthYear: string; job: string };
+  father: { fullName: string; birthYear: string; job: string; isDeceased?: boolean };
+  mother: { fullName: string; birthYear: string; job: string; isDeceased?: boolean };
 }
+
+// Kiểm tra tình trạng cha/mẹ đã mất/chết/qua đời
+export const isParentDeceased = (str?: string): boolean => {
+  if (!str) return false;
+  const lower = str.toLowerCase().trim();
+  return /^(chết|đã chết|mất|đã mất|qua đời|đã qua đời|từ trần|hi sinh|liệt sĩ|liệt sỹ)\b/i.test(lower) ||
+         /\b(đã chết|đã mất|qua đời|đã qua đời|từ trần|hi sinh|liệt sĩ|liệt sỹ)\b/i.test(lower) ||
+         lower === 'chết' || lower === 'mất';
+};
+
+// Làm sạch nghề nghiệp thân nhân (Nếu là chết/đã chết/mất thì tự động điền thành "Không" vì đã có cột Sống/chết riêng)
+export const cleanParentJob = (job?: string): string => {
+  if (!job) return 'Không';
+  let clean = job.trim();
+  if (isParentDeceased(clean)) {
+    // Loại bỏ các từ chỉ tình trạng chết khỏi nghề nghiệp
+    clean = clean
+      .replace(/\b(đã chết|đã mất|qua đời|đã qua đời|từ trần|hi sinh|liệt sĩ|liệt sỹ|chết|mất)\b/gi, '')
+      .replace(/[\(\[\{][^\)\]\}]*[\)\]\}]/g, '')
+      .replace(/^[:,\-\s\(\)]+/, '')
+      .replace(/[:,\-\s\(\)]+$/, '')
+      .trim();
+    if (!clean || clean === '---' || clean.toLowerCase() === 'không' || clean.toLowerCase() === 'chưa cập nhật') {
+      return 'Không';
+    }
+  }
+  if (!clean || clean === '---' || clean.toLowerCase() === 'chưa cập nhật' || clean.toLowerCase() === 'chua cap nhat') {
+    return 'Không';
+  }
+  return clean;
+};
 
 export const parseParentInfo = (textInputs: (string | undefined | null)[]): ParentInfoParsed => {
   const result: ParentInfoParsed = {
-    father: { fullName: '', birthYear: '', job: '' },
-    mother: { fullName: '', birthYear: '', job: '' }
+    father: { fullName: '', birthYear: '', job: '', isDeceased: false },
+    mother: { fullName: '', birthYear: '', job: '', isDeceased: false }
   };
 
   if (!textInputs || textInputs.length === 0) return result;
@@ -629,7 +753,7 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
       'làm vườn', 'kinh doanh', 'thất nghiệp', 'phụ giúp gia đình', 'bần nông', 'trung nông',
       'ở nhà', 'làm mộc', 'làm thuê', 'làm rẫy', 'làm nông', 'thợ mộc', 'thợ xây', 'thợ sắt',
       'thợ điện', 'thợ cơ khí', 'lái xe', 'tài xế', 'bảo vệ', 'buôn bán nhỏ', 'chăn nuôi',
-      'trồng trọt', 'đã mất', 'qua đời', 'mất'
+      'trồng trọt', 'đã mất', 'qua đời', 'đã chết', 'mất', 'chết', 'liệt sĩ', 'liệt sỹ', 'từ trần'
     ];
 
     let name = text;
@@ -661,6 +785,9 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
         }
       }
     }
+
+    // Làm sạch Họ tên người (lược bỏ chữ số)
+    name = sanitizeName(name);
 
     return { name, job };
   };
@@ -756,6 +883,13 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
 
   result.father.birthYear = formatYear4(result.father.birthYear);
   result.mother.birthYear = formatYear4(result.mother.birthYear);
+
+  // Xử lý tình trạng chết/mất và chuẩn hóa nghề nghiệp thành "Không" nếu chết
+  result.father.isDeceased = isParentDeceased(result.father.job);
+  result.father.job = cleanParentJob(result.father.job);
+
+  result.mother.isDeceased = isParentDeceased(result.mother.job);
+  result.mother.job = cleanParentJob(result.mother.job);
 
   return result;
 };

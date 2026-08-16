@@ -27,7 +27,20 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
   }, []);
 
   const handleChange = (field: keyof CurriculumVitae, value: string) => {
-    const updated = { ...cv, [field]: value };
+    let updated = { ...cv, [field]: value };
+    if (field === 'fatherJob') {
+      const lower = value.toLowerCase().trim();
+      if (lower === 'chết' || lower === 'đã chết' || lower === 'mất' || lower === 'đã mất' || lower === 'qua đời') {
+        updated.fatherJob = 'Không';
+        updated.fatherStatus = 'Chết';
+      }
+    } else if (field === 'motherJob') {
+      const lower = value.toLowerCase().trim();
+      if (lower === 'chết' || lower === 'đã chết' || lower === 'mất' || lower === 'đã mất' || lower === 'qua đời') {
+        updated.motherJob = 'Không';
+        updated.motherStatus = 'Chết';
+      }
+    }
     onUpdateCV(updated);
   };
 

@@ -26,7 +26,11 @@ import {
   parseParentInfo,
   parseAddressInfo,
   extractBirthYearFromCCCD,
-  parseEducationDegree
+  parseEducationDegree,
+  findCitizenNameInRow,
+  normalizeMultilineText,
+  isParentDeceased,
+  cleanParentJob
 } from './excelImport/excelHelpers';
 
 import { hasDefermentReason, hasExemptionReason, isRealDefermentReason } from '../utils';
@@ -114,7 +118,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         throw new Error("Tệp Excel không có dữ liệu!");
       }
 
-      // 1. TÌM DÒNG TIÊU ĐỀ (HEADER ROW) VÀ XÁC ĐỊNH VỊ TRÍ CỘT DỮ LIỆU
+      // 1. TÌM DÒNG TIÊU ĐỀ (HEADER ROW) VÀ XÁC ĐỊNH VỊ TRÍ CÁC CỘT DỮ LIỆU
       let headerRowIndex = -1;
       let nameCol = -1;
       let dobCol = -1;
@@ -127,160 +131,131 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
       let reasonCol = -1;
       let familyBgCol = -1;
       let parentColIndices: number[] = [];
-      let isOfficialExportFormat = false;
-      let officialColIndex = -1;
+
+      let bestHeaderScore = -1;
 
       for (let i = 0; i < Math.min(rawRows.length, 25); i++) {
         const row = rawRows[i];
         if (!Array.isArray(row) || row.length === 0) continue;
 
-        const rowStr = row.map(cell => String(cell || '').toLowerCase()).join(' ');
+        let score = 0;
+        row.forEach(cell => {
+          const str = normalizeMultilineText(cell).toLowerCase();
+          if (!str) return;
+          if (str.includes('stt') || str.includes('số tt') || str === 'tt') score += 2;
+          if (str.includes('họ, chữ đệm') || str.includes('họ và tên') || str.includes('họ tên') || str.includes('khai sinh')) score += 3;
+          if (str.includes('ngày sinh') || str.includes('năm sinh') || str.includes('ngày, tháng') || str.includes('ngày,tháng')) score += 2;
+          if (str.includes('cccd') || str.includes('căn cước') || str.includes('định danh')) score += 2;
+          if (str.includes('nghề nghiệp') || str.includes('nơi làm việc')) score += 2;
+          if (str.includes('thường trú') || str.includes('nơi ở') || str.includes('địa chỉ') || str.includes('thôn') || str.includes('ấp')) score += 2;
+          if (str.includes('thành phần')) score += 2;
+          if (str.includes('học vấn') || str.includes('văn hóa') || str.includes('cmkt') || str.includes('trình độ')) score += 2;
+          if (str.includes('cha') || str.includes('mẹ') || str.includes('thân nhân')) score += 2;
+          if (str.includes('khen thưởng') || str.includes('kỷ luật')) score += 2;
+          if (str.includes('ghi chú') || str.includes('lý do')) score += 2;
+        });
 
-        if (
-          rowStr.includes('stt') || 
-          rowStr.includes('số tt') || 
-          rowStr.includes('họ') || 
-          rowStr.includes('tên') || 
-          rowStr.includes('cccd') || 
-          rowStr.includes('ngày sinh')
-        ) {
+        if (score > bestHeaderScore && score >= 3) {
+          bestHeaderScore = score;
           headerRowIndex = i;
-
-          row.forEach((cell, colIdx) => {
-            const cellStr = String(cell || '').trim().toLowerCase();
-
-            if (cellStr.includes('thành phần gia đình') || cellStr.includes('thành phần bản thân') || cellStr.includes('dân tộc') || cellStr.includes('tôn giáo')) {
-              familyBgCol = colIdx;
-            }
-
-            if (
-              cellStr.includes('cha') || 
-              cellStr.includes('mẹ') || 
-              cellStr.includes('thân nhân') || 
-              cellStr.includes('phụ huynh') ||
-              cellStr.includes('ông, bà') ||
-              cellStr.includes('gia đình')
-            ) {
-              if (!parentColIndices.includes(colIdx)) parentColIndices.push(colIdx);
-              // Bổ sung các cột kế tiếp (VD: Năm sinh cha, Nghề nghiệp cha, Năm sinh mẹ, Nghề nghiệp mẹ)
-              [1, 2, 3, 4, 5].forEach(offset => {
-                const nextColIdx = colIdx + offset;
-                if (!parentColIndices.includes(nextColIdx) && nextColIdx < row.length) {
-                  parentColIndices.push(nextColIdx);
-                }
-              });
-            }
-
-            if (
-              !cellStr.includes('cha') && 
-              !cellStr.includes('mẹ') && 
-              !cellStr.includes('vợ') && 
-              !cellStr.includes('chồng') &&
-              !cellStr.includes('thân nhân') &&
-              !cellStr.includes('gia đình') &&
-              !cellStr.includes('phụ huynh')
-            ) {
-              if (
-                cellStr.includes('họ và tên') || 
-                cellStr.includes('họ tên') || 
-                cellStr.includes('họ, chữ đệm') || 
-                cellStr.includes('tên công dân') ||
-                cellStr.includes('khai sinh')
-              ) {
-                if (nameCol === -1) nameCol = colIdx;
-              }
-
-              if (
-                cellStr.includes('ngày sinh') || 
-                cellStr.includes('năm sinh') || 
-                cellStr.includes('dob')
-              ) {
-                if (dobCol === -1) dobCol = colIdx;
-              }
-
-              if (
-                cellStr.includes('cccd') || 
-                cellStr.includes('cmnd') || 
-                cellStr.includes('số định danh') || 
-                cellStr.includes('thẻ căn cước')
-              ) {
-                if (cccdCol === -1) cccdCol = colIdx;
-              }
-
-              if (cellStr.includes('thôn') || cellStr.includes('ấp') || cellStr.includes('tổ dân phố') || cellStr.includes('khóm')) {
-                villageCol = colIdx;
-              }
-
-              if (cellStr.includes('thường trú') || cellStr.includes('địa chỉ') || cellStr.includes('quê quán') || cellStr.includes('hktt')) {
-                if (villageCol !== colIdx) addressCol = colIdx;
-              }
-
-              if (cellStr.includes('văn hóa') || cellStr.includes('học vấn') || cellStr.includes('trình độ')) {
-                eduCol = colIdx;
-              }
-
-              if (cellStr.includes('chuyên môn') || cellStr.includes('kỹ thuật') || cellStr.includes('nghề nghiệp')) {
-                jobCol = colIdx;
-              }
-
-              if (cellStr.includes('sức khỏe') || cellStr.includes('loại sk') || cellStr.includes('phân loại')) {
-                healthCol = colIdx;
-              }
-
-              if (
-                cellStr.includes('lý do') || 
-                cellStr.includes('tạm hoãn') || 
-                cellStr.includes('miễn') || 
-                cellStr.includes('ghi chú') || 
-                cellStr.includes('tình trạng')
-              ) {
-                reasonCol = colIdx;
-              }
-
-              // Kiểm tra nếu ô tiêu đề chứa đồng thời Họ tên + Ngày sinh/CCCD (Biểu mẫu gộp)
-              if (
-                (cellStr.includes('họ, chữ đệm') || cellStr.includes('khai sinh') || cellStr.includes('họ và tên')) &&
-                (cellStr.includes('ngày, tháng') || cellStr.includes('năm sinh') || cellStr.includes('căn cước') || cellStr.includes('cccd'))
-              ) {
-                isOfficialExportFormat = true;
-                officialColIndex = colIdx;
-                nameCol = colIdx;
-                dobCol = colIdx;
-                cccdCol = colIdx;
-              }
-            }
-          });
-
-          // Dự phòng quét cột có tiêu đề gộp
-          if (!isOfficialExportFormat) {
-            row.forEach((c, idx) => {
-              const cStr = String(c || '').toLowerCase();
-              if ((cStr.includes('họ, chữ đệm') || cStr.includes('khai sinh')) && (cStr.includes('căn cước') || cStr.includes('ngày sinh'))) {
-                isOfficialExportFormat = true;
-                officialColIndex = idx;
-                nameCol = idx;
-                dobCol = idx;
-                cccdCol = idx;
-              }
-            });
-          }
-
-          break;
         }
       }
 
-      // Dự phòng vị trí cột tiêu chuẩn
+      if (headerRowIndex !== -1) {
+        const headerRow = rawRows[headerRowIndex] || [];
+        const nextRow = rawRows[headerRowIndex + 1] || [];
+
+        headerRow.forEach((cell, colIdx) => {
+          const cellStr = (normalizeMultilineText(cell) + ' ' + normalizeMultilineText(nextRow[colIdx])).toLowerCase().trim();
+
+          if (cellStr.includes('thành phần gia đình') || cellStr.includes('thành phần bản thân') || cellStr.includes('dân tộc') || cellStr.includes('tôn giáo')) {
+            familyBgCol = colIdx;
+          }
+
+          if (
+            cellStr.includes('cha') || 
+            cellStr.includes('mẹ') || 
+            cellStr.includes('thân nhân') || 
+            cellStr.includes('phụ huynh') ||
+            cellStr.includes('ông, bà') ||
+            cellStr.includes('gia đình')
+          ) {
+            if (!parentColIndices.includes(colIdx)) parentColIndices.push(colIdx);
+          }
+
+          if (
+            !cellStr.includes('cha') && 
+            !cellStr.includes('mẹ') && 
+            !cellStr.includes('vợ') && 
+            !cellStr.includes('chồng') &&
+            !cellStr.includes('thân nhân') &&
+            !cellStr.includes('phụ huynh')
+          ) {
+            if (
+              cellStr.includes('họ và tên') || 
+              cellStr.includes('họ tên') || 
+              cellStr.includes('họ, chữ đệm') || 
+              cellStr.includes('tên công dân') ||
+              cellStr.includes('khai sinh')
+            ) {
+              if (nameCol === -1) nameCol = colIdx;
+            }
+
+            if (
+              cellStr.includes('ngày sinh') || 
+              cellStr.includes('năm sinh') || 
+              cellStr.includes('ngày, tháng') ||
+              cellStr.includes('ngày,tháng') ||
+              cellStr.includes('dob')
+            ) {
+              if (dobCol === -1) dobCol = colIdx;
+            }
+
+            if (
+              cellStr.includes('cccd') || 
+              cellStr.includes('cmnd') || 
+              cellStr.includes('số định danh') || 
+              cellStr.includes('thẻ căn cước')
+            ) {
+              if (cccdCol === -1) cccdCol = colIdx;
+            }
+
+            if (cellStr.includes('thôn') || cellStr.includes('ấp') || cellStr.includes('tổ dân phố') || cellStr.includes('khóm')) {
+              if (villageCol === -1) villageCol = colIdx;
+            }
+
+            if (cellStr.includes('thường trú') || cellStr.includes('nơi ở') || cellStr.includes('địa chỉ') || cellStr.includes('quê quán') || cellStr.includes('hktt')) {
+              if (addressCol === -1) addressCol = colIdx;
+            }
+
+            if (cellStr.includes('văn hóa') || cellStr.includes('học vấn') || cellStr.includes('trình độ') || cellStr.includes('cmkt')) {
+              if (eduCol === -1) eduCol = colIdx;
+            }
+
+            if (cellStr.includes('chuyên môn') || cellStr.includes('kỹ thuật') || cellStr.includes('nghề nghiệp') || cellStr.includes('nơi làm việc')) {
+              if (jobCol === -1) jobCol = colIdx;
+            }
+
+            if (cellStr.includes('sức khỏe') || cellStr.includes('loại sk') || cellStr.includes('phân loại')) {
+              if (healthCol === -1) healthCol = colIdx;
+            }
+
+            if (
+              cellStr.includes('lý do') || 
+              cellStr.includes('tạm hoãn') || 
+              cellStr.includes('miễn') || 
+              cellStr.includes('ghi chú') || 
+              cellStr.includes('tình trạng')
+            ) {
+              if (reasonCol === -1) reasonCol = colIdx;
+            }
+          }
+        });
+      }
+
+      // Dự phòng vị trí cột nếu không tìm thấy header rõ ràng
       if (headerRowIndex === -1) {
-        headerRowIndex = 3;
-        nameCol = 1;
-        dobCol = 2;
-        cccdCol = 3;
-        villageCol = 4;
-        addressCol = 5;
-        eduCol = 6;
-        jobCol = 7;
-        healthCol = 8;
-        reasonCol = 9;
+        headerRowIndex = 0;
       }
 
       // 2. LỌC CHÍNH XÁC CÁC DÒNG CÔNG DÂN THỰC TẾ (LOẠI BỎ HẰNG ĐẲNG CÁC DÒNG TIÊU ĐỀ PHỤ)
@@ -335,82 +310,116 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         const row = item.cells;
         const rowNumberInExcel = item.rowNumberInExcel;
 
-        const rowJoinedText = row.map(c => String(c || '')).join(' \n ');
+        const rowJoinedText = row.map(c => normalizeMultilineText(c)).join(' \n ');
 
         let rawName = '';
         let rawDob = '';
         let rawCccd = '';
         let village = 'Ấp Mỹ An';
         let address = '';
-        let edu = '12/12';
+        let edu = 'Lớp 12';
         let job = 'Không';
         let parsedHealthGrade = 1;
         let reason = '';
+        let familyBgText = '';
+        let isYouthUnion = true;
+        let isParty = false;
+        let ethnicity = 'Kinh';
+        let religion = 'Không';
+        let familyComposition = 'Nông dân';
+        let personalComposition = 'Phụ thuộc';
 
-        if (isOfficialExportFormat) {
-          const mainColIdx = officialColIndex >= 0 ? officialColIndex : 1;
-          const col1Text = String(row[mainColIdx] || '');
-          rawCccd = extractCCCD(col1Text) || extractCCCD(rowJoinedText);
-          rawName = extractNameFromCell(col1Text) || extractNameFromCell(rowJoinedText);
-          rawDob = parseExcelDate(col1Text);
+        // 1. Trích xuất Tên công dân
+        if (nameCol >= 0 && row[nameCol] !== undefined) {
+          rawName = extractNameFromCell(row[nameCol]);
+        }
 
-          const col3Address = String(row[mainColIdx + 2] || row[3] || '');
-          if (col3Address) {
-            const parsedAddr = parseAddressInfo(col3Address, '', 'Ấp Mỹ An');
-            village = parsedAddr.village;
-            address = parsedAddr.street;
-          }
+        // Nếu cột Name chưa tìm được tên hợp lệ, tự động quét toàn bộ hàng để tìm ô chứa tên công dân
+        if (!rawName || rawName.length < 2) {
+          rawName = findCitizenNameInRow(row, parentColIndices);
+        }
 
-          const col5Edu = String(row[mainColIdx + 4] || row[5] || '');
-          if (col5Edu) {
-            edu = parseEducationDegree(col5Edu);
-          }
+        // 2. Trích xuất Ngày/Tháng/Năm sinh
+        if (dobCol >= 0 && row[dobCol] !== undefined) {
+          rawDob = parseExcelDate(row[dobCol]);
+        }
+        if (!rawDob && nameCol >= 0 && row[nameCol] !== undefined) {
+          rawDob = parseExcelDate(row[nameCol]);
+        }
+        if (!rawDob) {
+          rawDob = parseExcelDate(rowJoinedText);
+        }
 
-          const lastColText = String(row[row.length - 1] || '');
-          if (lastColText && lastColText !== '---') reason = lastColText.trim();
+        // 3. Trích xuất Số CCCD / CMND
+        if (cccdCol >= 0 && row[cccdCol] !== undefined) {
+          rawCccd = extractCCCD(String(row[cccdCol]));
+        }
+        if (!rawCccd && nameCol >= 0 && row[nameCol] !== undefined) {
+          rawCccd = extractCCCD(String(row[nameCol]));
+        }
+        if (!rawCccd) {
+          rawCccd = extractCCCD(rowJoinedText);
+        }
 
-        } else {
-          const nameCellText = nameCol >= 0 ? String(row[nameCol] || '').trim() : '';
-          rawName = extractNameFromCell(nameCellText) || nameCellText;
-
-          const cccdCellText = cccdCol >= 0 ? String(row[cccdCol] || '').trim() : '';
-          rawCccd = extractCCCD(cccdCellText) || extractCCCD(rowJoinedText);
-
-          const dobCellVal = dobCol >= 0 ? row[dobCol] : '';
-          rawDob = parseExcelDate(dobCellVal);
-
-          // Nếu cột DOB riêng chưa trích xuất được, thử trích xuất từ cột Họ tên (trường hợp ô gộp)
-          if (!rawDob && nameCellText) {
-            rawDob = parseExcelDate(nameCellText);
-          }
-
-          const rawVillageVal = villageCol >= 0 && row[villageCol] ? String(row[villageCol]).trim() : '';
-          const rawStreetVal = addressCol >= 0 && row[addressCol] ? String(row[addressCol]).trim() : '';
-
-          const parsedAddr = parseAddressInfo(rawStreetVal, rawVillageVal, 'Ấp Mỹ An');
-          village = parsedAddr.village;
-          address = parsedAddr.street;
-
-          if (eduCol >= 0 && row[eduCol]) {
-            edu = parseEducationDegree(String(row[eduCol]));
-          }
-
-          if (jobCol >= 0 && row[jobCol]) {
-            job = String(row[jobCol]).trim();
-          }
-
-          if (healthCol >= 0 && row[healthCol]) {
-            const hVal = row[healthCol];
-            if (typeof hVal === 'number' && hVal >= 1 && hVal <= 6) {
-              parsedHealthGrade = hVal;
-            } else if (typeof hVal === 'string') {
-              const matchNum = hVal.match(/[1-6]/);
-              if (matchNum) parsedHealthGrade = parseInt(matchNum[0]);
+        // 4. Trích xuất Nghề nghiệp
+        if (jobCol >= 0 && row[jobCol] !== undefined) {
+          const jStr = normalizeMultilineText(row[jobCol]).trim();
+          if (jStr) {
+            const firstLine = jStr.split('\n')[0].replace(/^[-–—•\*\+]\s*/, '').trim();
+            if (firstLine && firstLine !== '---' && !firstLine.toLowerCase().includes('nghề nghiệp')) {
+              job = firstLine;
             }
           }
+        }
 
-          if (reasonCol >= 0 && row[reasonCol]) {
-            reason = String(row[reasonCol]).trim();
+        // 5. Trích xuất Nơi thường trú / Địa chỉ / Thôn ấp
+        const rawVillageVal = villageCol >= 0 && row[villageCol] !== undefined ? String(row[villageCol]).trim() : '';
+        const rawStreetVal = addressCol >= 0 && row[addressCol] !== undefined ? String(row[addressCol]).trim() : '';
+
+        const parsedAddr = parseAddressInfo(rawStreetVal, rawVillageVal, 'Ấp Mỹ An');
+        village = parsedAddr.village;
+        address = parsedAddr.street;
+
+        // 6. Trích xuất Thành phần gia đình / Dân tộc / Tôn giáo
+        if (familyBgCol >= 0 && row[familyBgCol] !== undefined) {
+          familyBgText = normalizeMultilineText(row[familyBgCol]).trim();
+          if (familyBgText) {
+            const lines = familyBgText.split('\n').map(l => l.replace(/^[-–—•\*\+]\s*/, '').trim()).filter(Boolean);
+            if (lines[0]) familyComposition = lines[0];
+            if (lines[1]) ethnicity = lines[1];
+            if (lines[2]) religion = lines[2];
+          }
+        }
+
+        // 7. Trích xuất Trình độ học vấn & Đoàn / Đảng
+        if (eduCol >= 0 && row[eduCol] !== undefined) {
+          const eduRaw = normalizeMultilineText(row[eduCol]).trim();
+          edu = parseEducationDegree(eduRaw);
+          const lowerEdu = eduRaw.toLowerCase();
+          if (lowerEdu.includes('đoàn') || lowerEdu.includes('doan')) isYouthUnion = true;
+          if (lowerEdu.includes('đảng') || lowerEdu.includes('dang')) isParty = true;
+        }
+
+        // 8. Trích xuất Sức khỏe / Khen thưởng
+        if (healthCol >= 0 && row[healthCol] !== undefined) {
+          const hVal = row[healthCol];
+          if (typeof hVal === 'number' && hVal >= 1 && hVal <= 6) {
+            parsedHealthGrade = hVal;
+          } else if (typeof hVal === 'string') {
+            const matchNum = hVal.match(/[1-6]/);
+            if (matchNum) parsedHealthGrade = parseInt(matchNum[0]);
+          }
+        }
+
+        // 9. Trích xuất Lý do tạm hoãn / Miễn / Ghi chú
+        if (reasonCol >= 0 && row[reasonCol] !== undefined) {
+          const rStr = normalizeMultilineText(row[reasonCol]).trim();
+          if (rStr && rStr !== '---') reason = rStr;
+        } else {
+          // Lấy ô cuối cùng nếu không xác định được cột lý do
+          const lastCell = normalizeMultilineText(row[row.length - 1]).trim();
+          if (lastCell && lastCell !== '---' && lastCell.length > 2) {
+            reason = lastCell;
           }
         }
 
@@ -476,19 +485,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         // Quét tự động nhận dạng thông tin Cha / Mẹ từ các ô trong hàng
         const parentTexts: string[] = [];
 
-        if (isOfficialExportFormat) {
-          // Biểu mẫu xuất bản chính thức (Biểu mẫu NVQS): Cột 7 (Index = officialColIndex + 5) là cột Thông tin Cha, Mẹ
-          const pCol = officialColIndex >= 0 ? officialColIndex + 5 : 6;
-          if (row[pCol] !== undefined && row[pCol] !== null) {
-            const valStr = String(row[pCol]).trim();
-            if (valStr) parentTexts.push(valStr);
-          }
-        }
-
         if (parentColIndices.length > 0) {
           parentColIndices.forEach(pCol => {
             if (row[pCol] !== undefined && row[pCol] !== null) {
-              const valStr = String(row[pCol]).trim();
+              const valStr = normalizeMultilineText(row[pCol]).trim();
               if (valStr && !parentTexts.includes(valStr)) {
                 parentTexts.push(valStr);
               }
@@ -672,6 +672,31 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           const existingStreet = existing.address?.street || '';
           const cleanExistingStreet = (existingStreet.toLowerCase() === village.toLowerCase()) ? '' : existingStreet;
 
+          const finalFatherName = parsedParents.father.fullName || existing.family?.father?.fullName || '';
+          const finalFatherBirthYear = parsedParents.father.birthYear || existing.family?.father?.birthYear || '';
+          const rawFatherJob = parsedParents.father.job || existing.family?.father?.job || '';
+          const finalFatherDeceased = parsedParents.father.isDeceased || isParentDeceased(rawFatherJob);
+          const finalFatherJob = cleanParentJob(rawFatherJob);
+
+          const finalMotherName = parsedParents.mother.fullName || existing.family?.mother?.fullName || '';
+          const finalMotherBirthYear = parsedParents.mother.birthYear || existing.family?.mother?.birthYear || '';
+          const rawMotherJob = parsedParents.mother.job || existing.family?.mother?.job || '';
+          const finalMotherDeceased = parsedParents.mother.isDeceased || isParentDeceased(rawMotherJob);
+          const finalMotherJob = cleanParentJob(rawMotherJob);
+
+          const existingCV = existing.curriculumVitae || {};
+          const updatedCV = {
+            ...existingCV,
+            fatherName: finalFatherName || existingCV.fatherName || '',
+            fatherBirthDate: finalFatherBirthYear || existingCV.fatherBirthDate || '',
+            fatherJob: finalFatherJob || existingCV.fatherJob || 'Không',
+            fatherStatus: finalFatherDeceased ? 'Chết' : (existingCV.fatherStatus || 'Sống'),
+            motherName: finalMotherName || existingCV.motherName || '',
+            motherBirthDate: finalMotherBirthYear || existingCV.motherBirthDate || '',
+            motherJob: finalMotherJob || existingCV.motherJob || 'Không',
+            motherStatus: finalMotherDeceased ? 'Chết' : (existingCV.motherStatus || 'Sống')
+          };
+
           const updatedRecruit: Recruit = {
             ...existing,
             citizenId: (cleanRawCccd && /^\d{9,12}$/.test(cleanRawCccd)) ? cleanRawCccd : (existing.citizenId || cleanRawCccd || ''),
@@ -699,20 +724,21 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             },
             family: {
               father: {
-                fullName: parsedParents.father.fullName || existing.family?.father?.fullName || '',
-                birthYear: parsedParents.father.birthYear || existing.family?.father?.birthYear || '',
-                job: parsedParents.father.job || existing.family?.father?.job || '',
+                fullName: finalFatherName,
+                birthYear: finalFatherBirthYear,
+                job: finalFatherJob,
                 phoneNumber: existing.family?.father?.phoneNumber || ''
               },
               mother: {
-                fullName: parsedParents.mother.fullName || existing.family?.mother?.fullName || '',
-                birthYear: parsedParents.mother.birthYear || existing.family?.mother?.birthYear || '',
-                job: parsedParents.mother.job || existing.family?.mother?.job || '',
+                fullName: finalMotherName,
+                birthYear: finalMotherBirthYear,
+                job: finalMotherJob,
                 phoneNumber: existing.family?.mother?.phoneNumber || ''
               },
               wife: existing.family?.wife || { ...emptyFamilyMember },
               children: existing.family?.children || ''
             },
+            curriculumVitae: updatedCV,
             status: targetStatus,
             defermentReason: finalReason,
             updatedAt: new Date().toISOString()
@@ -735,6 +761,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           if (citizenAge < 18) {
             targetStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
           }
+
+          const fatherJobClean = cleanParentJob(parsedParents.father.job);
+          const fatherIsDeceased = parsedParents.father.isDeceased || isParentDeceased(parsedParents.father.job);
+          const motherJobClean = cleanParentJob(parsedParents.mother.job);
+          const motherIsDeceased = parsedParents.mother.isDeceased || isParentDeceased(parsedParents.mother.job);
 
           const newRecruit: Recruit = {
             id: Date.now().toString(36) + Math.random().toString(36).substring(2) + idx,
@@ -765,29 +796,71 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             },
             details: {
               education: edu || '12/12',
-              ethnicity: 'Kinh',
-              religion: 'Không',
+              ethnicity: ethnicity || 'Kinh',
+              religion: religion || 'Không',
               maritalStatus: 'Độc thân',
               job: job || 'Không',
-              politicalStatus: 'Doan_Vien',
-              familyComposition: 'Nông dân',
-              personalComposition: 'Phụ thuộc'
+              politicalStatus: isParty ? 'Dang_Vien' : (isYouthUnion ? 'Doan_Vien' : 'None'),
+              familyComposition: familyComposition || 'Nông dân',
+              personalComposition: personalComposition || 'Phụ thuộc'
             },
             family: {
               father: {
                 fullName: parsedParents.father.fullName || '',
                 birthYear: parsedParents.father.birthYear || '',
-                job: parsedParents.father.job || '',
+                job: fatherJobClean,
                 phoneNumber: ''
               },
               mother: {
                 fullName: parsedParents.mother.fullName || '',
                 birthYear: parsedParents.mother.birthYear || '',
-                job: parsedParents.mother.job || '',
+                job: motherJobClean,
                 phoneNumber: ''
               },
               wife: { ...emptyFamilyMember },
               children: ''
+            },
+            curriculumVitae: {
+              fullNameUpper: cleanedName.toUpperCase(),
+              aliasName: cleanedName,
+              gender: 'Nam',
+              citizenId: cleanRawCccd || '',
+              ethnicity: ethnicity || 'Kinh',
+              religion: religion || 'Không',
+              nationality: 'Việt Nam',
+              familyClass: familyComposition || 'Nông dân',
+              personalClass: personalComposition || 'Học sinh / Lao động',
+              educationLevel: edu || '12/12',
+              qualificationLevel: 'Không',
+              languageLevel: 'Không',
+              major: 'Không',
+              communistPartyJoinedDate: isParty ? 'Đã kết nạp' : 'Không',
+              communistPartyOfficialDate: 'Không',
+              youthUnionJoinedDate: isYouthUnion ? 'Đã vào đoàn' : 'Không',
+              commendations: 'Không',
+              disciplinaryAction: 'Không',
+              job: job || 'Không',
+              salary: 'Không',
+              salaryGrade: 'Không',
+              salaryRank: 'Không',
+              workplace: 'Không',
+              foreignTravel: 'Không',
+              fatherName: parsedParents.father.fullName || '',
+              fatherBirthDate: parsedParents.father.birthYear || '',
+              fatherJob: fatherJobClean,
+              fatherStatus: fatherIsDeceased ? 'Chết' : 'Sống',
+              motherName: parsedParents.mother.fullName || '',
+              motherBirthDate: parsedParents.mother.birthYear || '',
+              motherJob: motherJobClean,
+              motherStatus: motherIsDeceased ? 'Chết' : 'Sống',
+              spouseName: 'Không',
+              spouseBirthDate: 'Không',
+              spouseJob: 'Không',
+              childrenCount: '0',
+              totalSiblings: '1',
+              maleSiblings: '1',
+              femaleSiblings: '0',
+              siblingOrder: '1'
             },
             status: targetStatus,
             defermentReason: (targetStatus === RecruitmentStatus.DEFERRED || targetStatus === RecruitmentStatus.EXEMPTED || isRealDefer || isRealExempt) ? (reason || '') : '',

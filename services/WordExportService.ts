@@ -20,28 +20,56 @@ import {
 import { Recruit, CurriculumVitae } from '../types';
 import { api } from '../api';
 
-// Precise dots tailored to cell widths in standard military resume tables
-const DOTS_FULL_ROW_SHORT_LABEL = '..............................................................................'; // for Quê quán (~78 dots)
-const DOTS_FULL_ROW_MED_LABEL = '..................................................................'; // for Nơi khai sinh, Chuyên ngành (~66 dots)
-const DOTS_FULL_ROW_LONG_LABEL = '............................................................'; // for Thường trú, Tạm trú (~60 dots)
-const DOTS_FULL_ROW_CCCD = '..............................................................'; // for Số CCCD (~62 dots)
-const DOTS_FULL_ROW_DOAN = '..........................................................'; // for Ngày vào Đoàn (~58 dots)
-const DOTS_FULL_ROW_WORKPLACE = '................................................................'; // for Nơi làm việc (~64 dots)
-const DOTS_FULL_ROW_FOREIGN = '............................................'; // for Đi nước ngoài (~44 dots)
+// Precise dots tailored to cell widths in standard military resume tables (strictly prevents line breaks)
+const DOTS_FULL_ROW_SHORT_LABEL = '..............................................................'; // for Quê quán (~62 dots)
+const DOTS_FULL_ROW_MED_LABEL = '....................................................'; // for Nơi khai sinh, Chuyên ngành (~52 dots)
+const DOTS_FULL_ROW_LONG_LABEL = '................................................'; // for Thường trú, Tạm trú (~48 dots)
+const DOTS_FULL_ROW_CCCD = '..................................................'; // for Số CCCD (~50 dots)
+const DOTS_FULL_ROW_DOAN = '..............................................'; // for Ngày vào Đoàn (~46 dots)
+const DOTS_FULL_ROW_WORKPLACE = '..................................................'; // for Nơi làm việc (~50 dots)
+const DOTS_FULL_ROW_FOREIGN = '....................................'; // for Đi nước ngoài (~36 dots)
 
-const DOTS_HALF_ROW_LEFT_SHORT = '..................................'; // ~34 dots
-const DOTS_HALF_ROW_LEFT_MED = '...........................'; // ~27 dots (Trình độ đào tạo)
-const DOTS_HALF_ROW_LEFT_LONG = '.........................'; // ~25 dots (Ngày vào Đảng, Vợ chồng)
-const DOTS_HALF_ROW_RIGHT = '................................'; // ~32 dots (Ngoại ngữ, Chính thức, Kỷ luật, Cha Mẹ Nghề nghiệp)
-const DOTS_HALF_ROW_RIGHT_LONG = '...................................'; // ~35 dots (Bản thân, Khen thưởng)
+const DOTS_HALF_ROW_LEFT_SHORT = '..........................'; // ~26 dots
+const DOTS_HALF_ROW_LEFT_MED = '....................'; // ~20 dots (Trình độ đào tạo)
+const DOTS_HALF_ROW_LEFT_LONG = '..................'; // ~18 dots (Ngày vào Đảng, Vợ chồng)
+const DOTS_HALF_ROW_RIGHT = '......................'; // ~22 dots (Ngoại ngữ, Chính thức, Kỷ luật, Cha Mẹ Nghề nghiệp)
+const DOTS_HALF_ROW_RIGHT_LONG = '........................'; // ~24 dots (Bản thân, Khen thưởng)
 
-const DOTS_4COL_JOB = '................'; // ~16 dots (Nghề nghiệp)
-const DOTS_4COL_SALARY = '..................'; // ~18 dots (Lương)
-const DOTS_4COL_GRADE = '............'; // ~12 dots (Ngạch)
-const DOTS_4COL_RANK = '...............'; // ~15 dots (Bậc)
+const DOTS_4COL_JOB = '............'; // ~12 dots (Nghề nghiệp)
+const DOTS_4COL_SALARY = '..............'; // ~14 dots (Lương)
+const DOTS_4COL_GRADE = '........'; // ~8 dots (Ngạch)
+const DOTS_4COL_RANK = '..........'; // ~10 dots (Bậc)
 
-const DOTS_SPOUSE_JOB = '....................'; // ~20 dots (Nghề nghiệp vợ - fits single line perfectly)
-const DOTS_SPOUSE_CHILDREN = '...................................'; // ~35 dots (Bản thân đã có ... con)
+const DOTS_SPOUSE_JOB = '..............'; // ~14 dots (Nghề nghiệp vợ)
+const DOTS_SPOUSE_CHILDREN = '........................'; // ~24 dots (Bản thân đã có ... con)
+
+export const isParentDeceased = (str?: string): boolean => {
+  if (!str) return false;
+  const lower = str.toLowerCase().trim();
+  return /^(chết|đã chết|mất|đã mất|qua đời|đã qua đời|từ trần|hi sinh|liệt sĩ|liệt sỹ)\b/i.test(lower) ||
+         /\b(đã chết|đã mất|qua đời|đã qua đời|từ trần|hi sinh|liệt sĩ|liệt sỹ)\b/i.test(lower) ||
+         lower === 'chết' || lower === 'mất';
+};
+
+export const cleanParentJob = (job?: string): string => {
+  if (!job) return 'Không';
+  let clean = job.trim();
+  if (isParentDeceased(clean)) {
+    clean = clean
+      .replace(/\b(đã chết|đã mất|qua đời|đã qua đời|từ trần|hi sinh|liệt sĩ|liệt sỹ|chết|mất)\b/gi, '')
+      .replace(/[\(\[\{][^\)\]\}]*[\)\]\}]/g, '')
+      .replace(/^[:,\-\s\(\)]+/, '')
+      .replace(/[:,\-\s\(\)]+$/, '')
+      .trim();
+    if (!clean || clean === '---' || clean.toLowerCase() === 'không' || clean.toLowerCase() === 'chưa cập nhật') {
+      return 'Không';
+    }
+  }
+  if (!clean || clean === '---' || clean.toLowerCase() === 'chưa cập nhật' || clean.toLowerCase() === 'chua cap nhat') {
+    return 'Không';
+  }
+  return clean;
+};
 
 export const getVal = (val?: string | number, fallback?: string | number, defaultDots: string = DOTS_HALF_ROW_LEFT_MED): string => {
   if (val !== undefined && val !== null) {
@@ -121,9 +149,12 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const birthMonthVal = getVal(cv.birthMonth, undefined, '..');
   const birthYearVal = getVal(cv.birthYear, undefined, '....');
 
+  const fatherBirthRaw = cv.fatherBirthDate || recruit.family?.father?.birthYear || '';
+  const motherBirthRaw = cv.motherBirthDate || recruit.family?.mother?.birthYear || '';
+
   const citizenDobFormatted = formatBirthDateCitizen(cv.birthDay, cv.birthMonth, cv.birthYear, dobStr);
-  const fatherBirthFormatted = formatFamilyBirthDate(cv.fatherBirthDate || recruit.family?.father?.birthYear);
-  const motherBirthFormatted = formatFamilyBirthDate(cv.motherBirthDate || recruit.family?.mother?.birthYear);
+  const fatherBirthFormatted = formatFamilyBirthDate(fatherBirthRaw);
+  const motherBirthFormatted = formatFamilyBirthDate(motherBirthRaw);
   const spouseBirthFormatted = formatFamilyBirthDate(cv.spouseBirthDate);
 
   const ethnicityVal = getVal(cv.ethnicity, recruit.details?.ethnicity, 'Kinh');
@@ -158,13 +189,16 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const workplaceVal = getVal(cv.workplace, recruit.details?.workAddress, 'Không');
   const foreignTravelVal = getVal(cv.foreignTravel, undefined, 'Không');
 
+  const fatherDeceased = isParentDeceased(recruit.family?.father?.job) || isParentDeceased(cv.fatherStatus) || isParentDeceased(cv.fatherJob);
+  const motherDeceased = isParentDeceased(recruit.family?.mother?.job) || isParentDeceased(cv.motherStatus) || isParentDeceased(cv.motherJob);
+
   const fatherNameVal = getVal(cv.fatherName, recruit.family?.father?.fullName, DOTS_HALF_ROW_LEFT_SHORT);
-  const fatherStatusVal = getVal(cv.fatherStatus, undefined, 'Sống');
-  const fatherJobVal = getVal(cv.fatherJob, recruit.family?.father?.job, DOTS_HALF_ROW_RIGHT);
+  const fatherStatusVal = fatherDeceased ? 'Chết' : getVal(cv.fatherStatus, undefined, 'Sống');
+  const fatherJobVal = cleanParentJob(cv.fatherJob || recruit.family?.father?.job);
 
   const motherNameVal = getVal(cv.motherName, recruit.family?.mother?.fullName, DOTS_HALF_ROW_LEFT_SHORT);
-  const motherStatusVal = getVal(cv.motherStatus, undefined, 'Sống');
-  const motherJobVal = getVal(cv.motherJob, recruit.family?.mother?.job, DOTS_HALF_ROW_RIGHT);
+  const motherStatusVal = motherDeceased ? 'Chết' : getVal(cv.motherStatus, undefined, 'Sống');
+  const motherJobVal = cleanParentJob(cv.motherJob || recruit.family?.mother?.job);
 
   const spouseNameVal = getVal(cv.spouseName, recruit.family?.wife?.fullName, 'Không');
   const spouseJobVal = getVal(cv.spouseJob, recruit.family?.wife?.job, 'Không');
@@ -213,10 +247,12 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
     fatherName: fatherNameVal,
     fatherStatus: fatherStatusVal,
     fatherBirthDate: fatherBirthFormatted,
+    fatherBirthYear: fatherBirthRaw,
     fatherJob: fatherJobVal,
     motherName: motherNameVal,
     motherStatus: motherStatusVal,
     motherBirthDate: motherBirthFormatted,
+    motherBirthYear: motherBirthRaw,
     motherJob: motherJobVal,
     spouseName: spouseNameVal,
     spouseBirthDate: spouseBirthFormatted,
@@ -331,6 +367,8 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   data.FATHER_BIRTH = data.fatherBirthDate;
   data.FATHER_BIRTH_DATE = data.fatherBirthDate;
   data.NAM_SINH_CHA = data.fatherBirthDate;
+  data.FATHER_BIRTH_YEAR = fatherBirthRaw;
+  data.NAM_SINH_CHA_4SO = fatherBirthRaw;
   data.FATHER_JOB = data.fatherJob;
   data.NGHE_NGHIEP_CHA = data.fatherJob;
   data.MOTHER_NAME = data.motherName;
@@ -341,6 +379,8 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   data.MOTHER_BIRTH = data.motherBirthDate;
   data.MOTHER_BIRTH_DATE = data.motherBirthDate;
   data.NAM_SINH_ME = data.motherBirthDate;
+  data.MOTHER_BIRTH_YEAR = motherBirthRaw;
+  data.NAM_SINH_ME_4SO = motherBirthRaw;
   data.MOTHER_JOB = data.motherJob;
   data.NGHE_NGHIEP_ME = data.motherJob;
   data.SPOUSE_NAME = data.spouseName;
@@ -399,6 +439,12 @@ export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
   const currentPermanent = formatAddr(recruit.address);
   const currentHometown = formatAddr(recruit.hometown);
 
+  const fatherJobCleaned = cleanParentJob(existingCV.fatherJob || recruit.family?.father?.job);
+  const fatherIsDeceased = isParentDeceased(recruit.family?.father?.job) || isParentDeceased(existingCV.fatherStatus) || isParentDeceased(existingCV.fatherJob);
+
+  const motherJobCleaned = cleanParentJob(existingCV.motherJob || recruit.family?.mother?.job);
+  const motherIsDeceased = isParentDeceased(recruit.family?.mother?.job) || isParentDeceased(existingCV.motherStatus) || isParentDeceased(existingCV.motherJob);
+
   return {
     fullNameUpper: existingCV.fullNameUpper || (recruit.fullName ? recruit.fullName.toUpperCase() : ''),
     aliasName: existingCV.aliasName || recruit.fullName || '',
@@ -417,31 +463,31 @@ export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
     familyClass: existingCV.familyClass || recruit.details?.familyComposition || 'Nông dân',
     personalClass: existingCV.personalClass || recruit.details?.personalComposition || 'Học sinh / Lao động',
     educationLevel: existingCV.educationLevel || recruit.details?.education || '12/12',
-    qualificationLevel: existingCV.qualificationLevel || recruit.details?.school || '',
-    languageLevel: existingCV.languageLevel || '',
-    major: existingCV.major || recruit.details?.major || '',
-    communistPartyJoinedDate: existingCV.communistPartyJoinedDate || recruit.details?.partyEntryDate || '',
-    communistPartyOfficialDate: existingCV.communistPartyOfficialDate || '',
-    youthUnionJoinedDate: existingCV.youthUnionJoinedDate || '',
-    commendations: existingCV.commendations || recruit.details?.rewards || '',
-    disciplinaryAction: existingCV.disciplinaryAction || recruit.details?.disciplines || '',
-    job: existingCV.job || recruit.details?.job || '',
-    salary: existingCV.salary || '',
-    salaryGrade: existingCV.salaryGrade || recruit.details?.gradeGroup || '',
-    salaryRank: existingCV.salaryRank || recruit.details?.salaryLevel || '',
-    workplace: existingCV.workplace || recruit.details?.workAddress || '',
-    foreignTravel: existingCV.foreignTravel || '',
+    qualificationLevel: existingCV.qualificationLevel || recruit.details?.school || 'Không',
+    languageLevel: existingCV.languageLevel || 'Không',
+    major: existingCV.major || recruit.details?.major || 'Không',
+    communistPartyJoinedDate: existingCV.communistPartyJoinedDate || recruit.details?.partyEntryDate || 'Không',
+    communistPartyOfficialDate: existingCV.communistPartyOfficialDate || 'Không',
+    youthUnionJoinedDate: existingCV.youthUnionJoinedDate || 'Không',
+    commendations: existingCV.commendations || recruit.details?.rewards || 'Không',
+    disciplinaryAction: existingCV.disciplinaryAction || recruit.details?.disciplines || 'Không',
+    job: existingCV.job || recruit.details?.job || 'Không',
+    salary: existingCV.salary || 'Không',
+    salaryGrade: existingCV.salaryGrade || recruit.details?.gradeGroup || 'Không',
+    salaryRank: existingCV.salaryRank || recruit.details?.salaryLevel || 'Không',
+    workplace: existingCV.workplace || recruit.details?.workAddress || 'Không',
+    foreignTravel: existingCV.foreignTravel || 'Không',
     fatherName: existingCV.fatherName || recruit.family?.father?.fullName || '',
-    fatherStatus: existingCV.fatherStatus || 'Sống',
+    fatherStatus: fatherIsDeceased ? 'Chết' : (existingCV.fatherStatus || 'Sống'),
     fatherBirthDate: existingCV.fatherBirthDate || recruit.family?.father?.birthYear || '',
-    fatherJob: existingCV.fatherJob || recruit.family?.father?.job || '',
+    fatherJob: fatherJobCleaned,
     motherName: existingCV.motherName || recruit.family?.mother?.fullName || '',
-    motherStatus: existingCV.motherStatus || 'Sống',
+    motherStatus: motherIsDeceased ? 'Chết' : (existingCV.motherStatus || 'Sống'),
     motherBirthDate: existingCV.motherBirthDate || recruit.family?.mother?.birthYear || '',
-    motherJob: existingCV.motherJob || recruit.family?.mother?.job || '',
-    spouseName: existingCV.spouseName || recruit.family?.wife?.fullName || '',
-    spouseBirthDate: existingCV.spouseBirthDate || '',
-    spouseJob: existingCV.spouseJob || recruit.family?.wife?.job || '',
+    motherJob: motherJobCleaned,
+    spouseName: existingCV.spouseName || recruit.family?.wife?.fullName || 'Không',
+    spouseBirthDate: existingCV.spouseBirthDate || 'Không',
+    spouseJob: existingCV.spouseJob || recruit.family?.wife?.job || 'Không',
     childrenCount: existingCV.childrenCount || recruit.family?.children || '',
     totalSiblings: existingCV.totalSiblings || recruit.details?.siblingCount || '',
     maleSiblings: existingCV.maleSiblings || '',
