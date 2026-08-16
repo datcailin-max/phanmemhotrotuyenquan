@@ -87,7 +87,18 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
     if (onTabChange) onTabChange(id);
   };
 
-  const activeTab = TABS.find(t => t.id === activeTabId) || TABS[0];
+  const formatTab = (tab: typeof TABS[0]) => {
+    if (tab.id === 'SPECIAL_JAN_17') {
+      return {
+        ...tab,
+        label: `17. DS CÔNG DÂN SINH THÁNG 01 NĂM ${sessionYear - 17}`
+      };
+    }
+    return tab;
+  };
+
+  const rawActiveTab = TABS.find(t => t.id === activeTabId) || TABS[0];
+  const activeTab = formatTab(rawActiveTab);
 
   const visibleTabs = useMemo(() => {
     return TABS.filter(tab => {
@@ -97,8 +108,43 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
       const currentActive = TABS.find(t => t.id === activeTabId);
       if (currentActive?.parentId === parent) return true;
       return activeTabId === tab.id;
+    }).map(formatTab);
+  }, [activeTabId, sessionYear]);
+
+  const handleTransferAllSpecialJan = async () => {
+    const targetBirthYear = sessionYear - 17;
+    const candidates = filteredRecruits.filter(r => {
+      if (r.status === RecruitmentStatus.SOURCE) return false;
+      const birthYear = parseInt(r.dob?.split('-')[0] || '0');
+      const birthMonth = parseInt(r.dob?.split('-')[1] || '0');
+      return birthYear === targetBirthYear && birthMonth === 1;
     });
-  }, [activeTabId]);
+
+    if (candidates.length === 0) {
+      alert(`Tất cả công dân sinh tháng 01/${targetBirthYear} trong danh sách đã ở trạng thái Nguồn.`);
+      return;
+    }
+
+    const confirmMsg = `Xác nhận chuyển ${candidates.length} công dân sinh tháng 01/${targetBirthYear} sang danh sách Nguồn (DS 4) theo yêu cầu của cấp trên?\n\n(Lưu ý: Nếu không chuyển, công dân vẫn được giữ tại Danh sách Đăng ký lần đầu).`;
+    if (window.confirm(confirmMsg)) {
+      try {
+        for (const recruit of candidates) {
+          const updated = {
+            ...recruit,
+            status: RecruitmentStatus.SOURCE,
+            previousStatus: recruit.status,
+            updatedAt: new Date().toISOString()
+          };
+          await api.updateRecruit(updated);
+          onUpdate(updated);
+        }
+        alert(`Đã chuyển thành công ${candidates.length} công dân sang danh sách Nguồn.`);
+      } catch (e) {
+        console.error("Lỗi khi chuyển nguồn công dân sinh tháng 1:", e);
+        alert("Đã xảy ra lỗi khi cập nhật.");
+      }
+    }
+  };
 
   const scopeRecruits = useMemo(() => {
     let filtered = recruits.filter(r => r.recruitmentYear === sessionYear);
@@ -245,6 +291,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onBulkVillageRename={() => setShowBulkModal(true)}
           onCheckDuplicates={() => setShowDuplicateModal(true)}
           onProposeAge17={() => setShowAge17Modal(true)}
+          onTransferAllSpecialJan={handleTransferAllSpecialJan}
           onBulkAvatarUpload={() => setShowBulkAvatarModal(true)}
           onBulkExcelImport={() => setShowExcelImportModal(true)}
           onExportCurrentList={() => {
@@ -252,6 +299,25 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
             ExcelExportService.exportToTemplate(filteredRecruits, activeTabId, sessionYear, unitName, activeTab.label);
           }}
         />
+
+        {/* THÔNG BÁO QUY ĐỊNH CHO DANH SÁCH 17 (SINH THÁNG 01) */}
+        {activeTabId === 'SPECIAL_JAN_17' ? (
+          <div className="mx-6 mt-4 p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl flex items-start gap-4 animate-in slide-in-from-top-2 duration-500">
+             <div className="p-2 bg-emerald-100 rounded-lg text-emerald-700 shrink-0">
+               <Info size={20} />
+             </div>
+             <div>
+                <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <Info size={12}/> Trường hợp đặc biệt: Công dân sinh tháng 01/{sessionYear - 17}
+                </p>
+                <p className="text-xs font-bold text-emerald-900 leading-relaxed">
+                  Đây là danh sách thông báo các công dân sinh vào <span className="underline font-black">tháng 01 năm {sessionYear - 17}</span> (sẽ đủ 18 tuổi vào tháng 01/{sessionYear + 1} - trước thời điểm giao quân năm {sessionYear + 1}). 
+                  Cán bộ có thể bấm <strong>"Chuyển về nguồn"</strong> nếu cấp trên yêu cầu bổ sung vào nguồn nhập ngũ. 
+                  Nếu cán bộ không chuyển về nguồn, công dân vẫn được hiển thị và quản lý tại <strong>Danh sách Đăng ký NVQS lần đầu (DS 3)</strong>.
+                </p>
+             </div>
+          </div>
+        ) : null}
 
         {/* THÔNG BÁO QUY ĐỊNH CHO DANH SÁCH 5 */}
         {activeTabId.startsWith('TT50') || activeTabId.startsWith('KTC_SUB') ? (

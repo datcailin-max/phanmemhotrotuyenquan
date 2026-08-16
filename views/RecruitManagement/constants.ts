@@ -3,7 +3,7 @@ import { RecruitmentStatus } from '../../types';
 import { 
   Users, ClipboardList, Stethoscope, FileSignature, Flag, Calendar, 
   PauseCircle, ShieldCheck, Layers, Ban, Shield, BookX, UserPlus, Trash2, 
-  CheckCircle2, XCircle, UserX, Tent, AlertTriangle, GraduationCap, Gavel, UserMinus, UserSearch
+  CheckCircle2, XCircle, UserX, Tent, AlertTriangle, GraduationCap, Gavel, UserMinus, UserSearch, UserCheck
 } from 'lucide-react';
 
 export const ITEMS_PER_PAGE = 10;
@@ -42,4 +42,5 @@ export const TABS = [
   { id: 'EXPIRING_LIST', label: '16. DS CẦN RÀ SOÁT LẠI', status: null, color: 'bg-orange-700', lightColor: 'bg-orange-50', borderColor: 'border-orange-700', textColor: 'text-orange-900', icon: AlertTriangle },
   { id: 'EXPIRING_EDU', label: '16.1. CÔNG DÂN HỌC XONG', status: [RecruitmentStatus.DEFERRED], color: 'bg-orange-600', lightColor: 'bg-orange-50', borderColor: 'border-orange-600', textColor: 'text-orange-800', icon: GraduationCap, isSub: true, parentId: 'EXPIRING_LIST' },
   { id: 'EXPIRING_SENTENCE', label: '16.2. XONG THỜI HẠN ÁN PHẠT', status: [RecruitmentStatus.NOT_ALLOWED_REGISTRATION], color: 'bg-orange-600', lightColor: 'bg-orange-50', borderColor: 'border-orange-600', textColor: 'text-orange-800', icon: Gavel, isSub: true, parentId: 'EXPIRING_LIST' },
+  { id: 'SPECIAL_JAN_17', label: '17. DS CÔNG DÂN SINH THÁNG 01 NĂM X', status: null, color: 'bg-emerald-600', lightColor: 'bg-emerald-50', borderColor: 'border-emerald-600', textColor: 'text-emerald-900', icon: UserCheck },
 ];

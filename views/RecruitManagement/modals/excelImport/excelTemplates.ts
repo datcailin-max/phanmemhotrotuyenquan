@@ -51,7 +51,7 @@ export const handleDownloadTemplate17 = async (sessionYear: number) => {
     [1, 2, 3, 4, 5, 6, 7, 8],
     [
       1,
-      "- BẾ ĐĂNG KHÔI\n- BẾ ĐĂNG KHÔI\n- 09/12/2008\n- 040208017552",
+      `- BẾ ĐĂNG KHÔI\n- BẾ ĐĂNG KHÔI\n- 09/12/${sessionYear - 17}\n- 040208017552`,
       "- 11/12",
       "- thôn Lộc Thái 3, Xã Lộc Ninh, Đồng Nai\n- thôn Lộc Thái 3, Xã Lộc Ninh, Đồng Nai\n- Ban CHQS Xã Lộc Ninh",
       "- Trung nông\n- Phụ thuộc\n- Kinh, Không",

@@ -195,8 +195,9 @@ export const isTransferredRecruit = (r: {
 
 export const checkAge = (r: Recruit, sessionYear: number) => {
   const birthYear = parseInt(r.dob?.split('-')[0] || '0');
-  // Năm thực hiện là sessionYear - 1
-  return (sessionYear - 1) - birthYear;
+  if (birthYear <= 0) return 0;
+  // Công tác tuyển quân năm sessionYear: tuổi = sessionYear - birthYear (VD: 2026 - 2009 = 17 tuổi)
+  return sessionYear - birthYear;
 };
 
 export const isExpiredInSession = (period: string | undefined, sessionYear: number) => {
@@ -218,6 +219,8 @@ export const isTotalSource = (r: Recruit, sessionYear: number) => {
   ].includes(r.status)) return false;
   
   const age = checkAge(r, sessionYear);
+  // Nếu công dân đã được đưa vào SOURCE (kể cả trường hợp đặc biệt 17 tuổi sinh tháng 1 chuyển nguồn)
+  if (r.status === RecruitmentStatus.SOURCE) return true;
   if (age < 18) return false;
   
   return true;
@@ -389,11 +392,20 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
         RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
         RecruitmentStatus.EXEMPT_REGISTRATION,
         RecruitmentStatus.REMOVED_FROM_SOURCE,
-        RecruitmentStatus.DELETED
+        RecruitmentStatus.DELETED,
+        RecruitmentStatus.SOURCE
       ].includes(r.status)) {
         return true;
       }
       return r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION;
+    }
+
+    case 'SPECIAL_JAN_17': {
+      if (r.status === RecruitmentStatus.DELETED) return false;
+      const birthYear = parseInt(r.dob?.split('-')[0] || '0');
+      const birthMonth = parseInt(r.dob?.split('-')[1] || '0');
+      const targetBirthYear = sessionYear - 17;
+      return birthYear === targetBirthYear && birthMonth === 1;
     }
 
     case 'ALL':

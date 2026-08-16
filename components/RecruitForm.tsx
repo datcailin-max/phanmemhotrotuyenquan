@@ -261,8 +261,10 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     }
     
     const birthYear = parseInt(formData.dob.split('-')[0] || '0');
-    // Cập nhật tính tuổi theo năm thực hiện (sessionYear - 1)
-    const age = (sessionYear - 1) - birthYear;
+    const birthMonth = parseInt(formData.dob.split('-')[1] || '0');
+    // Tính tuổi trong năm tuyển quân sessionYear
+    const age = sessionYear - birthYear;
+    const isJanSpecialCase = birthYear === (sessionYear - 17) && birthMonth === 1;
     
     const isSourceTab = ![
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
@@ -270,8 +272,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
       RecruitmentStatus.FIRST_TIME_REGISTRATION
     ].includes(formData.status);
 
-    if (birthYear > 0 && isSourceTab && age < 18) {
-        alert(`Công dân sinh năm ${birthYear} (${age} tuổi) chưa đủ 18 tuổi tại năm thực hiện ${sessionYear - 1}.\nVui lòng chuyển sang "DS 3: Đăng ký lần đầu" nếu đủ 17 tuổi.`);
+    if (birthYear > 0 && isSourceTab && age < 18 && !isJanSpecialCase) {
+        alert(`Công dân sinh năm ${birthYear} (${age} tuổi) chưa đủ 18 tuổi trong năm tuyển quân ${sessionYear}.\nVui lòng chuyển sang "DS 3: Đăng ký lần đầu" nếu đủ 17 tuổi.`);
         return;
     }
 

@@ -46,7 +46,8 @@ export const useRecruitFilters = (
         ].includes(r.status)) return false;
         
         const age = checkAge(r, sessionYear);
-        if (r.status === RecruitmentStatus.SOURCE && age < 18) return false;
+        if (r.status === RecruitmentStatus.SOURCE) return true;
+        if (age < 18) return false;
         
         return true;
     };

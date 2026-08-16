@@ -90,6 +90,9 @@ export const RecruitTable: React.FC<RecruitTableProps> = ({
             ) : paginatedRecruits.map((recruit, index) => {
               const expiring = isExpiring(recruit);
               const isProposedL7 = recruit.details.education === 'Lớp 7' && recruit.details.proposedForSelection;
+              const birthYear = parseInt(recruit.dob?.split('-')[0] || '0');
+              const birthMonth = parseInt(recruit.dob?.split('-')[1] || '0');
+              const isJanSpecial = birthYear === (sessionYear - 17) && birthMonth === 1;
               
               return (
                 <tr key={recruit.id} className={`hover:bg-military-50/30 transition-colors group ${expiring ? 'bg-red-50/20' : ''} ${isProposedL7 ? 'bg-amber-50/30 border-l-4 border-amber-400' : ''}`}>
@@ -97,7 +100,7 @@ export const RecruitTable: React.FC<RecruitTableProps> = ({
                     {(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                   </td>
                   <td className="p-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <div className="font-black text-military-900 uppercase tracking-tight">{recruit.fullName}</div>
                       {recruit.attachments?.length ? <Paperclip size={14} className="text-blue-500" /> : null}
                       {expiring && (
@@ -108,6 +111,11 @@ export const RecruitTable: React.FC<RecruitTableProps> = ({
                       {isProposedL7 && (
                         <span title="Công dân Lớp 7 được đề xuất tuyển chọn đặc cách">
                           <Star size={14} className="text-amber-500 fill-amber-500" />
+                        </span>
+                      )}
+                      {isJanSpecial && (
+                        <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 rounded border border-emerald-300" title={`Công dân sinh tháng 01/${sessionYear - 17} - Đủ 18 tuổi vào đợt giao quân đầu năm ${sessionYear + 1}`}>
+                          T01/{sessionYear - 17}
                         </span>
                       )}
                     </div>

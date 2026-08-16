@@ -86,7 +86,7 @@ const ReportBuilder: React.FC<ReportBuilderProps> = ({ user, recruits, sessionYe
 
         // 2. Lọc theo tuổi 17 (nếu được đánh dấu)
         if (matchedTpl.onlyAge17) {
-           const targetBirthYear = (sessionYear - 1) - 17;
+           const targetBirthYear = sessionYear - 17;
            filteredData = filteredData.filter(r => parseInt(r.dob?.split('-')[0] || '0') === targetBirthYear);
         }
 

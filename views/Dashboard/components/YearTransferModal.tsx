@@ -20,7 +20,7 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
 
   // Logic lọc và tính toán dữ liệu sẽ kết chuyển
   const transferData = useMemo(() => {
-    const checkAge = (r: Recruit, year: number) => (year - 1) - parseInt(r.dob.split('-')[0] || '0');
+    const checkAge = (r: Recruit, year: number) => year - parseInt(r.dob.split('-')[0] || '0');
     
     // 1. Danh sách 1 (Không được đăng ký NVQS)
     const list1 = currentRecruits.filter(r => r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION);

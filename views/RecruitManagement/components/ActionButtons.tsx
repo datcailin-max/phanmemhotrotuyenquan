@@ -110,12 +110,48 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
-    case 'FIRST_TIME_REG':
+    case 'FIRST_TIME_REG': {
+      const currentYear = sessionYear || new Date().getFullYear();
+      const birthYear = parseInt(recruit.dob?.split('-')[0] || '0');
+      const birthMonth = parseInt(recruit.dob?.split('-')[1] || '0');
+      const isJanSpecial17 = birthYear === (currentYear - 17) && birthMonth === 1;
+
       return (
         <div className="flex items-center justify-center gap-1">
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
-          {(!sessionYear || checkAge(recruit, sessionYear) > 17) && (
-            <button onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, previousStatus: recruit.status })} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Đưa vào nguồn (DS 4)"><ArrowUpCircle size={16} /></button>
+          {(!sessionYear || checkAge(recruit, sessionYear) > 17 || isJanSpecial17) && (
+            <button 
+              onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, previousStatus: recruit.status })} 
+              className={`p-1 rounded ${isJanSpecial17 ? 'text-emerald-600 hover:bg-emerald-50' : 'text-green-600 hover:bg-green-50'}`} 
+              title={isJanSpecial17 ? `Đưa vào nguồn (DS 4) - Công dân sinh tháng 01/${currentYear - 17}` : "Đưa vào nguồn (DS 4)"}
+            >
+              <ArrowUpCircle size={16} />
+            </button>
+          )}
+          <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
+        </div>
+      );
+    }
+    case 'SPECIAL_JAN_17':
+      return (
+        <div className="flex items-center justify-center gap-1.5">
+          <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
+          {recruit.status !== RecruitmentStatus.SOURCE ? (
+            <button 
+              onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, previousStatus: recruit.status })} 
+              className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded text-[10px] font-black uppercase hover:bg-emerald-700 shadow-sm transition-all active:scale-95" 
+              title="Chuyển công dân vào danh sách Nguồn (DS 4)"
+            >
+              <ArrowUpCircle size={12} /> Chuyển về nguồn
+            </button>
+          ) : (
+            <button 
+              onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.FIRST_TIME_REGISTRATION, previousStatus: recruit.status })} 
+              className="flex items-center gap-1 px-2.5 py-1 bg-cyan-700 text-white rounded text-[10px] font-black uppercase hover:bg-cyan-800 shadow-sm transition-all active:scale-95" 
+              title="Đưa về Danh sách Đăng ký lần đầu (DS 3)"
+            >
+              <RotateCcw size={12} /> Về ĐK lần đầu
+            </button>
           )}
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>

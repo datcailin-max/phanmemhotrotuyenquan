@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Download, Plus, Trash2, MapPin, Layers, ArrowRightLeft, Camera, FileSpreadsheet } from 'lucide-react';
+import { Download, Plus, Trash2, MapPin, Layers, ArrowRightLeft, Camera, FileSpreadsheet, ArrowUpCircle } from 'lucide-react';
 
 interface RecruitHeaderProps {
   activeTab: any;
@@ -13,13 +13,14 @@ interface RecruitHeaderProps {
   onBulkVillageRename?: () => void;
   onCheckDuplicates?: () => void;
   onProposeAge17?: () => void;
+  onTransferAllSpecialJan?: () => void;
   onBulkAvatarUpload?: () => void;
   onBulkExcelImport?: () => void;
   onExportCurrentList?: () => void;
 }
 
 const RecruitHeader: React.FC<RecruitHeaderProps> = ({ 
-  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onAdd, onDeleteAll, onBulkVillageRename, onCheckDuplicates, onProposeAge17, onBulkAvatarUpload, onBulkExcelImport, onExportCurrentList
+  activeTab, sessionYear, filteredCount, isReadOnly, activeTabId, onAdd, onDeleteAll, onBulkVillageRename, onCheckDuplicates, onProposeAge17, onTransferAllSpecialJan, onBulkAvatarUpload, onBulkExcelImport, onExportCurrentList
 }) => {
   return (
     <div className="p-4 px-5 md:px-6 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white shrink-0 shadow-sm relative z-10">
@@ -101,7 +102,17 @@ const RecruitHeader: React.FC<RecruitHeaderProps> = ({
           </button>
         )}
         
-        {!isReadOnly && ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL'].includes(activeTabId) && (
+        {!isReadOnly && activeTabId === 'SPECIAL_JAN_17' && onTransferAllSpecialJan && (
+          <button 
+            onClick={onTransferAllSpecialJan} 
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 text-white rounded-lg font-bold uppercase text-xs shadow-sm hover:bg-emerald-700 transition-all active:scale-95 whitespace-nowrap"
+            title={`Chuyển tất cả công dân sinh tháng 01/${sessionYear - 17} sang danh sách Nguồn (DS 4)`}
+          >
+            <ArrowUpCircle size={14} /> Chuyển tất cả về Nguồn
+          </button>
+        )}
+
+        {!isReadOnly && ['NOT_ALLOWED_REG', 'EXEMPT_REG', 'FIRST_TIME_REG', 'ALL', 'SPECIAL_JAN_17'].includes(activeTabId) && (
           <>
             {activeTabId === 'FIRST_TIME_REG' && onProposeAge17 && (
               <button 
