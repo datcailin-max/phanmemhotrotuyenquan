@@ -41,8 +41,12 @@ export const isRealDefermentReason = (str?: string): boolean => {
     'loại 3', 'loại 4', 'loại 5', 'loại 6', 'loai 3', 'loai 4', 'loai 5', 'loai 6',
     'loại sơ tuyển', 'khám loại', 'sơ tuyển loại', 'bmi', 'chiều cao', 'cân nặng', 'thể lực',
     'cận thị', 'viễn thị', 'loạn thị', 'khúc xạ', 'tật khúc xạ', 'răng', 'khớp cắn', 'tai mũi họng',
-    'mắt', 'huyết áp', 'tim mạch', 'xquang', 'vẹo cột sống', 'chấn thương', 'mổ', 'phẫu thuật', 'điều trị'
+    'mắt', 'huyết áp', 'tim mạch', 'xquang', 'vẹo cột sống', 'chấn thương', 'mổ', 'phẫu thuật', 'điều trị',
+    'hvt', 'học vấn thấp', 'hoc van thap', 'dưới lớp 8', 'duoi lop 8', 'văn hóa thấp', 'van hoa thap',
+    'học vấn'
   ];
+
+  if (/\bhvt\b/i.test(str)) return true;
 
   return defermentKeywords.some(kw => lower.includes(kw));
 };
@@ -280,6 +284,13 @@ export const getDefermentSubCategory = (r: {
     text.includes('giáo dục') ||
     text.includes('du học') ||
     text.includes('bổ túc') ||
+    text.includes('hvt') ||
+    text.includes('học vấn thấp') ||
+    text.includes('hoc van thap') ||
+    text.includes('dưới lớp 8') ||
+    text.includes('duoi lop 8') ||
+    text.includes('văn hóa thấp') ||
+    text.includes('van hoa thap') ||
     text.startsWith('7.') ||
     text.startsWith('9.') ||
     text.includes('điều 41.1.g') ||

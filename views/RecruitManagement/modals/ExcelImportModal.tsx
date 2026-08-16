@@ -13,7 +13,7 @@ import {
   MissingCccdNotice
 } from './excelImport/types';
 
-import { removeVietnameseTones } from '../../../constants';
+import { removeVietnameseTones, LOW_EDUCATION_GRADES } from '../../../constants';
 
 import {
   getDefaultStatusForTab,
@@ -23,12 +23,15 @@ import {
   extractNameFromCell,
   checkFontWarning,
   isHeaderOrMetadataRow,
+  isSectionDividerRow,
+  extractSectionVillage,
   parseParentInfo,
   parseAddressInfo,
   extractBirthYearFromCCCD,
   parseEducationDegree,
   findCitizenNameInRow,
   normalizeMultilineText,
+  normalizeReason,
   isParentDeceased,
   cleanParentJob
 } from './excelImport/excelHelpers';
@@ -260,19 +263,27 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
       // 2. LỌC CHÍNH XÁC CÁC DÒNG CÔNG DÂN THỰC TẾ (LOẠI BỎ HẰNG ĐẲNG CÁC DÒNG TIÊU ĐỀ PHỤ)
       const rawDataRows = rawRows.slice(headerRowIndex + 1);
-      const validRowsToProcess: { rowNumberInExcel: number; cells: any[] }[] = [];
+      const validRowsToProcess: { rowNumberInExcel: number; cells: any[]; sectionVillage?: string }[] = [];
+      let activeSectionVillage = '';
 
       rawDataRows.forEach((row, idx) => {
         if (!Array.isArray(row) || row.length === 0) return;
 
         const rowNumberInExcel = headerRowIndex + 2 + idx;
         
-        // Loại bỏ hoàn toàn các dòng tiêu đề, ghi chú hoặc thông tin metadata
-        if (isHeaderOrMetadataRow(row)) return;
+        // Cập nhật tên Thôn/Ấp nếu dòng là dòng phân chia theo thôn/ấp
+        const detectedVillage = extractSectionVillage(row);
+        if (detectedVillage) {
+          activeSectionVillage = detectedVillage;
+        }
+
+        // Loại bỏ hoàn toàn các dòng tiêu đề, ghi chú, dòng phân chia hoặc thông tin metadata
+        if (isHeaderOrMetadataRow(row) || isSectionDividerRow(row)) return;
 
         validRowsToProcess.push({
           rowNumberInExcel,
-          cells: row
+          cells: row,
+          sectionVillage: activeSectionVillage
         });
       });
 
@@ -376,7 +387,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         const rawVillageVal = villageCol >= 0 && row[villageCol] !== undefined ? String(row[villageCol]).trim() : '';
         const rawStreetVal = addressCol >= 0 && row[addressCol] !== undefined ? String(row[addressCol]).trim() : '';
 
-        const parsedAddr = parseAddressInfo(rawStreetVal, rawVillageVal, 'Ấp Mỹ An');
+        const defaultFallbackVillage = item.sectionVillage || 'Ấp Mỹ An';
+        const parsedAddr = parseAddressInfo(rawStreetVal, rawVillageVal, defaultFallbackVillage);
         village = parsedAddr.village;
         address = parsedAddr.street;
 
@@ -412,15 +424,23 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         }
 
         // 9. Trích xuất Lý do tạm hoãn / Miễn / Ghi chú
+        let rawReason = '';
         if (reasonCol >= 0 && row[reasonCol] !== undefined) {
-          const rStr = normalizeMultilineText(row[reasonCol]).trim();
-          if (rStr && rStr !== '---') reason = rStr;
+          rawReason = normalizeMultilineText(row[reasonCol]).trim();
         } else {
           // Lấy ô cuối cùng nếu không xác định được cột lý do
           const lastCell = normalizeMultilineText(row[row.length - 1]).trim();
-          if (lastCell && lastCell !== '---' && lastCell.length > 2) {
-            reason = lastCell;
+          if (lastCell && lastCell !== '---' && lastCell.length > 1) {
+            rawReason = lastCell;
           }
+        }
+
+        // Chuẩn hóa lý do (HVT -> Học vấn thấp)
+        reason = normalizeReason(rawReason);
+
+        // Tự động nhận diện nếu trình độ học vấn thấp (Lớp 1 -> Lớp 7) và chưa có lý do cụ thể hoặc lý do là HVT
+        if ((!reason || reason === '---' || reason.toLowerCase() === 'không') && (LOW_EDUCATION_GRADES as readonly string[]).includes(edu)) {
+          reason = 'Học vấn thấp';
         }
 
         // 1. TỰ ĐỘNG CHUẨN HÓA LÀM SẠCH HỌ TÊN & CẢNH BÁO FONT CHỮ

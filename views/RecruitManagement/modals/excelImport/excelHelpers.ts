@@ -80,6 +80,20 @@ export const parseEducationDegree = (rawStr: string): string => {
   return 'Lớp 12';
 };
 
+// Chuẩn hóa lý do tạm hoãn / miễn / ghi chú (Từ viết tắt HVT -> Học vấn thấp)
+export const normalizeReason = (reasonStr?: any): string => {
+  if (!reasonStr && reasonStr !== 0) return '';
+  let str = normalizeMultilineText(reasonStr).trim();
+  if (!str || str === '---' || str.toLowerCase() === 'không' || str.toLowerCase() === 'chưa có') return '';
+
+  // Nhận diện và mở rộng từ viết tắt HVT -> "Học vấn thấp"
+  if (/^hvt$/i.test(str)) {
+    return 'Học vấn thấp';
+  }
+  str = str.replace(/\bHVT\b/gi, 'Học vấn thấp');
+  return str.trim();
+};
+
 // Trạng thái mặc định của công dân khi nhập vào dựa theo danh sách/tab hiện tại
 export const getDefaultStatusForTab = (tabId: string): RecruitmentStatus => {
   switch (tabId) {
@@ -355,9 +369,79 @@ export const checkFontWarning = (str: string): { isWarning: boolean; detail?: st
   return { isWarning: false };
 };
 
+// Nhận diện các dòng phân loại thôn/ấp/khu phố hoặc trình độ/danh mục (VD: "THÔN 2 - BÌNH MINH: 19 CÔNG DÂN", "ĐẠI HỌC: 12 CÔNG DÂN")
+export const isSectionDividerRow = (row: any[]): boolean => {
+  if (!Array.isArray(row) || row.length === 0) return true;
+  const nonBlankCells = row.map(c => normalizeMultilineText(c).trim()).filter(Boolean);
+  if (nonBlankCells.length === 0) return true;
+
+  const joined = nonBlankCells.join(' ');
+  const lower = joined.toLowerCase();
+
+  // 1. Chứa các chỉ số thống kê, đếm số lượng công dân / thanh niên (VD: ": 19 CÔNG DÂN", "12 CÔNG DÂN", "TỔNG CỘNG: 50 CÔNG DÂN")
+  if (
+    /\b\d+\s*(?:công dân|thanh niên|người|cd|nam|nữ)\b/i.test(lower) ||
+    /\b(?:tổng cộng|tổng số|tổng hợp)\s*[:\-]?\s*\d*/i.test(lower)
+  ) {
+    return true;
+  }
+
+  // 2. Dòng tiêu đề phân biệt thôn, ấp, tổ, khu phố (VD: "THÔN 2 - BÌNH MINH", "THÔN BOM BO", "ẤP MỸ AN")
+  const startsWithPlace = /^(?:thôn|ấp|khu phố|kp|tổ|khóm|xóm|buôn|sóc|làng|xã|phường|thị trấn)\b/i.test(nonBlankCells[0].toLowerCase());
+  if (startsWithPlace) {
+    const hasCccdOrDob = nonBlankCells.some(c => /\b\d{9,12}\b/.test(c) || /\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}\b/.test(c));
+    if (!hasCccdOrDob && (nonBlankCells.length <= 4 || lower.includes(':') || lower.includes('-'))) {
+      return true;
+    }
+  }
+
+  // 3. Dòng tiêu đề phân loại trình độ / chuyên môn / diện gọi (VD: "ĐẠI HỌC", "ĐẠI HỌC: 12 CÔNG DÂN", "CAO ĐẲNG", "TRUNG CẤP", "TẠM HOÃN")
+  const isCategoryDivider = /^(?:đại học|cao đẳng|trung cấp|sơ cấp|học sinh|sinh viên|học nghề|học vấn thấp|tạm hoãn|miễn gọi|đủ điều kiện|chưa đủ điều kiện|không tuyển chọn|chưa gọi nhập ngũ|danh sách)\b/i.test(nonBlankCells[0].toLowerCase());
+  if (isCategoryDivider) {
+    const hasCccdOrDob = nonBlankCells.some(c => /\b\d{9,12}\b/.test(c) || /\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}\b/.test(c));
+    if (!hasCccdOrDob && (nonBlankCells.length <= 4 || lower.includes(':'))) {
+      return true;
+    }
+  }
+
+  // 4. Các dòng tiêu đề số La Mã hoặc ký hiệu: "I. DANH SÁCH...", "PHẦN I...", "A. ..."
+  if (/^(?:[ivx]+\.|\d+\.|\bphần\s+[a-z0-9]+|mục\s+[a-z0-9]+|[a-z]\.)\s+/i.test(nonBlankCells[0])) {
+    const hasCccdOrDob = nonBlankCells.some(c => /\b\d{9,12}\b/.test(c) || /\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}\b/.test(c));
+    if (!hasCccdOrDob) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+// Trích xuất tên Thôn/Ấp từ dòng phân cách nếu có (để tự động gán thôn/ấp cho các công dân bên dưới nếu bị thiếu)
+export const extractSectionVillage = (row: any[]): string => {
+  if (!Array.isArray(row) || row.length === 0) return '';
+  const nonBlankCells = row.map(c => normalizeMultilineText(c).trim()).filter(Boolean);
+  for (const cell of nonBlankCells) {
+    const m = cell.match(/^(?:thôn|ấp|khu phố|kp|tổ|khóm|xóm|buôn|sóc)\s+[^:\d]+(?:\d+)?(?:[^\:]+)?/i);
+    if (m) {
+      let vName = m[0]
+        .replace(/:\s*\d+.*$/i, '')
+        .replace(/[-–—]\s*\d+\s*(?:công dân|người|cd).*$/i, '')
+        .replace(/^[:,\-\s]+/, '')
+        .replace(/[:,\-\s]+$/, '')
+        .trim();
+      if (vName && vName.length >= 3) {
+        return vName;
+      }
+    }
+  }
+  return '';
+};
+
 // Kiểm tra dòng có phải là dòng Tiêu đề / Metadata / Thông tin chung không
 export const isHeaderOrMetadataRow = (row: any[]): boolean => {
   if (!Array.isArray(row) || row.length === 0) return true;
+
+  // Kiểm tra nếu là dòng phân cách thôn, ấp, danh mục trình độ
+  if (isSectionDividerRow(row)) return true;
 
   const joined = row.map(c => normalizeMultilineText(c)).filter(Boolean).join(' ');
   if (!joined || joined.trim().length === 0) return true;
@@ -535,7 +619,30 @@ export const isNonPersonName = (str: string): boolean => {
     clean.includes('chuyên môn') ||
     clean.includes('dân tộc') ||
     clean.includes('tôn giáo') ||
-    clean.includes('trình độ')
+    clean.includes('trình độ') ||
+    clean.includes('công dân') ||
+    clean.includes('thanh niên') ||
+    clean.includes('tổng cộng') ||
+    clean.includes('tổng số') ||
+    clean.includes('niên khóa') ||
+    clean.includes('niên khoá') ||
+    clean.includes('học vấn thấp')
+  ) {
+    return true;
+  }
+
+  // Loại bỏ các dòng phân chia thôn / ấp / khu phố / trình độ
+  if (
+    clean.startsWith('thôn ') ||
+    clean.startsWith('ấp ') ||
+    clean.startsWith('khu phố ') ||
+    clean.startsWith('kp ') ||
+    clean.startsWith('tổ ') ||
+    clean.startsWith('khóm ') ||
+    clean.startsWith('xóm ') ||
+    clean.startsWith('đại học') ||
+    clean.startsWith('cao đẳng') ||
+    clean.startsWith('trung cấp')
   ) {
     return true;
   }
