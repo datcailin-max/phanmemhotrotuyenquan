@@ -196,9 +196,29 @@ app.delete('/api/recruits/year/:year', async (req, res) => {
   try {
     const year = Number(req.params.year);
     if (isNaN(year)) return res.status(400).json({ message: 'Năm không hợp lệ' });
-    await Recruit.deleteMany({ recruitmentYear: year });
-    res.json({ message: 'OK' });
+
+    const { province, commune } = req.query;
+    const query = { recruitmentYear: year };
+
+    if (province && String(province).trim()) {
+      const p = String(province).trim();
+      const cleanP = p.replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '').trim();
+      const escapedP = cleanP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query['address.province'] = { $regex: new RegExp(`^(?:tỉnh\\s+|thành phố\\s+|tp\\.?\\s*)?${escapedP}$`, 'i') };
+    }
+
+    if (commune && String(commune).trim()) {
+      const c = String(commune).trim();
+      const cleanC = c.replace(/^(xã|phường|thị trấn|tt\.?)\s+/i, '').trim();
+      const escapedC = cleanC.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      query['address.commune'] = { $regex: new RegExp(`^(?:xã\\s+|phường\\s+|thị trấn\\s+|tt\\.?\\s*)?${escapedC}$`, 'i') };
+    }
+
+    const result = await Recruit.deleteMany(query);
+    console.log(`[DELETE YEAR DATA] Year: ${year}, Province: ${province || 'ALL'}, Commune: ${commune || 'ALL'}, Deleted count: ${result.deletedCount}`);
+    res.json({ message: 'OK', deletedCount: result.deletedCount });
   } catch (e) {
+    console.error('[DELETE YEAR DATA ERROR]', e);
     res.status(500).json({ message: e.message });
   }
 });

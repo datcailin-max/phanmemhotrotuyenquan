@@ -40,6 +40,42 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
   const canTransfer = props.userRole === 'EDITOR' || props.userRole === 'ADMIN';
   const canDeleteYear = props.userRole === 'EDITOR' || props.userRole === 'ADMIN';
 
+  const currentTargetUnit = useMemo(() => {
+      if (props.userRole === 'EDITOR' && props.userUnit) {
+          return {
+              province: props.userUnit.province,
+              commune: props.userUnit.commune,
+              name: `Ban CHQS ${props.userUnit.commune}`
+          };
+      }
+      if (filterCommune) {
+          return {
+              province: filterProvince || props.userUnit?.province || '',
+              commune: filterCommune,
+              name: `Ban CHQS ${filterCommune}`
+          };
+      }
+      if (props.userRole === 'PROVINCE_ADMIN' && props.userUnit?.province) {
+          return {
+              province: props.userUnit.province,
+              commune: '',
+              name: `Bộ CHQS Tỉnh ${props.userUnit.province}`
+          };
+      }
+      if (filterProvince) {
+          return {
+              province: filterProvince,
+              commune: '',
+              name: `Bộ CHQS Tỉnh ${filterProvince}`
+          };
+      }
+      return {
+          province: '',
+          commune: '',
+          name: 'Toàn quốc (Tất cả đơn vị)'
+      };
+  }, [props.userRole, props.userUnit, filterProvince, filterCommune]);
+
   return (
     <div className="p-4 md:p-6 space-y-6 animate-in fade-in duration-700 bg-gray-50/50 min-h-screen">
       <FilterHeader 
@@ -67,10 +103,11 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                         <RefreshCw size={15} /> Kết chuyển dữ liệu
                     </button>
                  )}
-                 {canDeleteYear && !filterProvince && !filterCommune && (
+                 {canDeleteYear && (
                     <button 
                         onClick={() => setShowDeleteYearModal(true)}
                         className="flex items-center gap-2 bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase shadow-sm hover:bg-red-800 transition-all active:scale-95 duration-200"
+                        title={`Xóa dữ liệu năm cho ${currentTargetUnit.name}`}
                     >
                         <Trash2 size={15} /> Xóa dữ liệu năm
                     </button>
@@ -102,6 +139,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
             currentRecruits={props.recruits}
             sessionYear={props.sessionYear}
             currentUser={props.currentUser}
+            targetUnit={currentTargetUnit}
             onUpdateUser={props.onUpdateUser}
             onClose={() => setShowDeleteYearModal(false)}
             onSuccess={() => window.location.reload()} 

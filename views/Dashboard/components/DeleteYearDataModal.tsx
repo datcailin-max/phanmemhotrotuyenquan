@@ -1,12 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { X, Trash2, AlertTriangle, CheckCircle2, Lock, KeyRound, Info, HelpCircle } from 'lucide-react';
+import { X, Trash2, AlertTriangle, CheckCircle2, Lock, KeyRound, Info, HelpCircle, MapPin } from 'lucide-react';
 import { Recruit, User } from '../../../types';
 import { api } from '../../../api';
+
+export interface TargetUnitScope {
+  province?: string;
+  commune?: string;
+  name: string;
+}
 
 interface DeleteYearDataModalProps {
   currentRecruits: Recruit[];
   sessionYear: number;
   currentUser: User;
+  targetUnit?: TargetUnitScope;
   onUpdateUser: (user: User) => void;
   onClose: () => void;
   onSuccess: () => void;
@@ -16,6 +23,7 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
   currentRecruits,
   sessionYear,
   currentUser,
+  targetUnit,
   onUpdateUser,
   onClose,
   onSuccess
@@ -34,19 +42,59 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
   const [setupError, setSetupError] = useState('');
   const [setupSuccess, setSetupSuccess] = useState('');
 
-  // Extract unique years from existing recruits list
+  const targetUnitName = useMemo(() => {
+    if (targetUnit?.name) return targetUnit.name;
+    if (currentUser.role === 'EDITOR' && currentUser.unit?.commune) {
+      return `Ban CHQS ${currentUser.unit.commune}`;
+    }
+    if (currentUser.role === 'PROVINCE_ADMIN' && currentUser.unit?.province) {
+      return `Bộ CHQS Tỉnh ${currentUser.unit.province}`;
+    }
+    return 'Toàn quốc (Tất cả đơn vị)';
+  }, [targetUnit, currentUser]);
+
+  const isCommuneScope = useMemo(() => {
+    return Boolean(targetUnit?.commune || (currentUser.role === 'EDITOR' && currentUser.unit?.commune));
+  }, [targetUnit, currentUser]);
+
+  // Lọc chính xác hồ sơ thuộc riêng đơn vị hiện tại qua các năm
+  const scopedRecruits = useMemo(() => {
+    let list = currentRecruits;
+    const targetProvince = targetUnit?.province || (currentUser.role !== 'ADMIN' ? currentUser.unit?.province : undefined);
+    const targetCommune = targetUnit?.commune || (currentUser.role === 'EDITOR' ? currentUser.unit?.commune : undefined);
+
+    if (targetProvince) {
+      const cleanP = targetProvince.replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '').trim().toLowerCase();
+      list = list.filter(r => {
+        const rP = (r.address?.province || '').replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '').trim().toLowerCase();
+        return !cleanP || !rP || rP === cleanP;
+      });
+    }
+
+    if (targetCommune) {
+      const cleanC = targetCommune.replace(/^(xã|phường|thị trấn|tt\.?)\s+/i, '').trim().toLowerCase();
+      list = list.filter(r => {
+        const rC = (r.address?.commune || '').replace(/^(xã|phường|thị trấn|tt\.?)\s+/i, '').trim().toLowerCase();
+        return rC === cleanC;
+      });
+    }
+
+    return list;
+  }, [currentRecruits, targetUnit, currentUser]);
+
+  // Extract unique years from unit's scoped recruits
   const uniqueYears = useMemo(() => {
-    const years = currentRecruits.map(r => r.recruitmentYear);
+    const years = scopedRecruits.map(r => r.recruitmentYear);
     if (!years.includes(sessionYear)) {
       years.push(sessionYear);
     }
     return Array.from(new Set(years)).sort((a, b) => b - a);
-  }, [currentRecruits, sessionYear]);
+  }, [scopedRecruits, sessionYear]);
 
-  // Count recruits of selected year
+  // Count recruits of selected year for this unit
   const recruitsInSelectedYearCount = useMemo(() => {
-    return currentRecruits.filter(r => r.recruitmentYear === selectedYear).length;
-  }, [currentRecruits, selectedYear]);
+    return scopedRecruits.filter(r => r.recruitmentYear === selectedYear).length;
+  }, [scopedRecruits, selectedYear]);
 
   // Handle setting up secondary password
   const handleSetupSecondaryPassword = async (e: React.FormEvent) => {
@@ -108,7 +156,7 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
     }
   };
 
-  // Handle deleting all data of selected year
+  // Handle deleting data of selected year for the unit
   const handleDeleteYearData = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -123,7 +171,9 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
       return;
     }
 
-    const confirmMessage = `CẢNH BÁO CỰC KỲ QUAN TRỌNG!\n\nBạn đang thực hiện xóa toàn bộ ${recruitsInSelectedYearCount} hồ sơ tuyển quân của năm ${selectedYear}!\n\nHành động này sẽ XÓA VĨNH VIỄN toàn bộ dữ liệu này và KHÔNG THỂ KHÔI PHỤC.\n\nBạn có chắc chắn muốn tiếp tục không?`;
+    const confirmMessage = isCommuneScope
+      ? `CẢNH BÁO QUAN TRỌNG!\n\nBạn đang thực hiện xóa toàn bộ ${recruitsInSelectedYearCount} hồ sơ tuyển quân của năm ${selectedYear} thuộc đơn vị:\n${targetUnitName}\n\nLưu ý: Thao tác này chỉ xóa dữ liệu của ${targetUnitName} và KHÔNG ảnh hưởng đến các đơn vị khác.\nHành động này KHÔNG THỂ KHÔI PHỤC.\n\nBạn có chắc chắn muốn tiếp tục không?`
+      : `CẢNH BÁO CỰC KỲ QUAN TRỌNG!\n\nBạn đang thực hiện xóa toàn bộ ${recruitsInSelectedYearCount} hồ sơ tuyển quân của năm ${selectedYear} thuộc phạm vi: ${targetUnitName}!\n\nHành động này sẽ XÓA VĨNH VIỄN toàn bộ dữ liệu này và KHÔNG THỂ KHÔI PHỤC.\n\nBạn có chắc chắn muốn tiếp tục không?`;
     
     if (!window.confirm(confirmMessage)) {
       return;
@@ -135,11 +185,16 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
       return;
     }
 
+    const unitFilter = {
+      province: targetUnit?.province || (currentUser.role !== 'ADMIN' ? currentUser.unit?.province : undefined),
+      commune: targetUnit?.commune || (currentUser.role === 'EDITOR' ? currentUser.unit?.commune : undefined)
+    };
+
     setIsDeleting(true);
     try {
-      const success = await api.deleteYearData(selectedYear);
+      const success = await api.deleteYearData(selectedYear, unitFilter);
       if (success) {
-        alert(`Đã xóa sạch toàn bộ dữ liệu năm tuyển chọn ${selectedYear} thành công!`);
+        alert(`Đã xóa sạch dữ liệu năm tuyển chọn ${selectedYear} của đơn vị "${targetUnitName}" thành công!`);
         onSuccess();
         onClose();
       } else {
@@ -158,14 +213,19 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
         
         {/* Header */}
         <div className="bg-red-950 p-5 flex justify-between items-center text-white">
-          <h3 className="font-extrabold uppercase flex items-center gap-2 text-sm tracking-wide">
-            <Trash2 size={20} className={isDeleting ? 'animate-bounce' : 'text-red-400'} />
-            Xóa toàn bộ dữ liệu của năm
-          </h3>
+          <div className="min-w-0 pr-2">
+            <h3 className="font-extrabold uppercase flex items-center gap-2 text-sm tracking-wide">
+              <Trash2 size={20} className={isDeleting ? 'animate-bounce text-red-400' : 'text-red-400 shrink-0'} />
+              <span>Xóa dữ liệu năm</span>
+            </h3>
+            <p className="text-[11px] text-red-200 font-bold truncate mt-0.5">
+              {targetUnitName}
+            </p>
+          </div>
           <button 
             onClick={onClose} 
             disabled={isDeleting}
-            className="hover:bg-white/10 p-1 rounded-full transition-colors"
+            className="hover:bg-white/10 p-1 rounded-full transition-colors shrink-0"
           >
             <X size={24}/>
           </button>
@@ -268,6 +328,22 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
           /* Form Verify & Delete Year Data */
           <form onSubmit={handleDeleteYearData} className="p-6 space-y-4">
             
+            {/* Unit Info Box */}
+            <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <MapPin size={16} className="text-red-700 shrink-0" />
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block">Đơn vị xóa dữ liệu</span>
+                  <span className="font-extrabold text-slate-800 uppercase truncate block">{targetUnitName}</span>
+                </div>
+              </div>
+              {isCommuneScope && (
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
+                  Cấp Xã/Phường
+                </span>
+              )}
+            </div>
+
             <div>
               <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">
                 Chọn năm cần xóa dữ liệu
@@ -280,7 +356,7 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
               >
                 {uniqueYears.map(year => (
                   <option key={year} value={year}>
-                    Năm {year} ({currentRecruits.filter(r => r.recruitmentYear === year).length} hồ sơ)
+                    Năm {year} ({scopedRecruits.filter(r => r.recruitmentYear === year).length} hồ sơ)
                   </option>
                 ))}
               </select>
@@ -289,9 +365,25 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
             <div className="bg-amber-50 border border-amber-300 p-4 rounded-xl text-xs text-amber-900 font-semibold leading-relaxed">
               <div className="flex gap-2 items-start mb-1">
                 <AlertTriangle size={16} className="text-amber-700 shrink-0 mt-0.5 animate-pulse" />
-                <span className="font-bold text-amber-950 uppercase">Cảnh báo nghiêm trọng</span>
+                <span className="font-bold text-amber-950 uppercase">
+                  {isCommuneScope ? 'Phạm vi xóa dữ liệu đơn vị' : 'Cảnh báo nghiêm trọng'}
+                </span>
               </div>
-              Mọi dữ liệu công dân thuộc năm tuyển chọn <b>{selectedYear}</b> sẽ bị xóa hoàn toàn khỏi cơ sở dữ liệu. Thao tác này <b>không thể hoàn tác</b> và sẽ ảnh hưởng trực tiếp đến báo cáo, thống kê của năm này.
+              {isCommuneScope ? (
+                <div className="space-y-1.5">
+                  <p>
+                    Hệ thống sẽ chỉ xóa <b>{recruitsInSelectedYearCount}</b> hồ sơ công dân năm <b>{selectedYear}</b> thuộc riêng <b>{targetUnitName}</b>.
+                  </p>
+                  <div className="text-[11px] text-emerald-800 font-bold bg-emerald-50 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                    <span>Dữ liệu của các xã, phường và đơn vị khác trong năm {selectedYear} được bảo toàn 100%.</span>
+                  </div>
+                </div>
+              ) : (
+                <p>
+                  Mọi dữ liệu công dân thuộc năm tuyển chọn <b>{selectedYear}</b> trong phạm vi <b>{targetUnitName}</b> sẽ bị xóa hoàn toàn khỏi cơ sở dữ liệu. Thao tác này <b>không thể hoàn tác</b>.
+                </p>
+              )}
             </div>
 
             {errorMsg && (
@@ -353,7 +445,7 @@ const DeleteYearDataModal: React.FC<DeleteYearDataModalProps> = ({
             
             {recruitsInSelectedYearCount === 0 && (
               <p className="text-[10px] text-center text-gray-500 italic mt-1">
-                * Năm {selectedYear} hiện tại không có dữ liệu để xóa.
+                * Năm {selectedYear} hiện tại đơn vị không có dữ liệu để xóa.
               </p>
             )}
           </form>

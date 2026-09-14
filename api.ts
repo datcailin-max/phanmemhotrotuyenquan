@@ -55,7 +55,38 @@ export const api = {
     } 
   },
   deleteRecruit: async (id: string) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); setLocal('demo_recruits', list.filter((r: any) => r.id !== id)); return true; } try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; } },
-  deleteYearData: async (year: number) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); setLocal('demo_recruits', list.filter((r: any) => r.recruitmentYear !== year)); return true; } try { const res = await fetch(`${API_URL}/recruits/year/${year}`, { method: 'DELETE' }); return res.ok; } catch { return false; } },
+  deleteYearData: async (year: number, unit?: { province?: string; commune?: string }) => { 
+    if (isDemoMode()) { 
+      const list = getLocal('demo_recruits'); 
+      setLocal('demo_recruits', list.filter((r: any) => {
+        if (r.recruitmentYear !== year) return true;
+        if (unit?.province) {
+          const cleanP1 = (unit.province || '').replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '').trim().toLowerCase();
+          const cleanP2 = (r.address?.province || '').replace(/^(tỉnh|thành phố|tp\.?)\s+/i, '').trim().toLowerCase();
+          if (cleanP1 && cleanP2 && cleanP1 !== cleanP2) return true;
+        }
+        if (unit?.commune) {
+          const cleanC1 = (unit.commune || '').replace(/^(xã|phường|thị trấn|tt\.?)\s+/i, '').trim().toLowerCase();
+          const cleanC2 = (r.address?.commune || '').replace(/^(xã|phường|thị trấn|tt\.?)\s+/i, '').trim().toLowerCase();
+          if (cleanC1 && cleanC2 && cleanC1 !== cleanC2) return true;
+        }
+        return false;
+      })); 
+      return true; 
+    } 
+    try { 
+      let url = `${API_URL}/recruits/year/${year}`;
+      const params = new URLSearchParams();
+      if (unit?.province) params.append('province', unit.province);
+      if (unit?.commune) params.append('commune', unit.commune);
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+      const res = await fetch(url, { method: 'DELETE' }); 
+      return res.ok; 
+    } catch { 
+      return false; 
+    } 
+  },
 
   // --- YEAR TRANSFER ---
   // Fix: Implemented transferYearData using bulk endpoint to allow fast, atomic migration of citizen data across recruitment cycles with deduplication
