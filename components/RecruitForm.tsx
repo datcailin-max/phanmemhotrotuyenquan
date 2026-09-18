@@ -4,6 +4,7 @@ import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment, Recr
 import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt, Trash2, FileText, UserCheck } from 'lucide-react';
 import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
 import { api } from '../api';
+import { helperAutoFillCV, isParentDeceased } from '../services/WordExportService';
 
 // Sub-components
 import LocationFields from './RecruitForm/LocationFields';
@@ -60,15 +61,63 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      setFormData({
+      const cv = initialData.curriculumVitae || {};
+      const fatherName = initialData.family?.father?.fullName || cv.fatherName || '';
+      const fatherBirthYear = initialData.family?.father?.birthYear || cv.fatherBirthDate || '';
+      const fatherJob = initialData.family?.father?.job || cv.fatherJob || '';
+      const fatherPhone = initialData.family?.father?.phoneNumber || '';
+
+      const motherName = initialData.family?.mother?.fullName || cv.motherName || '';
+      const motherBirthYear = initialData.family?.mother?.birthYear || cv.motherBirthDate || '';
+      const motherJob = initialData.family?.mother?.job || cv.motherJob || '';
+      const motherPhone = initialData.family?.mother?.phoneNumber || '';
+
+      const wifeName = initialData.family?.wife?.fullName || cv.spouseName || '';
+      const wifeBirthYear = initialData.family?.wife?.birthYear || cv.spouseBirthDate || '';
+      const wifeJob = initialData.family?.wife?.job || cv.spouseJob || '';
+
+      const mergedRecruit: Recruit = {
         ...initialData,
         family: {
-          father: initialData.family?.father || { ...emptyFamilyMember },
-          mother: initialData.family?.mother || { ...emptyFamilyMember },
-          wife: initialData.family?.wife || { ...emptyFamilyMember },
-          children: initialData.family?.children || ''
-        }
-      });
+          father: {
+            fullName: fatherName,
+            birthYear: fatherBirthYear,
+            job: fatherJob,
+            phoneNumber: fatherPhone,
+          },
+          mother: {
+            fullName: motherName,
+            birthYear: motherBirthYear,
+            job: motherJob,
+            phoneNumber: motherPhone,
+          },
+          wife: {
+            fullName: wifeName,
+            birthYear: wifeBirthYear,
+            job: wifeJob,
+            phoneNumber: initialData.family?.wife?.phoneNumber || '',
+          },
+          children: initialData.family?.children || cv.childrenCount || '',
+        },
+      };
+
+      const autoCV = helperAutoFillCV(mergedRecruit);
+      mergedRecruit.curriculumVitae = {
+        ...autoCV,
+        ...cv,
+        fatherName: fatherName || cv.fatherName || autoCV.fatherName,
+        fatherBirthDate: fatherBirthYear || cv.fatherBirthDate || autoCV.fatherBirthDate,
+        fatherJob: fatherJob || cv.fatherJob || autoCV.fatherJob,
+        motherName: motherName || cv.motherName || autoCV.motherName,
+        motherBirthDate: motherBirthYear || cv.motherBirthDate || autoCV.motherBirthDate,
+        motherJob: motherJob || cv.motherJob || autoCV.motherJob,
+        spouseName: wifeName || cv.spouseName || autoCV.spouseName,
+        spouseBirthDate: wifeBirthYear || cv.spouseBirthDate || autoCV.spouseBirthDate,
+        spouseJob: wifeJob || cv.spouseJob || autoCV.spouseJob,
+        childrenCount: mergedRecruit.family.children || autoCV.childrenCount,
+      };
+
+      setFormData(mergedRecruit);
     }
   }, [initialData]);
 
@@ -191,6 +240,118 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
       }
       // @ts-ignore
       target[parts[parts.length - 1]] = value;
+
+      // ĐỒNG BỘ TỰ ĐỘNG VÀO SƠ YẾU LÝ LỊCH (MỤC I)
+      const currentCV = newData.curriculumVitae ? { ...newData.curriculumVitae } : helperAutoFillCV(newData);
+      let cvNeedsUpdate = false;
+
+      if (field === 'family.father.fullName') {
+        currentCV.fatherName = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.father.birthYear') {
+        currentCV.fatherBirthDate = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.father.job') {
+        currentCV.fatherJob = value;
+        if (isParentDeceased(value)) {
+          currentCV.fatherStatus = 'Chết';
+        }
+        cvNeedsUpdate = true;
+      } else if (field === 'curriculumVitae.fatherStatus') {
+        currentCV.fatherStatus = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.mother.fullName') {
+        currentCV.motherName = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.mother.birthYear') {
+        currentCV.motherBirthDate = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.mother.job') {
+        currentCV.motherJob = value;
+        if (isParentDeceased(value)) {
+          currentCV.motherStatus = 'Chết';
+        }
+        cvNeedsUpdate = true;
+      } else if (field === 'curriculumVitae.motherStatus') {
+        currentCV.motherStatus = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.wife.fullName') {
+        currentCV.spouseName = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.wife.birthYear') {
+        currentCV.spouseBirthDate = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.wife.job') {
+        currentCV.spouseJob = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'family.children') {
+        currentCV.childrenCount = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'fullName') {
+        currentCV.fullNameUpper = value ? value.toUpperCase() : '';
+        currentCV.aliasName = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'citizenId') {
+        currentCV.citizenId = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'dob') {
+        if (value) {
+          const p = value.split(/[-/.]/);
+          if (p.length === 3) {
+            if (p[0].length === 4) {
+              currentCV.birthYear = p[0];
+              currentCV.birthMonth = p[1];
+              currentCV.birthDay = p[2];
+            } else {
+              currentCV.birthDay = p[0];
+              currentCV.birthMonth = p[1];
+              currentCV.birthYear = p[2];
+            }
+            cvNeedsUpdate = true;
+          }
+        }
+      } else if (field === 'details.familyComposition') {
+        currentCV.familyClass = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.personalComposition') {
+        currentCV.personalClass = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.education') {
+        currentCV.educationLevel = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.school') {
+        currentCV.qualificationLevel = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.major') {
+        currentCV.major = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.job') {
+        currentCV.job = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.workAddress') {
+        currentCV.workplace = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.partyEntryDate') {
+        currentCV.communistPartyJoinedDate = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.rewards') {
+        currentCV.commendations = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.disciplines') {
+        currentCV.disciplinaryAction = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.siblingCount') {
+        currentCV.totalSiblings = value;
+        cvNeedsUpdate = true;
+      } else if (field === 'details.birthOrder') {
+        currentCV.siblingOrder = value;
+        cvNeedsUpdate = true;
+      }
+
+      if (cvNeedsUpdate) {
+        newData.curriculumVitae = currentCV;
+      }
+
       return newData;
     });
   };
@@ -358,7 +519,41 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
               formData={formData}
               isReadOnly={isReadOnly}
               onUpdateCV={(updatedCV) => {
-                setFormData(prev => ({ ...prev, curriculumVitae: updatedCV }));
+                setFormData(prev => {
+                  const updatedRecruit = { ...prev, curriculumVitae: updatedCV };
+                  const fam = {
+                    ...prev.family,
+                    father: {
+                      ...(prev.family?.father || { fullName: '', birthYear: '', job: '', phoneNumber: '' }),
+                      fullName: updatedCV.fatherName !== undefined ? updatedCV.fatherName : (prev.family?.father?.fullName || ''),
+                      birthYear: updatedCV.fatherBirthDate !== undefined ? updatedCV.fatherBirthDate : (prev.family?.father?.birthYear || ''),
+                      job: updatedCV.fatherJob !== undefined ? updatedCV.fatherJob : (prev.family?.father?.job || ''),
+                    },
+                    mother: {
+                      ...(prev.family?.mother || { fullName: '', birthYear: '', job: '', phoneNumber: '' }),
+                      fullName: updatedCV.motherName !== undefined ? updatedCV.motherName : (prev.family?.mother?.fullName || ''),
+                      birthYear: updatedCV.motherBirthDate !== undefined ? updatedCV.motherBirthDate : (prev.family?.mother?.birthYear || ''),
+                      job: updatedCV.motherJob !== undefined ? updatedCV.motherJob : (prev.family?.mother?.job || ''),
+                    },
+                    wife: {
+                      ...(prev.family?.wife || { fullName: '', birthYear: '', job: '', phoneNumber: '' }),
+                      fullName: updatedCV.spouseName !== undefined ? updatedCV.spouseName : (prev.family?.wife?.fullName || ''),
+                      birthYear: updatedCV.spouseBirthDate !== undefined ? updatedCV.spouseBirthDate : (prev.family?.wife?.birthYear || ''),
+                      job: updatedCV.spouseJob !== undefined ? updatedCV.spouseJob : (prev.family?.wife?.job || ''),
+                    },
+                    children: updatedCV.childrenCount !== undefined ? updatedCV.childrenCount : (prev.family?.children || ''),
+                  };
+                  updatedRecruit.family = fam;
+
+                  if (updatedCV.fullNameUpper && !prev.fullName) {
+                    updatedRecruit.fullName = updatedCV.fullNameUpper;
+                  }
+                  if (updatedCV.citizenId && !prev.citizenId) {
+                    updatedRecruit.citizenId = updatedCV.citizenId;
+                  }
+
+                  return updatedRecruit;
+                });
               }}
             />
           ) : (

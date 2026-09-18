@@ -33,7 +33,8 @@ const YearTransferModal: React.FC<YearTransferModalProps> = ({
     
     // 4. Danh sách 13 (Nguồn còn lại - Sẵn sàng nhập ngũ nhưng chưa đi)
     const list13 = currentRecruits.filter(r => {
-      if (checkAge(r, sessionYear) < 18) return false;
+      const isSpecialJan = checkAge(r, sessionYear) === 17 && (r.dob?.includes('-') ? r.dob.split('-')[1] === '01' : false);
+      if (checkAge(r, sessionYear) < 18 && !isSpecialJan) return false;
       const isRestricted = [
         RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
         RecruitmentStatus.EXEMPT_REGISTRATION, 

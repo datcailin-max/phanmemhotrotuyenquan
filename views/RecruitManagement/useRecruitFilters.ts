@@ -1,7 +1,7 @@
 
 import { useMemo } from 'react';
 import { Recruit, RecruitmentStatus } from '../../types';
-import { checkAge, isRecruitInTab } from './utils';
+import { checkAge, isRecruitInTab, isSpecialJanCitizen } from './utils';
 import { removeVietnameseTones, LEGAL_DEFERMENT_REASONS } from '../../constants';
 import { TABS } from './constants';
 
@@ -72,9 +72,10 @@ export const useRecruitFilters = (
     if (filterAgeRange) {
       result = result.filter(r => {
         const age = checkAge(r, sessionYear);
-        if (filterAgeRange === 'under18') return age < 18;
-        if (filterAgeRange === '18-24') return age >= 18 && age <= 24;
-        if (filterAgeRange === '18-27') return age >= 18 && age <= 27;
+        const isSpecialJanInSource = isSpecialJanCitizen(r, sessionYear) && r.status !== RecruitmentStatus.FIRST_TIME_REGISTRATION;
+        if (filterAgeRange === 'under18') return age < 18 && !isSpecialJanInSource;
+        if (filterAgeRange === '18-24') return (age >= 18 && age <= 24) || isSpecialJanInSource;
+        if (filterAgeRange === '18-27') return (age >= 18 && age <= 27) || isSpecialJanInSource;
         if (filterAgeRange === '25-27') return age >= 25 && age <= 27;
         if (filterAgeRange === 'over27') return age > 27;
         const exactAge = Number(filterAgeRange);

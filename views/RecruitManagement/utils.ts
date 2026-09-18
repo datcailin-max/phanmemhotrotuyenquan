@@ -2,6 +2,22 @@
 import { Recruit, RecruitmentStatus } from '../../types';
 import { LEGAL_DEFERMENT_REASONS, LEGAL_EXEMPTION_REASONS } from '../../constants';
 
+export const isSpecialJanCitizen = (r: { dob?: string }, sessionYear: number): boolean => {
+  if (!r || !r.dob) return false;
+  let birthYear = 0;
+  let birthMonth = 0;
+  if (r.dob.includes('-')) {
+    const parts = r.dob.split('-');
+    birthYear = parseInt(parts[0] || '0');
+    birthMonth = parseInt(parts[1] || '0');
+  } else if (r.dob.includes('/')) {
+    const parts = r.dob.split('/');
+    birthMonth = parseInt(parts[1] || '0');
+    birthYear = parseInt(parts[2] || '0');
+  }
+  return birthYear === (sessionYear - 17) && birthMonth === 1;
+};
+
 export const hasExemptionReason = (r: { defermentReason?: string; legalReason?: string; notes?: string }): boolean => {
   const reason = [r.defermentReason, r.legalReason, r.notes].filter(Boolean).join(' ').trim().toLowerCase();
   if (!reason || reason === '---' || reason === 'không') return false;
@@ -59,7 +75,8 @@ export const hasDefermentReason = (r: { defermentReason?: string; legalReason?: 
 };
 
 export const isRecruitDeferred = (r: Recruit, sessionYear: number): boolean => {
-  if (checkAge(r, sessionYear) < 18) return false;
+  const isSpecialJan = isSpecialJanCitizen(r, sessionYear);
+  if (checkAge(r, sessionYear) < 18 && !isSpecialJan) return false;
   if (r.status === RecruitmentStatus.DEFERRED) return true;
   if (
     r.status === RecruitmentStatus.EXEMPTED || 
@@ -75,7 +92,8 @@ export const isRecruitDeferred = (r: Recruit, sessionYear: number): boolean => {
 };
 
 export const isRecruitExempted = (r: Recruit, sessionYear: number): boolean => {
-  if (checkAge(r, sessionYear) < 18) return false;
+  const isSpecialJan = isSpecialJanCitizen(r, sessionYear);
+  if (checkAge(r, sessionYear) < 18 && !isSpecialJan) return false;
   if (r.status === RecruitmentStatus.EXEMPTED) return true;
   if (
     r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
@@ -219,8 +237,9 @@ export const isTotalSource = (r: Recruit, sessionYear: number) => {
   ].includes(r.status)) return false;
   
   const age = checkAge(r, sessionYear);
-  // Nếu công dân đã được đưa vào SOURCE (kể cả trường hợp đặc biệt 17 tuổi sinh tháng 1 chuyển nguồn)
-  if (r.status === RecruitmentStatus.SOURCE) return true;
+  const isSpecialJan = isSpecialJanCitizen(r, sessionYear);
+  // Nếu công dân đã được đưa vào SOURCE hoặc các bước tiếp theo của nguồn (kể cả trường hợp đặc biệt 17 tuổi sinh tháng 1)
+  if (r.status === RecruitmentStatus.SOURCE || isSpecialJan) return true;
   if (age < 18) return false;
   
   return true;
@@ -387,6 +406,11 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
       return r.status === RecruitmentStatus.EXEMPT_REGISTRATION;
 
     case 'FIRST_TIME_REG': {
+      const isSpecialJan = isSpecialJanCitizen(r, sessionYear);
+      // Nếu là trường hợp sinh tháng 1 đã được đưa vào nguồn hoặc các bước tiếp theo, không còn nằm ở DS 3
+      if (isSpecialJan && r.status !== RecruitmentStatus.FIRST_TIME_REGISTRATION) {
+        return false;
+      }
       const age = checkAge(r, sessionYear);
       if (age < 18 && ![
         RecruitmentStatus.NOT_ALLOWED_REGISTRATION,
@@ -402,10 +426,7 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
 
     case 'SPECIAL_JAN_17': {
       if (r.status === RecruitmentStatus.DELETED) return false;
-      const birthYear = parseInt(r.dob?.split('-')[0] || '0');
-      const birthMonth = parseInt(r.dob?.split('-')[1] || '0');
-      const targetBirthYear = sessionYear - 17;
-      return birthYear === targetBirthYear && birthMonth === 1;
+      return isSpecialJanCitizen(r, sessionYear);
     }
 
     case 'ALL':

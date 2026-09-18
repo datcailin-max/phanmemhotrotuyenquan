@@ -16,10 +16,11 @@ export class EnlistmentList17AExport {
 
     const wb = excelUtils.book_new();
 
+    const enlistYear = sessionYear + 1;
     // 1. Header chuẩn theo quy định hành chính quân sự
     const metaInfo = [
       ['Biểu số: 17A/GNN-2025', '', '', 'Phụ lục I', '', '', '', ''],
-      ['Khổ biểu: 29,7x21cm', '', '', `DANH SÁCH GỌI CÔNG DÂN NHẬP NGŨ NĂM ${sessionYear}`, '', '', '', ''],
+      ['Khổ biểu: 29,7x21cm', '', '', `DANH SÁCH GỌI CÔNG DÂN NHẬP NGŨ NĂM ${enlistYear}`, '', '', '', ''],
       ['', '', '', `(Kèm theo Báo cáo số: ...../.... ngày....tháng....năm....của ${unitName})`, '', '', '', ''],
       ['', '', '', '', '', '', '', ''],
       ['', '', '', '', '', '', '', ''],
@@ -117,6 +118,6 @@ export class EnlistmentList17AExport {
     ws['!rows'][5] = { hpt: 100 };
 
     excelUtils.book_append_sheet(wb, ws, 'Mau 17A');
-    excelWrite(wb, `Mau_17A_Goi_Nhap_Ngu_${unitName}_${sessionYear}.xlsx`);
+    excelWrite(wb, `Mau_17A_Goi_Nhap_Ngu_${unitName}_${enlistYear}.xlsx`);
   }
 }

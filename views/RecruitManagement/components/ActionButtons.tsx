@@ -5,7 +5,7 @@ import {
   BookX, UserX, CheckCircle2, XCircle, Flag, Tent, Undo2, Save, RotateCcw, UserPlus, Calendar as CalendarIcon, Building2
 } from 'lucide-react';
 import { Recruit, RecruitmentStatus } from '../../../types';
-import { checkAge } from '../utils';
+import { checkAge, isSpecialJanCitizen } from '../utils';
 
 interface ActionButtonsProps {
   recruit: Recruit;
@@ -112,9 +112,7 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
       );
     case 'FIRST_TIME_REG': {
       const currentYear = sessionYear || new Date().getFullYear();
-      const birthYear = parseInt(recruit.dob?.split('-')[0] || '0');
-      const birthMonth = parseInt(recruit.dob?.split('-')[1] || '0');
-      const isJanSpecial17 = birthYear === (currentYear - 17) && birthMonth === 1;
+      const isJanSpecial17 = isSpecialJanCitizen(recruit, currentYear);
 
       return (
         <div className="flex items-center justify-center gap-1">
@@ -132,11 +130,21 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         </div>
       );
     }
-    case 'SPECIAL_JAN_17':
+    case 'SPECIAL_JAN_17': {
+      const isFirstTime = recruit.status === RecruitmentStatus.FIRST_TIME_REGISTRATION;
+      const isSource = recruit.status === RecruitmentStatus.SOURCE;
+      const isDeferred = recruit.status === RecruitmentStatus.DEFERRED;
+      const isExempted = recruit.status === RecruitmentStatus.EXEMPTED;
+      const isTT50 = [
+        RecruitmentStatus.NOT_SELECTED_TT50,
+        RecruitmentStatus.KTC_KHONG_TUYEN_CHON,
+        RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU
+      ].includes(recruit.status);
+
       return (
-        <div className="flex items-center justify-center gap-1.5">
+        <div className="flex items-center justify-center gap-1 flex-wrap">
           <button onClick={() => onEdit(recruit)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={16} /></button>
-          {recruit.status !== RecruitmentStatus.SOURCE ? (
+          {isFirstTime ? (
             <button 
               onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.SOURCE, previousStatus: recruit.status })} 
               className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded text-[10px] font-black uppercase hover:bg-emerald-700 shadow-sm transition-all active:scale-95" 
@@ -145,17 +153,81 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
               <ArrowUpCircle size={12} /> Chuyển về nguồn
             </button>
           ) : (
-            <button 
-              onClick={() => onUpdate({ ...recruit, status: RecruitmentStatus.FIRST_TIME_REGISTRATION, previousStatus: recruit.status })} 
-              className="flex items-center gap-1 px-2.5 py-1 bg-cyan-700 text-white rounded text-[10px] font-black uppercase hover:bg-cyan-800 shadow-sm transition-all active:scale-95" 
-              title="Đưa về Danh sách Đăng ký lần đầu (DS 3)"
-            >
-              <RotateCcw size={12} /> Về ĐK lần đầu
-            </button>
+            <>
+              {/* Thao tác Tạm hoãn (DS 8) */}
+              <button 
+                onClick={() => onOpenReasonModal(recruit, 'DEFERRED')} 
+                className={`p-1 rounded ${isDeferred ? 'text-amber-700 bg-amber-100 font-bold' : 'text-amber-600 hover:bg-amber-50'}`} 
+                title={isDeferred ? "Cập nhật lý do tạm hoãn (DS 8)" : "Tạm hoãn nghĩa vụ (DS 8)"}
+              >
+                <PauseCircle size={16}/>
+              </button>
+
+              {/* Thao tác Miễn gọi nhập ngũ (DS 9) */}
+              <button 
+                onClick={() => onOpenReasonModal(recruit, 'EXEMPTED')} 
+                className={`p-1 rounded ${isExempted ? 'text-purple-700 bg-purple-100 font-bold' : 'text-purple-600 hover:bg-purple-50'}`} 
+                title={isExempted ? "Cập nhật lý do miễn gọi (DS 9)" : "Miễn gọi nhập ngũ (DS 9)"}
+              >
+                <ShieldCheck size={16}/>
+              </button>
+
+              {/* Thao tác KTC, CGNN (DS 5) */}
+              <button 
+                onClick={() => onOpenTT50Modal?.(recruit)} 
+                className={`p-1 rounded ${isTT50 ? 'text-slate-800 bg-slate-200 font-bold' : 'text-slate-600 hover:bg-slate-50'}`} 
+                title="KTC, CGNN theo Thông tư 50 (DS 5)"
+              >
+                <BookX size={16}/>
+              </button>
+
+              {/* Thao tác Loại khỏi nguồn (DS 12) */}
+              <button 
+                onClick={() => onOpenRemoveModal(recruit, 'DEFERRED')} 
+                className="p-1 text-gray-500 hover:bg-gray-100 rounded" 
+                title="Loại khỏi nguồn (DS 12)"
+              >
+                <UserX size={16} />
+              </button>
+
+              {/* Khôi phục trạng thái nguồn nếu đang ở bước sau (hoãn, miễn, KTC...) */}
+              {!isSource && (
+                <button 
+                  onClick={() => onUpdate({ 
+                    ...recruit, 
+                    status: RecruitmentStatus.SOURCE, 
+                    defermentReason: '', 
+                    previousStatus: recruit.status,
+                    enlistmentType: undefined,
+                    enlistmentUnit: undefined,
+                    enlistmentDate: undefined
+                  })} 
+                  className="p-1 text-green-600 hover:bg-green-50 rounded" 
+                  title="Khôi phục trạng thái NGUỒN (DS 4)"
+                >
+                  <Undo2 size={16}/>
+                </button>
+              )}
+
+              {/* Nút đưa về Danh sách Đăng ký lần đầu (DS 3) */}
+              <button 
+                onClick={() => onUpdate({ 
+                  ...recruit, 
+                  status: RecruitmentStatus.FIRST_TIME_REGISTRATION, 
+                  defermentReason: '',
+                  previousStatus: recruit.status 
+                })} 
+                className="p-1 text-cyan-700 hover:bg-cyan-50 rounded" 
+                title="Đưa về Danh sách Đăng ký lần đầu (DS 3)"
+              >
+                <RotateCcw size={16} />
+              </button>
+            </>
           )}
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa hồ sơ (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
+    }
     case 'ALL':
       return (
         <div className="flex items-center justify-center gap-1">

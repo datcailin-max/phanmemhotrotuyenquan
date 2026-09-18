@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { X, Upload, CheckCircle2, FileSpreadsheet, RefreshCw, Download, HelpCircle, FileText } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Upload, CheckCircle2, FileSpreadsheet, RefreshCw, Download, HelpCircle, FileText, AlertTriangle } from 'lucide-react';
 import XLSX from 'xlsx-js-style';
 import { Recruit, User, FamilyMember, RecruitmentStatus } from '../../../types';
 import { api } from '../../../api';
+import { EXCEL_IMPORT_ALLOWED_TAB_IDS } from '../constants';
 
 import {
   ExcelImportModalProps,
@@ -36,7 +37,7 @@ import {
   cleanParentJob
 } from './excelImport/excelHelpers';
 
-import { hasDefermentReason, hasExemptionReason, isRealDefermentReason } from '../utils';
+import { hasDefermentReason, hasExemptionReason, isRealDefermentReason, isSpecialJanCitizen } from '../utils';
 
 import {
   handleDownloadTemplate17,
@@ -67,6 +68,23 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   const [deferredExemptList, setDeferredExemptList] = useState<DeferredExemptNotice[]>([]);
   const [fontWarningList, setFontWarningList] = useState<FontWarningNotice[]>([]);
   const [missingCccdList, setMissingCccdList] = useState<MissingCccdNotice[]>([]);
+
+  const isAllowedTab = EXCEL_IMPORT_ALLOWED_TAB_IDS.includes(activeTabId as any);
+
+  const activeTabInfo = useMemo(() => {
+    switch (activeTabId) {
+      case 'NOT_ALLOWED_REG':
+        return { name: 'Danh sách 1: Không được ĐK NVQS', tag: 'DS 1', isFirstTime: false };
+      case 'EXEMPT_REG':
+        return { name: 'Danh sách 2: Miễn ĐK NVQS', tag: 'DS 2', isFirstTime: false };
+      case 'FIRST_TIME_REG':
+        return { name: 'Danh sách 3: Đăng ký lần đầu (Tuổi 17)', tag: 'DS 3', isFirstTime: true };
+      case 'ALL':
+        return { name: 'Danh sách 4: Toàn bộ nguồn công dân', tag: 'DS 4', isFirstTime: false };
+      default:
+        return { name: 'Danh sách khác', tag: 'Ngoài DS 1-4', isFirstTime: false };
+    }
+  }, [activeTabId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -198,8 +216,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               cellStr.includes('họ và tên') || 
               cellStr.includes('họ tên') || 
               cellStr.includes('họ, chữ đệm') || 
+              cellStr.includes('họ và chữ đệm') ||
               cellStr.includes('tên công dân') ||
-              cellStr.includes('khai sinh')
+              cellStr.includes('khai sinh') ||
+              cellStr.includes('thường dùng')
             ) {
               if (nameCol === -1) nameCol = colIdx;
             }
@@ -207,8 +227,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             if (
               cellStr.includes('ngày sinh') || 
               cellStr.includes('năm sinh') || 
-              cellStr.includes('ngày, tháng') ||
+              cellStr.includes('ngày, tháng') || 
               cellStr.includes('ngày,tháng') ||
+              cellStr.includes('ngày/tháng') ||
+              cellStr.includes('sinh ngày') ||
+              cellStr.includes('tháng năm sinh') ||
               cellStr.includes('dob')
             ) {
               if (dobCol === -1) dobCol = colIdx;
@@ -218,7 +241,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               cellStr.includes('cccd') || 
               cellStr.includes('cmnd') || 
               cellStr.includes('số định danh') || 
-              cellStr.includes('thẻ căn cước')
+              cellStr.includes('thẻ căn cước') ||
+              cellStr.includes('căn cước') ||
+              cellStr.includes('đdcn') ||
+              cellStr.includes('mã định danh')
             ) {
               if (cccdCol === -1) cccdCol = colIdx;
             }
@@ -315,6 +341,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
       let currentRecruitsState = [...recruits];
       const emptyFamilyMember: FamilyMember = { fullName: '', job: '', phoneNumber: '', birthYear: '' };
+      const usedExistingIndices = new Set<number>();
 
       for (let idx = 0; idx < validRowsToProcess.length; idx++) {
         const item = validRowsToProcess[idx];
@@ -484,14 +511,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         const cccdBirthYear = extractBirthYearFromCCCD(rawCccd);
 
         if (cccdBirthYear) {
-          if (!finalDob || isNaN(parsedYear) || parsedYear < 1985 || parsedYear > 2012) {
-            if (finalDob && finalDob.includes('-')) {
-              const parts = finalDob.split('-');
-              if (parts.length === 3 && parts[1] && parts[2] && parts[1] !== '01') {
-                finalDob = `${cccdBirthYear}-${parts[1]}-${parts[2]}`;
-              } else {
-                finalDob = `${cccdBirthYear}-01-01`;
-              }
+          if (!finalDob) {
+            finalDob = `${cccdBirthYear}-01-01`;
+          } else if (parsedYear !== cccdBirthYear) {
+            const parts = finalDob.split('-');
+            if (parts.length === 3 && parts[1] && parts[2]) {
+              finalDob = `${cccdBirthYear}-${parts[1]}-${parts[2]}`;
             } else {
               finalDob = `${cccdBirthYear}-01-01`;
             }
@@ -558,34 +583,34 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           });
         }
 
-        // Tự động xác định trạng thái Tạm hoãn / Miễn gọi từ lý do nếu có
-        let autoStatus = defaultStatus;
+        // XÁC ĐỊNH TRẠNG THÁI & LÝ DO THEO 4 DANH SÁCH ĐƯỢC PHÉP NHẬP (1, 2, 3, 4)
+        let targetStatus = defaultStatus;
+        let finalReason = reason || '';
 
-        // KIỂM TRA QUY ĐỊNH LUẬT NVQS VỀ TUỔI
-        if (citizenAge < 17) {
-          deferredExempts.push({
-            rowNum: rowNumberInExcel,
-            fullName: cleanedName,
-            cccd: rawCccd,
-            reason: `CẢNH BÁO LUẬT NVQS: Công dân ${citizenAge} tuổi (chưa đủ 17 tuổi trong năm ${sessionYear}) - Chưa đến tuổi đăng ký NVQS lần đầu.`
-          });
-          autoStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
-        } else if (citizenAge < 18) {
-          // Công dân 17 tuổi (dưới 18 tuổi): Thuộc Danh sách Đăng ký NVQS lần đầu (DS 3)
-          if (defaultStatus !== RecruitmentStatus.FIRST_TIME_REGISTRATION || (reason && reason !== '---')) {
-            deferredExempts.push({
-              rowNum: rowNumberInExcel,
-              fullName: cleanedName,
-              cccd: rawCccd,
-              reason: `NHẮC NHỞ LUẬT NVQS: Công dân ${citizenAge} tuổi (dưới 18 tuổi) - Không thuộc diện vào Danh sách Nguồn/Tạm hoãn nguồn. Đã giữ tại Danh sách Đăng ký NVQS lần đầu (DS 3).`
-            });
-          }
-          autoStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
-        } else if (reason && reason !== '---' && reason.toLowerCase() !== 'không') {
+        if (activeTabId === 'NOT_ALLOWED_REG') {
+          targetStatus = RecruitmentStatus.NOT_ALLOWED_REGISTRATION;
+          finalReason = reason || 'Không được đăng ký NVQS';
+        } else if (activeTabId === 'EXEMPT_REG') {
+          targetStatus = RecruitmentStatus.EXEMPT_REGISTRATION;
+          finalReason = reason || 'Miễn đăng ký NVQS';
+        } else if (activeTabId === 'FIRST_TIME_REG') {
+          targetStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
+          finalReason = reason || '';
+        } else {
+          // Danh sách 4: ALL (TOÀN BỘ NGUỒN)
           if (isRealExempt) {
-            autoStatus = RecruitmentStatus.EXEMPTED;
+            targetStatus = RecruitmentStatus.EXEMPTED;
+            finalReason = reason || 'Miễn gọi nhập ngũ';
           } else if (isRealDefer) {
-            autoStatus = RecruitmentStatus.DEFERRED;
+            if (citizenAge >= 18) {
+              targetStatus = RecruitmentStatus.DEFERRED;
+            } else {
+              targetStatus = RecruitmentStatus.SOURCE;
+            }
+            finalReason = reason || 'Tạm hoãn gọi nhập ngũ';
+          } else {
+            targetStatus = RecruitmentStatus.SOURCE;
+            finalReason = reason || '';
           }
         }
 
@@ -594,63 +619,75 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         // Ưu tiên 1: Tìm theo Số CCCD nếu có số CCCD hợp lệ (9-12 chữ số)
         if (cleanRawCccd && /^\d{9,12}$/.test(cleanRawCccd)) {
-          existingIndex = currentRecruitsState.findIndex(r => r.citizenId?.trim() === cleanRawCccd);
+          existingIndex = currentRecruitsState.findIndex((r, rIdx) => 
+            !usedExistingIndices.has(rIdx) && r.citizenId?.trim() === cleanRawCccd
+          );
         }
 
-        // Ưu tiên 2: Nếu chưa tìm thấy theo CCCD (hoặc công dân trong Excel/CSDL thiếu CCCD),
-        // tiến hành đối chiếu Công dân trùng tên với các dữ liệu khác (Ngày sinh, Thôn/Ấp, Địa chỉ, Tên Cha...)
+        // Ưu tiên 2: Nếu chưa tìm thấy theo CCCD và dòng này không có CCCD (hoặc CSDL thiếu CCCD),
+        // đối chiếu công dân trùng tên với điều kiện NGHIÊM NGẶT: trùng họ tên VÀ trùng năm sinh VÀ (trùng ngày sinh ĐẦY ĐỦ HOẶC trùng tên cha HOẶC trùng địa chỉ chi tiết)
         if (existingIndex === -1 && cleanedName) {
           const normCleanedName = removeVietnameseTones(cleanedName.toLowerCase()).trim();
           const cleanedBirthYear = formattedDob ? formattedDob.split('-')[0] : '';
           const normVillage = village ? removeVietnameseTones(village.toLowerCase()).trim() : '';
           const normAddress = address ? removeVietnameseTones(address.toLowerCase()).trim() : '';
 
-          existingIndex = currentRecruitsState.findIndex(r => {
+          existingIndex = currentRecruitsState.findIndex((r, rIdx) => {
+            if (usedExistingIndices.has(rIdx)) return false;
             if (!r.fullName) return false;
+
+            // Nếu cả 2 đều có CCCD hợp lệ nhưng khác nhau -> Tuyệt đối không gộp!
+            const existingCleanCccd = r.citizenId ? r.citizenId.replace(/\D/g, '') : '';
+            const newCleanCccd = cleanRawCccd ? cleanRawCccd.replace(/\D/g, '') : '';
+            if (existingCleanCccd.length >= 9 && newCleanCccd.length >= 9 && existingCleanCccd !== newCleanCccd) {
+              return false;
+            }
+
             const normExistingName = removeVietnameseTones(r.fullName.toLowerCase()).trim();
             if (normExistingName !== normCleanedName) return false;
 
-            // Đã trùng Họ tên -> Kiểm tra bổ sung các trường dữ liệu khác
             const existingDob = r.dob || '';
             const existingBirthYear = existingDob ? existingDob.split('-')[0] : '';
-            const existingVillage = r.address?.village ? removeVietnameseTones(r.address.village.toLowerCase()).trim() : '';
-            const existingStreet = r.address?.street ? removeVietnameseTones(r.address.street.toLowerCase()).trim() : '';
 
-            // So sánh Ngày sinh hoặc Năm sinh
+            // BẮT BUỘC: Nếu cả 2 đều có năm sinh thì năm sinh PHẢI GIỐNG NHAU (tránh gộp người trùng tên nhưng khác tuổi)
+            if (cleanedBirthYear && existingBirthYear && cleanedBirthYear !== existingBirthYear) {
+              return false;
+            }
+
             const isSameDob = Boolean(formattedDob && existingDob && formattedDob === existingDob);
-            const isSameBirthYear = Boolean(cleanedBirthYear && existingBirthYear && cleanedBirthYear === existingBirthYear);
-            const isDobMatch = isSameDob || isSameBirthYear;
-
-            // So sánh Thôn / Ấp hoặc Địa chỉ chi tiết
-            const isSameVillage = Boolean(normVillage && existingVillage && (
-              normVillage === existingVillage ||
-              normVillage.includes(existingVillage) ||
-              existingVillage.includes(normVillage)
-            ));
-            const isSameAddress = Boolean(normAddress && existingStreet && (
-              normAddress === existingStreet ||
-              normAddress.includes(existingStreet) ||
-              existingStreet.includes(normAddress)
-            ));
-            const isAddressMatch = isSameVillage || isSameAddress;
 
             // So sánh Họ tên Cha nếu có
             const existingFather = r.family?.father?.fullName ? removeVietnameseTones(r.family.father.fullName.toLowerCase()).trim() : '';
             const newFather = parsedParents?.father?.fullName ? removeVietnameseTones(parsedParents.father.fullName.toLowerCase()).trim() : '';
             const isFatherMatch = Boolean(existingFather && newFather && (existingFather === newFather || existingFather.includes(newFather) || newFather.includes(existingFather)));
 
-            // Nếu trùng Ngày/Năm sinh HOẶC Địa chỉ HOẶC Họ tên Cha -> Coi là cùng 1 công dân trong CSDL
-            if (isDobMatch || isAddressMatch || isFatherMatch) {
-              return true;
-            }
+            // So sánh Địa chỉ chi tiết (chỉ tính nếu có số nhà, ngõ/đường chi tiết > 3 ký tự)
+            const existingStreet = r.address?.street ? removeVietnameseTones(r.address.street.toLowerCase()).trim() : '';
+            const isDetailedAddressMatch = Boolean(
+              normAddress && existingStreet && normAddress.length > 3 && existingStreet.length > 3 &&
+              (normAddress === existingStreet || normAddress.includes(existingStreet) || existingStreet.includes(normAddress))
+            );
 
-            // Nếu cả 2 đều không có ngày sinh và địa chỉ chi tiết, coi như cùng 1 công dân do trùng họ tên trong cùng đơn vị
-            if (!cleanedBirthYear && !existingBirthYear && !normVillage && !existingVillage) {
-              return true;
-            }
+            // Thôn/Ấp trùng nhau
+            const existingVillage = r.address?.village ? removeVietnameseTones(r.address.village.toLowerCase()).trim() : '';
+            const isSameVillage = Boolean(normVillage && existingVillage && (normVillage === existingVillage || normVillage.includes(existingVillage) || existingVillage.includes(normVillage)));
+
+            // Trùng khớp nếu:
+            // 1. Trùng ngày tháng năm sinh đầy đủ
+            // 2. Hoặc trùng năm sinh + trùng tên cha
+            // 3. Hoặc trùng năm sinh + trùng địa chỉ chi tiết
+            // 4. Hoặc trùng ngày sinh + trùng thôn/ấp
+            if (isSameDob) return true;
+            if (cleanedBirthYear && existingBirthYear && isFatherMatch) return true;
+            if (cleanedBirthYear && existingBirthYear && isDetailedAddressMatch) return true;
+            if (isSameDob && isSameVillage) return true;
 
             return false;
           });
+        }
+
+        if (existingIndex > -1) {
+          usedExistingIndices.add(existingIndex);
         }
 
         // Ghi nhận thông báo cho Cán bộ biết nếu công dân thiếu CCCD
@@ -674,20 +711,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         if (existingIndex > -1) {
           // CẬP NHẬT CÔNG DÂN ĐÃ TỒN TẠI
           const existing = currentRecruitsState[existingIndex];
-          let targetStatus = existing.status;
-
-          if (citizenAge < 18) {
-            targetStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
-          } else if (existing.status === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) {
-            targetStatus = autoStatus;
-          } else if (reason && autoStatus !== defaultStatus && autoStatus !== RecruitmentStatus.SOURCE) {
-            targetStatus = autoStatus;
-          }
-
-          let finalReason = '';
-          if (targetStatus === RecruitmentStatus.DEFERRED || targetStatus === RecruitmentStatus.EXEMPTED || isRealDefer || isRealExempt) {
-            finalReason = reason || existing.defermentReason || '';
-          }
 
           const existingStreet = existing.address?.street || '';
           const cleanExistingStreet = (existingStreet.toLowerCase() === village.toLowerCase()) ? '' : existingStreet;
@@ -707,6 +730,9 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           const existingCV = existing.curriculumVitae || {};
           const updatedCV = {
             ...existingCV,
+            fullNameUpper: (cleanedName || existing.fullName || '').toUpperCase(),
+            aliasName: existingCV.aliasName || cleanedName || existing.fullName,
+            citizenId: (cleanRawCccd && /^\d{9,12}$/.test(cleanRawCccd)) ? cleanRawCccd : (existing.citizenId || cleanRawCccd || ''),
             fatherName: finalFatherName || existingCV.fatherName || '',
             fatherBirthDate: finalFatherBirthYear || existingCV.fatherBirthDate || '',
             fatherJob: finalFatherJob || existingCV.fatherJob || 'Không',
@@ -723,8 +749,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             fullName: cleanedName || existing.fullName,
             dob: formattedDob || existing.dob,
             address: {
-              province: existing.address?.province || userProvince,
-              commune: existing.address?.commune || userCommune,
+              province: userProvince,
+              commune: userCommune,
               village: village || existing.address?.village || 'Ấp Mỹ An',
               street: address || cleanExistingStreet
             },
@@ -761,6 +787,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             curriculumVitae: updatedCV,
             status: targetStatus,
             defermentReason: finalReason,
+            recruitmentYear: sessionYear,
             updatedAt: new Date().toISOString()
           };
 
@@ -777,11 +804,6 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
 
         } else {
           // CHÈN BẢN GHI CÔNG DÂN MỚI
-          let targetStatus = (defaultStatus === RecruitmentStatus.SOURCE && autoStatus !== RecruitmentStatus.SOURCE) ? autoStatus : defaultStatus;
-          if (citizenAge < 18) {
-            targetStatus = RecruitmentStatus.FIRST_TIME_REGISTRATION;
-          }
-
           const fatherJobClean = cleanParentJob(parsedParents.father.job);
           const fatherIsDeceased = parsedParents.father.isDeceased || isParentDeceased(parsedParents.father.job);
           const motherJobClean = cleanParentJob(parsedParents.mother.job);
@@ -883,7 +905,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               siblingOrder: '1'
             },
             status: targetStatus,
-            defermentReason: (targetStatus === RecruitmentStatus.DEFERRED || targetStatus === RecruitmentStatus.EXEMPTED || isRealDefer || isRealExempt) ? (reason || '') : '',
+            defermentReason: finalReason,
             recruitmentYear: sessionYear,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -924,6 +946,30 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     }
   };
 
+  if (!isAllowedTab) {
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 text-center space-y-4 animate-in zoom-in duration-300">
+          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+            <AlertTriangle size={24} />
+          </div>
+          <h3 className="text-base font-black text-gray-900 uppercase">
+            Không khả dụng ở danh sách này
+          </h3>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            Tính năng nhập tự động từ file Excel chỉ áp dụng cho <b>4 danh sách (1, 2, 3, 4)</b>. Vui lòng chuyển sang một trong 4 danh sách này để thực hiện nhập dữ liệu.
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 bg-military-800 hover:bg-military-900 text-white text-xs font-black uppercase rounded-xl transition-all"
+          >
+            Đóng thông báo
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in duration-300">
@@ -935,11 +981,16 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               <FileSpreadsheet size={24} className="text-emerald-400" />
             </div>
             <div>
-              <h3 className="text-base font-black uppercase tracking-tight">
-                Nhập & Đối soát danh sách công dân từ File Excel
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black uppercase tracking-tight">
+                  Nhập & Đối soát danh sách từ File Excel
+                </h3>
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-400/40">
+                  {activeTabInfo.tag}
+                </span>
+              </div>
               <p className="text-[11px] text-military-200 font-bold uppercase mt-0.5">
-                Năm tuyển chọn {sessionYear} • Tự động quét thông tin & Phát hiện lỗi chính tả, font chữ
+                Năm tuyển chọn {sessionYear} • Đang nhập vào: <span className="text-amber-300">{activeTabInfo.name}</span>
               </p>
             </div>
           </div>
@@ -960,23 +1011,33 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             <div className="flex items-start gap-3">
               <HelpCircle size={22} className="text-blue-700 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-black uppercase text-blue-950">Mẫu file nhập dữ liệu theo từng loại danh sách:</p>
+                <p className="text-xs font-black uppercase text-blue-950">Mẫu file chuẩn theo từng danh sách:</p>
                 <p className="text-[11px] text-blue-800 mt-0.5 leading-relaxed">
-                  Danh sách <b>Đăng ký lần đầu (Đủ 17 tuổi)</b> sử dụng Mẫu Biểu 01. Các danh sách còn lại (Nguồn tuyển quân, Tạm hoãn, Miễn...) sử dụng Mẫu Danh sách nguồn. Tải mẫu bên cạnh:
+                  {activeTabInfo.isFirstTime 
+                    ? 'Bạn đang ở Danh sách 3 (17 tuổi): Hãy dùng file mẫu Biểu 01 bên dưới để nhập danh sách thanh niên 17 tuổi.'
+                    : 'Bạn đang ở ' + activeTabInfo.name + ': Hãy dùng Mẫu Danh Sách Nguồn để nhập danh sách công dân.'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
               <button
                 onClick={() => handleDownloadTemplate17(sessionYear)}
-                className="flex-1 md:flex-initial px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                className={`flex-1 md:flex-initial px-3 py-2 rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5 ${
+                  activeTabInfo.isFirstTime 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white ring-2 ring-blue-400' 
+                    : 'bg-white hover:bg-blue-50 text-blue-700 border border-blue-200'
+                }`}
                 title="Mẫu Biểu 01 - Dành cho Danh sách Đăng ký lần đầu (Tuổi 17)"
               >
                 <Download size={13} /> Mẫu Đăng Ký Lần Đầu (17 Tuổi)
               </button>
               <button
                 onClick={() => handleDownloadTemplateSource(sessionYear, currentUser?.unit?.commune)}
-                className="flex-1 md:flex-initial px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                className={`flex-1 md:flex-initial px-3 py-2 rounded-xl font-black text-[11px] uppercase shadow active:scale-95 transition-all flex items-center justify-center gap-1.5 ${
+                  !activeTabInfo.isFirstTime 
+                    ? 'bg-emerald-700 hover:bg-emerald-800 text-white ring-2 ring-emerald-400' 
+                    : 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200'
+                }`}
                 title="Mẫu Danh sách nguồn tuyển quân - Dành cho các danh sách khác"
               >
                 <Download size={13} /> Mẫu Danh Sách Nguồn & Khác

@@ -515,14 +515,17 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
           </div>
           <div>
             <label className="block text-[11px] font-black text-gray-700 uppercase mb-1">Tình trạng (sống, chết):</label>
-            <input
-              type="text"
-              readOnly={isReadOnly}
-              className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-bold text-gray-800 bg-white"
+            <select
+              disabled={isReadOnly}
+              className={`w-full rounded-xl border p-2.5 text-sm font-bold transition-all ${
+                cv.fatherStatus === 'Chết' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-800 border-gray-300'
+              }`}
               value={cv.fatherStatus || 'Sống'}
               onChange={(e) => handleChange('fatherStatus', e.target.value)}
-              placeholder="Sống"
-            />
+            >
+              <option value="Sống">Sống</option>
+              <option value="Chết">Chết (Đã mất)</option>
+            </select>
           </div>
           <div>
             <label className="block text-[11px] font-black text-gray-700 uppercase mb-1">Sinh ngày / năm:</label>
@@ -563,14 +566,17 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
           </div>
           <div>
             <label className="block text-[11px] font-black text-gray-700 uppercase mb-1">Tình trạng (sống, chết):</label>
-            <input
-              type="text"
-              readOnly={isReadOnly}
-              className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-bold text-gray-800 bg-white"
+            <select
+              disabled={isReadOnly}
+              className={`w-full rounded-xl border p-2.5 text-sm font-bold transition-all ${
+                cv.motherStatus === 'Chết' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-white text-gray-800 border-gray-300'
+              }`}
               value={cv.motherStatus || 'Sống'}
               onChange={(e) => handleChange('motherStatus', e.target.value)}
-              placeholder="Sống"
-            />
+            >
+              <option value="Sống">Sống</option>
+              <option value="Chết">Chết (Đã mất)</option>
+            </select>
           </div>
           <div>
             <label className="block text-[11px] font-black text-gray-700 uppercase mb-1">Sinh ngày / năm:</label>

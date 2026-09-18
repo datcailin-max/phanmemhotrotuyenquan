@@ -160,6 +160,11 @@ export const parseExcelDate = (val: any): string => {
 
   const str = String(val).trim();
 
+  // Bỏ qua nếu là chuỗi trình độ học vấn (ví dụ 12/12, 11/12, 10/12, 9/12, 8/12...)
+  if (/^\s*\d{1,2}\s*[\/\\]\s*(?:10|12)\s*$/.test(str)) {
+    return '';
+  }
+
   // Lọc bỏ các dòng chứa thông tin cha, mẹ, thân nhân, gia đình để không lấy nhầm năm sinh của cha/mẹ
   const cleanLines = str.split(/\r?\n/).filter(line => {
     const lower = line.toLowerCase();
@@ -170,23 +175,31 @@ export const parseExcelDate = (val: any): string => {
   // Dạng DD/MM/YYYY hoặc DD-MM-YYYY hoặc DD.MM.YYYY
   const ddmmyyyy = cleanText.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
   if (ddmmyyyy) {
-    const dd = ddmmyyyy[1].padStart(2, '0');
-    const mm = ddmmyyyy[2].padStart(2, '0');
+    const ddNum = parseInt(ddmmyyyy[1], 10);
+    const mmNum = parseInt(ddmmyyyy[2], 10);
     const yyyy = ddmmyyyy[3];
-    return `${yyyy}-${mm}-${dd}`;
+    if (mmNum >= 1 && mmNum <= 12 && ddNum >= 1 && ddNum <= 31) {
+      const dd = String(ddNum).padStart(2, '0');
+      const mm = String(mmNum).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
   }
 
   // Dạng YYYY-MM-DD hoặc YYYY/MM/DD
   const yyyymmdd = cleanText.match(/(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
   if (yyyymmdd) {
     const yyyy = yyyymmdd[1];
-    const mm = yyyymmdd[2].padStart(2, '0');
-    const dd = yyyymmdd[3].padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    const mmNum = parseInt(yyyymmdd[2], 10);
+    const ddNum = parseInt(yyyymmdd[3], 10);
+    if (mmNum >= 1 && mmNum <= 12 && ddNum >= 1 && ddNum <= 31) {
+      const mm = String(mmNum).padStart(2, '0');
+      const dd = String(ddNum).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
   }
 
-  // Chỉ nhập năm sinh (ví dụ: 2005) - ưu tiên các năm trong độ tuổi nghĩa vụ quân sự (1990 - 2012)
-  const recruitYears = cleanText.match(/\b(199\d|20[0-1]\d|202[0-5])\b/);
+  // Chỉ nhập năm sinh (ví dụ: 2005) - ưu tiên các năm trong độ tuổi nghĩa vụ quân sự (1990 - 2015)
+  const recruitYears = cleanText.match(/\b(199\d|200\d|201[0-5])\b/);
   if (recruitYears) {
     return `${recruitYears[1]}-01-01`;
   }
@@ -602,7 +615,7 @@ export const parseAddressInfo = (
 
 export const isNonPersonName = (str: string): boolean => {
   if (!str) return true;
-  const clean = str.toLowerCase().replace(/[:,\-\.\(\)]/g, ' ').trim();
+  const clean = str.toLowerCase().replace(/[:,\-\.\(\)]/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 2) return true;
 
   if (
@@ -614,6 +627,14 @@ export const isNonPersonName = (str: string): boolean => {
     clean.includes('họ và tên mẹ') ||
     clean.includes('họ tên cha') ||
     clean.includes('họ tên mẹ') ||
+    clean.includes('nơi thường trú') ||
+    clean.includes('thường trú') ||
+    clean.includes('tạm trú') ||
+    clean.includes('nơi ở') ||
+    clean.includes('địa chỉ') ||
+    clean.includes('quê quán') ||
+    clean.includes('hộ khẩu') ||
+    clean.includes('hktt') ||
     clean.includes('năm sinh') ||
     clean.includes('nghề nghiệp') ||
     clean.includes('chuyên môn') ||
@@ -631,18 +652,33 @@ export const isNonPersonName = (str: string): boolean => {
     return true;
   }
 
-  // Loại bỏ các dòng phân chia thôn / ấp / khu phố / trình độ
+  // Loại bỏ các dòng/chuỗi là địa danh, đơn vị hành chính (thôn, ấp, xã, phường, thị trấn, huyện, tỉnh...)
   if (
-    clean.startsWith('thôn ') ||
-    clean.startsWith('ấp ') ||
-    clean.startsWith('khu phố ') ||
-    clean.startsWith('kp ') ||
-    clean.startsWith('tổ ') ||
-    clean.startsWith('khóm ') ||
-    clean.startsWith('xóm ') ||
+    /^(?:thôn|ấp|khu phố|kp|tổ|khóm|xóm|buôn|sóc|làng|xã|phường|thị trấn|tt|huyện|quận|thị xã|tx|tp|thành phố|tỉnh|đội|ban chqs|bchqs|ubnd|đảng ủy)\b/i.test(clean) ||
+    /^(?:thôn|ấp|khu phố|kp|tổ|khóm|xóm)\s*\d+/i.test(clean) ||
+    clean === 'thôn' || clean === 'ấp' || clean === 'khu phố' || clean === 'kp' || clean === 'tổ' || clean === 'khóm' || clean === 'xóm' || clean === 'xã' || clean === 'phường' || clean === 'thị trấn' || clean === 'huyện' || clean === 'tỉnh'
+  ) {
+    return true;
+  }
+
+  // Loại bỏ nếu chứa các cụm từ địa lý/hành chính rõ ràng
+  if (
+    /\b(?:xã|phường|thị trấn|huyện|quận|thị xã|tỉnh|thành phố)\s+[a-zà-ỹ0-9\s]+/i.test(clean) ||
+    clean.includes('đồng nai') || clean.includes('bình phước') || clean.includes('bình dương') ||
+    clean.includes('hồ chí minh') || clean.includes('hà nội') || clean.includes('bom bo') ||
+    clean.includes('bù đăng') || clean.includes('lộc ninh') || clean.includes('mỹ hòa hưng') ||
+    clean.includes('an giang')
+  ) {
+    return true;
+  }
+
+  // Loại bỏ các trình độ học vấn
+  if (
     clean.startsWith('đại học') ||
     clean.startsWith('cao đẳng') ||
-    clean.startsWith('trung cấp')
+    clean.startsWith('trung cấp') ||
+    clean.startsWith('lớp ') ||
+    /^\d{1,2}\/\d{1,2}$/.test(clean)
   ) {
     return true;
   }

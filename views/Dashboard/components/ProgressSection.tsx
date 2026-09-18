@@ -83,9 +83,11 @@ const Card = ({
 interface ProgressSectionProps {
     stats: any;
     onNavigate: (tabId: string) => void;
+    sessionYear?: number;
 }
 
-const ProgressSection: React.FC<ProgressSectionProps> = ({ stats, onNavigate }) => {
+const ProgressSection: React.FC<ProgressSectionProps> = ({ stats, onNavigate, sessionYear }) => {
+    const enlistYear = (sessionYear || new Date().getFullYear()) + 1;
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
@@ -207,7 +209,7 @@ const ProgressSection: React.FC<ProgressSectionProps> = ({ stats, onNavigate }) 
                 
                 <Card 
                     listNumber="DS 11"
-                    title="Lệnh gọi nhập ngũ" 
+                    title={`DS nhập ngũ năm ${enlistYear}`} 
                     count={stats.countEnlisted} 
                     icon={Flag} 
                     badgeBg="bg-red-600" 

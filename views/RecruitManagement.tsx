@@ -3,7 +3,7 @@ import { Recruit, User, RecruitmentStatus } from '../types';
 import RecruitForm from '../components/RecruitForm';
 import { BookOpen, Info } from 'lucide-react';
 
-import { TABS, ITEMS_PER_PAGE } from './RecruitManagement/constants';
+import { TABS, ITEMS_PER_PAGE, EXCEL_IMPORT_ALLOWED_TAB_IDS } from './RecruitManagement/constants';
 import { useRecruitFilters } from './RecruitManagement/useRecruitFilters';
 
 // Sub-components
@@ -88,6 +88,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   };
 
   const formatTab = (tab: typeof TABS[0]) => {
+    if (tab.id === 'ENLISTED') {
+      const enlistYear = (sessionYear || new Date().getFullYear()) + 1;
+      return {
+        ...tab,
+        label: `11. DS NHẬP NGŨ NĂM ${enlistYear}`
+      };
+    }
     if (tab.id === 'SPECIAL_JAN_17') {
       return {
         ...tab,
@@ -114,14 +121,14 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   const handleTransferAllSpecialJan = async () => {
     const targetBirthYear = sessionYear - 17;
     const candidates = filteredRecruits.filter(r => {
-      if (r.status === RecruitmentStatus.SOURCE) return false;
+      if (r.status !== RecruitmentStatus.FIRST_TIME_REGISTRATION) return false;
       const birthYear = parseInt(r.dob?.split('-')[0] || '0');
       const birthMonth = parseInt(r.dob?.split('-')[1] || '0');
       return birthYear === targetBirthYear && birthMonth === 1;
     });
 
     if (candidates.length === 0) {
-      alert(`Tất cả công dân sinh tháng 01/${targetBirthYear} trong danh sách đã ở trạng thái Nguồn.`);
+      alert(`Tất cả công dân sinh tháng 01/${targetBirthYear} trong danh sách đã được đưa vào Nguồn hoặc xử lý các bước tiếp theo.`);
       return;
     }
 
@@ -293,7 +300,11 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
           onProposeAge17={() => setShowAge17Modal(true)}
           onTransferAllSpecialJan={handleTransferAllSpecialJan}
           onBulkAvatarUpload={() => setShowBulkAvatarModal(true)}
-          onBulkExcelImport={() => setShowExcelImportModal(true)}
+          onBulkExcelImport={
+            EXCEL_IMPORT_ALLOWED_TAB_IDS.includes(activeTabId as any)
+              ? () => setShowExcelImportModal(true)
+              : undefined
+          }
           onExportCurrentList={() => {
             const unitName = user.fullName || user.unit?.commune || 'CƠ QUAN QUÂN SỰ';
             ExcelExportService.exportToTemplate(filteredRecruits, activeTabId, sessionYear, unitName, activeTab.label);

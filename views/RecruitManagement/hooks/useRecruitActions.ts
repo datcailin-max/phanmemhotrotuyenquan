@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Recruit, RecruitmentStatus, User } from '../../../types';
 import { api } from '../../../api';
 import { ExcelExportService } from '../../../services/ExcelExportService';
-import { checkAge } from '../utils';
+import { checkAge, isSpecialJanCitizen } from '../utils';
 
 export const useRecruitActions = (
   user: User, 
@@ -65,7 +65,8 @@ export const useRecruitActions = (
 
   const handleOpenReasonModal = (recruit: Recruit, type: 'DEFERRED' | 'EXEMPTED') => {
     const age = checkAge(recruit, sessionYear);
-    if (age < 18) {
+    const isSpecialJan = isSpecialJanCitizen(recruit, sessionYear);
+    if (age < 18 && !isSpecialJan) {
       alert(`NHẮC NHỞ LUẬT NVQS: Công dân ${recruit.fullName} (${age} tuổi) dưới 18 tuổi.\nTheo Luật NVQS hiện hành, công dân dưới 18 tuổi thuộc Danh sách Đăng ký NVQS lần đầu (DS 3), không được đưa vào Danh sách Tạm hoãn / Miễn gọi nguồn.`);
       return;
     }
