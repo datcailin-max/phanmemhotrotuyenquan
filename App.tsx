@@ -77,8 +77,8 @@ function App() {
       <main className="flex-1 flex flex-col min-w-0 bg-gray-50 h-full relative">
         <MainHeader activeTab={activeTab} isSidebarOpen={isSidebarOpen} setSidebarOpen={setSidebarOpen} sessionYear={sessionYear} onYearReset={() => setSessionYear(null)} user={user} />
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-            {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={(id) => {setActiveRecruitSubTab(id); setActiveTab('recruits');}} sessionYear={sessionYear} userRole={user.role} userUnit={user.unit} currentUser={user} onUpdateUser={setUser} />}
-            {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={(id) => api.deleteRecruit(id).then(() => setRecruits(prev => prev.filter(r => r.id !== id)))} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} onRefreshData={fetchAllData} />}
+            {activeTab === 'dashboard' && <Dashboard recruits={recruits} onNavigate={(id: string) => {setActiveRecruitSubTab(id); setActiveTab('recruits');}} sessionYear={sessionYear} userRole={user.role} userUnit={user.unit} currentUser={user} onUpdateUser={setUser} />}
+            {activeTab === 'recruits' && <RecruitManagement user={user} recruits={recruits} onUpdate={handleUpdateRecruit} onDelete={(id: string) => api.deleteRecruit(id).then(() => setRecruits(prev => prev.filter(r => r.id !== id)))} initialTab={activeRecruitSubTab} onTabChange={setActiveRecruitSubTab} sessionYear={sessionYear} onRefreshData={fetchAllData} />}
             {activeTab === 'communication' && <CommunicationView user={user} sessionYear={sessionYear} />}
             {activeTab === 'report-builder' && <ReportBuilder user={user} recruits={recruits} sessionYear={sessionYear} />}
             {activeTab === 'documents' && <DocumentsView user={user} />}
