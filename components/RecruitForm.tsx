@@ -5,6 +5,7 @@ import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, U
 import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
 import { api } from '../api';
 import { helperAutoFillCV, isParentDeceased } from '../services/WordExportService';
+import { getStatusLabel } from '../views/RecruitManagement/utils';
 
 // Sub-components
 import LocationFields from './RecruitForm/LocationFields';
@@ -154,24 +155,33 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     const isUnderWeight = weight > 0 && weight < 43;
     const isUnderChest = chest > 0 && chest < 75;
     const isInvalidBmi = calculatedBmi > 0 && (calculatedBmi > 29.9 || calculatedBmi < 18.5);
+    const isFailingHealthGrade = healthGrade !== undefined && healthGrade >= 4 && healthGrade <= 6;
 
-    if (isUnderHeight || isUnderWeight || isUnderChest || isInvalidBmi) {
-        nextStatus = RecruitmentStatus.DEFERRED;
-        nextReason = LEGAL_DEFERMENT_REASONS[0]; 
-    } else {
-      // 3. Tự động chuyển danh sách theo loại Sức khỏe
+    // Nếu công dân đang ở giai đoạn Khám tuyển (Đạt hoặc Không đạt khám tuyển)
+    if (formData.status === RecruitmentStatus.MED_EXAM_PASSED || formData.status === RecruitmentStatus.MED_EXAM_FAILED) {
       if (healthGrade !== undefined && healthGrade > 0) {
-          if (healthGrade >= 1 && healthGrade <= 3) {
-              nextStatus = RecruitmentStatus.MED_EXAM_PASSED;
-              nextReason = '';
-          } else if (healthGrade >= 4 && healthGrade <= 6) {
-              nextStatus = RecruitmentStatus.MED_EXAM_FAILED;
-              nextReason = 'Sức khỏe loại ' + healthGrade;
-          }
-      } else if (nextStatus === RecruitmentStatus.DEFERRED && nextReason === LEGAL_DEFERMENT_REASONS[0]) {
-          nextStatus = RecruitmentStatus.SOURCE;
+        if (healthGrade >= 1 && healthGrade <= 3 && !isUnderHeight && !isUnderWeight && !isUnderChest && !isInvalidBmi) {
+          nextStatus = RecruitmentStatus.MED_EXAM_PASSED;
           nextReason = '';
+        } else {
+          nextStatus = RecruitmentStatus.MED_EXAM_FAILED;
+          nextReason = isFailingHealthGrade ? `Sức khỏe loại ${healthGrade}` : LEGAL_DEFERMENT_REASONS[0];
+        }
       }
+    } else {
+      // Đối với các trạng thái khác (Nguồn, Tạm hoãn sức khỏe...):
+      if (isUnderHeight || isUnderWeight || isUnderChest || isInvalidBmi || isFailingHealthGrade) {
+        nextStatus = RecruitmentStatus.DEFERRED;
+        nextReason = isFailingHealthGrade ? `Sức khỏe loại ${healthGrade}` : LEGAL_DEFERMENT_REASONS[0];
+      } else if (
+        formData.status === RecruitmentStatus.DEFERRED && 
+        (formData.defermentReason === LEGAL_DEFERMENT_REASONS[0] || formData.defermentReason?.startsWith('Sức khỏe loại '))
+      ) {
+        // Khôi phục về Nguồn nếu trước đó bị tạm hoãn do sức khỏe nhưng nay thể lực/sức khỏe đã đạt
+        nextStatus = RecruitmentStatus.SOURCE;
+        nextReason = '';
+      }
+      // TUYỆT ĐỐI KHÔNG tự động chuyển trạng thái NGUỒN hoặc các trạng thái khác thành MED_EXAM_PASSED (ĐẠT)
     }
 
     if (nextStatus !== formData.status || nextReason !== formData.defermentReason) {
@@ -457,9 +467,40 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
         <div className="bg-military-800 text-white border-b p-5 flex justify-between items-center shrink-0 shadow-lg relative z-10">
           <div className="flex items-center gap-3">
              <div className="p-2 bg-white/10 rounded-lg"><UserIcon size={24}/></div>
-             <h2 className="text-xl font-black uppercase tracking-tight">
-               {initialData ? (isReadOnly ? 'Hồ sơ quân nhân' : 'Cập nhật dữ liệu') : 'Tiếp nhận công dân mới'}
-             </h2>
+             <div>
+               <h2 className="text-xl font-black uppercase tracking-tight">
+                 {initialData ? (isReadOnly ? 'Hồ sơ quân nhân' : 'Cập nhật dữ liệu') : 'Tiếp nhận công dân mới'}
+               </h2>
+               {initialData && (
+                 <div className="flex items-center gap-2 mt-1">
+                   <span className="text-xs text-white/80 font-bold">Trạng thái:</span>
+                   <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                     formData.status === RecruitmentStatus.SOURCE ? 'bg-green-700 text-white' :
+                     formData.status === RecruitmentStatus.MED_EXAM_PASSED ? 'bg-emerald-600 text-white' :
+                     'bg-white/20 text-white border border-white/30'
+                   }`}>
+                     {getStatusLabel(formData.status)}
+                   </span>
+                   {formData.status !== RecruitmentStatus.SOURCE && !isReadOnly && (
+                     <button
+                       type="button"
+                       onClick={() => setFormData(prev => ({ 
+                         ...prev, 
+                         status: RecruitmentStatus.SOURCE, 
+                         defermentReason: '',
+                         enlistmentType: undefined,
+                         enlistmentUnit: undefined,
+                         enlistmentDate: undefined 
+                       }))}
+                       className="text-[9px] bg-green-600 hover:bg-green-500 text-white font-black px-2 py-0.5 rounded uppercase border border-green-400 transition-colors shadow-sm cursor-pointer"
+                       title="Chuyển công dân này về trạng thái Nguồn (DS 4)"
+                     >
+                       Khôi phục về Nguồn
+                     </button>
+                   )}
+                 </div>
+               )}
+             </div>
           </div>
           <button onClick={onClose} className="hover:bg-white/10 p-2 rounded-full transition-colors"><X size={24} /></button>
         </div>

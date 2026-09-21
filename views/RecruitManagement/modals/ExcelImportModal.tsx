@@ -265,7 +265,14 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               if (jobCol === -1) jobCol = colIdx;
             }
 
-            if (cellStr.includes('sức khỏe') || cellStr.includes('loại sk') || cellStr.includes('phân loại')) {
+            if (
+              cellStr.includes('sức khỏe') || 
+              cellStr.includes('loại sk') || 
+              cellStr.includes('phân loại sk') || 
+              cellStr.includes('phân loại sức khỏe') || 
+              cellStr.includes('kết luận sk') || 
+              cellStr.includes('loại sức khỏe')
+            ) {
               if (healthCol === -1) healthCol = colIdx;
             }
 
@@ -357,7 +364,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         let address = '';
         let edu = 'Lớp 12';
         let job = 'Không';
-        let parsedHealthGrade = 1;
+        let parsedHealthGrade = 0;
         let reason = '';
         let familyBgText = '';
         let isYouthUnion = true;
@@ -445,8 +452,11 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           if (typeof hVal === 'number' && hVal >= 1 && hVal <= 6) {
             parsedHealthGrade = hVal;
           } else if (typeof hVal === 'string') {
-            const matchNum = hVal.match(/[1-6]/);
-            if (matchNum) parsedHealthGrade = parseInt(matchNum[0]);
+            const trimmed = hVal.trim();
+            const matchNum = trimmed.match(/(?:loại\s*|sk\s*|^)([1-6])(?:\s|$|\/|\.)/i) || trimmed.match(/^[1-6]$/);
+            if (matchNum) {
+              parsedHealthGrade = parseInt(matchNum[1] || matchNum[0]);
+            }
           }
         }
 
@@ -759,7 +769,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               weight: existing.physical?.weight || 0,
               chest: existing.physical?.chest || 0,
               bmi: existing.physical?.bmi || 0,
-              healthGrade: parsedHealthGrade || existing.physical?.healthGrade || 1,
+              healthGrade: parsedHealthGrade > 0 ? parsedHealthGrade : (existing.physical?.healthGrade || 0),
               bloodPressure: existing.physical?.bloodPressure || '',
               note: existing.physical?.note || ''
             },
@@ -832,7 +842,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               weight: 0,
               chest: 0,
               bmi: 0,
-              healthGrade: parsedHealthGrade,
+              healthGrade: parsedHealthGrade > 0 ? parsedHealthGrade : 0,
               bloodPressure: '',
               note: ''
             },

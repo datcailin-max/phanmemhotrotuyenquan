@@ -236,6 +236,23 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
           <button onClick={() => onOpenReasonModal(recruit, 'EXEMPTED')} className="p-1 text-purple-600 hover:bg-purple-50 rounded" title="Miễn gọi nhập ngũ (DS 9)"><ShieldCheck size={16}/></button>
           <button onClick={() => onOpenTT50Modal?.(recruit)} className="p-1 text-slate-600 hover:bg-slate-50 rounded" title="KTC, CGNN (DS 5)"><BookX size={16}/></button>
           <button onClick={() => onOpenRemoveModal(recruit, 'DEFERRED')} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="Loại khỏi nguồn (DS 12)"><UserX size={16} /></button>
+          {recruit.status !== RecruitmentStatus.SOURCE && (
+            <button 
+              onClick={() => onUpdate({ 
+                ...recruit, 
+                status: RecruitmentStatus.SOURCE, 
+                defermentReason: '', 
+                previousStatus: recruit.status, 
+                enlistmentType: undefined, 
+                enlistmentUnit: undefined, 
+                enlistmentDate: undefined 
+              })} 
+              className="p-1 text-green-600 hover:bg-green-50 rounded" 
+              title="Khôi phục trạng thái NGUỒN (DS 4)"
+            >
+              <Undo2 size={16}/>
+            </button>
+          )}
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
@@ -271,6 +288,21 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
         <div className="flex items-center justify-center gap-2 min-w-[200px]">
           <button onClick={() => onEdit(recruit)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Sửa hồ sơ"><FileEdit size={18} /></button>
           <HealthButtons />
+          <button 
+            onClick={() => onUpdate({ 
+              ...recruit, 
+              status: RecruitmentStatus.SOURCE, 
+              defermentReason: '', 
+              previousStatus: recruit.status, 
+              enlistmentType: undefined, 
+              enlistmentUnit: undefined, 
+              enlistmentDate: undefined 
+            })} 
+            className="p-1.5 text-green-600 hover:bg-green-50 rounded" 
+            title="Khôi phục trạng thái NGUỒN (DS 4)"
+          >
+            <Undo2 size={16}/>
+          </button>
           <button onClick={handleSoftDelete} className="p-1 text-red-500 hover:bg-red-50 rounded ml-1" title="Xóa (Chuyển vào DS 15)"><Trash2 size={16} /></button>
         </div>
       );
