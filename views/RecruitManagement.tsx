@@ -5,6 +5,7 @@ import { BookOpen, Info } from 'lucide-react';
 
 import { TABS, ITEMS_PER_PAGE, EXCEL_IMPORT_ALLOWED_TAB_IDS } from './RecruitManagement/constants';
 import { useRecruitFilters } from './RecruitManagement/useRecruitFilters';
+import { isEducationExpired, isSentenceExpired } from './RecruitManagement/utils';
 
 // Sub-components
 import RecruitSidebar from './RecruitManagement/components/RecruitSidebar';
@@ -271,15 +272,7 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   };
 
   const isExpiring = (recruit: Recruit) => {
-    const isExpiredYear = (period?: string) => {
-        if (!period) return false;
-        const parts = period.split('-');
-        const lastPart = parts[parts.length - 1].trim();
-        const yearStr = lastPart.includes('/') ? lastPart.split('/').pop() : lastPart;
-        const endYear = parseInt(yearStr || '0');
-        return endYear > 0 && endYear < sessionYear;
-    };
-    return isExpiredYear(recruit.details.educationPeriod) || isExpiredYear(recruit.details.sentencePeriod);
+    return isEducationExpired(recruit, sessionYear) || isSentenceExpired(recruit, sessionYear);
   };
 
   return (

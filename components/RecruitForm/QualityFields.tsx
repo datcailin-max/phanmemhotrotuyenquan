@@ -90,14 +90,17 @@ const QualityFields = ({ formData, isReadOnly, handleChange, isStudyingHigherEd 
         
         {isStudyingHigherEd && (
           <div className="col-span-2 animate-in fade-in slide-in-from-top-1">
-            <label className="block text-[10px] font-black text-blue-600 uppercase mb-1">Niên khóa đào tạo (VD: 2023-2027)</label>
+            <label className="block text-[10px] font-black text-blue-600 uppercase mb-1 flex items-center justify-between">
+              <span>Niên khóa đào tạo (VD: 2022-2026)</span>
+              <span className="text-[9px] text-gray-500 font-normal">Hệ thống sẽ tự động đưa vào DS cần rà soát khi hết niên khóa</span>
+            </label>
             <input 
-              type="text" required
+              type="text"
               className="w-full rounded-lg border-blue-200 bg-blue-50 border p-2 text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500"
               value={formData.details.educationPeriod || ''} 
               onChange={(e) => handleChange('details.educationPeriod', e.target.value)} 
               readOnly={isReadOnly}
-              placeholder="VD: 2021-2025"
+              placeholder="VD: 2022-2026 hoặc 2021-2025"
             />
           </div>
         )}

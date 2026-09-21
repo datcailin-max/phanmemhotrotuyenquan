@@ -139,11 +139,16 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
       }
     }
 
-    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn (DS 8) cho DS 1, 2, 3
+    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn cho DS 1, 2, 3 và Thông tư 50 (KTC, CGNN)
     const exemptFromAutoDeferStatus = [
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION,
-      RecruitmentStatus.FIRST_TIME_REGISTRATION
+      RecruitmentStatus.FIRST_TIME_REGISTRATION,
+      RecruitmentStatus.NOT_SELECTED_TT50,
+      RecruitmentStatus.KTC_KHONG_TUYEN_CHON,
+      RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU,
+      RecruitmentStatus.REMOVED_FROM_SOURCE,
+      RecruitmentStatus.DELETED
     ];
     
     if (exemptFromAutoDeferStatus.includes(formData.status)) {
@@ -195,11 +200,16 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason;
 
-    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn (DS 8) cho DS 1, 2, 3
+    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn cho DS 1, 2, 3 và Thông tư 50 (KTC, CGNN)
     const exemptFromAutoDeferStatus = [
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION,
-      RecruitmentStatus.FIRST_TIME_REGISTRATION
+      RecruitmentStatus.FIRST_TIME_REGISTRATION,
+      RecruitmentStatus.NOT_SELECTED_TT50,
+      RecruitmentStatus.KTC_KHONG_TUYEN_CHON,
+      RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU,
+      RecruitmentStatus.REMOVED_FROM_SOURCE,
+      RecruitmentStatus.DELETED
     ];
 
     if (exemptFromAutoDeferStatus.includes(formData.status)) {
@@ -457,7 +467,13 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     onSubmit(formData);
   };
 
-  const isStudyingHigherEd = formData.details.education?.startsWith('Đang học');
+  const isStudyingHigherEd = 
+    formData.details.education?.startsWith('Đang học') ||
+    ['Cao đẳng', 'Đang học CĐ', 'Đại học', 'Đang học ĐH', 'Trung cấp', 'Trên ĐH'].includes(formData.details.education) ||
+    formData.defermentReason?.toLowerCase().includes('đại học') ||
+    formData.defermentReason?.toLowerCase().includes('cao đẳng') ||
+    formData.defermentReason?.toLowerCase().includes('đào tạo') ||
+    Boolean(formData.details.educationPeriod);
   const isDS3 = formData.status === RecruitmentStatus.FIRST_TIME_REGISTRATION;
 
   return (

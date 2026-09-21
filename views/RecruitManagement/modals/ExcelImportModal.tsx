@@ -276,12 +276,24 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               if (healthCol === -1) healthCol = colIdx;
             }
 
+            const isMaritalCol = cellStr.includes('hôn nhân') || cellStr.includes('gia đình') || cellStr.includes('vợ');
+            const isResidenceCol = cellStr.includes('cư trú') || cellStr.includes('nơi ở') || cellStr.includes('thường trú');
+            const isJobCol = cellStr.includes('việc làm') || cellStr.includes('nghề');
             if (
-              cellStr.includes('lý do') || 
-              cellStr.includes('tạm hoãn') || 
-              cellStr.includes('miễn') || 
-              cellStr.includes('ghi chú') || 
-              cellStr.includes('tình trạng')
+              !isMaritalCol && !isResidenceCol && !isJobCol && (
+                cellStr.includes('lý do tạm hoãn') || 
+                cellStr.includes('lý do hoãn') || 
+                cellStr.includes('lý do miễn') || 
+                cellStr.includes('diện tạm hoãn') || 
+                cellStr.includes('tạm hoãn/miễn') || 
+                cellStr.includes('hoãn nvqs') ||
+                cellStr === 'lý do' ||
+                cellStr === 'ly do' ||
+                cellStr.startsWith('lý do') ||
+                (cellStr.includes('tạm hoãn') && !cellStr.includes('không')) ||
+                cellStr === 'ghi chú' ||
+                cellStr === 'ghi chu'
+              )
             ) {
               if (reasonCol === -1) reasonCol = colIdx;
             }
@@ -464,21 +476,10 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         let rawReason = '';
         if (reasonCol >= 0 && row[reasonCol] !== undefined) {
           rawReason = normalizeMultilineText(row[reasonCol]).trim();
-        } else {
-          // Lấy ô cuối cùng nếu không xác định được cột lý do
-          const lastCell = normalizeMultilineText(row[row.length - 1]).trim();
-          if (lastCell && lastCell !== '---' && lastCell.length > 1) {
-            rawReason = lastCell;
-          }
         }
 
         // Chuẩn hóa lý do (HVT -> Học vấn thấp)
         reason = normalizeReason(rawReason);
-
-        // Tự động nhận diện nếu trình độ học vấn thấp (Lớp 1 -> Lớp 7) và chưa có lý do cụ thể hoặc lý do là HVT
-        if ((!reason || reason === '---' || reason.toLowerCase() === 'không') && (LOW_EDUCATION_GRADES as readonly string[]).includes(edu)) {
-          reason = 'Học vấn thấp';
-        }
 
         // 1. TỰ ĐỘNG CHUẨN HÓA LÀM SẠCH HỌ TÊN & CẢNH BÁO FONT CHỮ
         const fontWarning = checkFontWarning(rawName);
@@ -608,16 +609,16 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           finalReason = reason || '';
         } else {
           // Danh sách 4: ALL (TOÀN BỘ NGUỒN)
-          if (isRealExempt) {
+          if (isRealExempt && reason && reason !== '---') {
             targetStatus = RecruitmentStatus.EXEMPTED;
-            finalReason = reason || 'Miễn gọi nhập ngũ';
-          } else if (isRealDefer) {
+            finalReason = reason;
+          } else if (isRealDefer && reason && reason !== '---') {
             if (citizenAge >= 18) {
               targetStatus = RecruitmentStatus.DEFERRED;
             } else {
               targetStatus = RecruitmentStatus.SOURCE;
             }
-            finalReason = reason || 'Tạm hoãn gọi nhập ngũ';
+            finalReason = reason;
           } else {
             targetStatus = RecruitmentStatus.SOURCE;
             finalReason = reason || '';

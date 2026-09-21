@@ -50,16 +50,17 @@ export const isRealDefermentReason = (str?: string): boolean => {
 
   // Từ khóa chỉ lý do tạm hoãn thực tế
   const defermentKeywords = [
-    'tạm hoãn', 'hoãn', 'đang học', 'học sinh', 'sinh viên', 'trường', 'đại học', 'cao đẳng', 'trung cấp',
-    'đào tạo', 'niên khóa', 'niên khoá', 'học viện', 'phổ thông', 'dqtt', 'dân quân', 'tại ngũ',
-    'sức khỏe', 'sức khoẻ', 'bệnh', 'chữa bệnh', 'lao động duy nhất', 'nuôi dưỡng', 'khó khăn',
-    'da cam', 'bệnh binh', 'thương binh', 'liệt sĩ', 'thiệt hại', 'di dân', 'đặc biệt khó khăn', 'nghèo',
+    'tạm hoãn', 'hoãn gọi', 'đang học', 'sinh viên', 'đang theo học', 'đang đào tạo',
+    'niên khóa', 'niên khoá', 'khóa học', 'khoá học',
+    'dqtt', 'dân quân thường trực',
+    'sức khỏe', 'sức khoẻ', 'chữa bệnh', 'lao động duy nhất', 'nuôi dưỡng',
+    'da cam', 'bệnh binh', 'thương binh', 'liệt sĩ', 'di dân', 'đặc biệt khó khăn', 'hộ nghèo',
     'loại 3', 'loại 4', 'loại 5', 'loại 6', 'loai 3', 'loai 4', 'loai 5', 'loai 6',
-    'loại sơ tuyển', 'khám loại', 'sơ tuyển loại', 'bmi', 'chiều cao', 'cân nặng', 'thể lực',
+    'loại sơ tuyển', 'khám loại', 'sơ tuyển loại', 'bmi', 'chiều cao', 'cân nặng', 'thể lực', 'vòng ngực',
     'cận thị', 'viễn thị', 'loạn thị', 'khúc xạ', 'tật khúc xạ', 'răng', 'khớp cắn', 'tai mũi họng',
-    'mắt', 'huyết áp', 'tim mạch', 'xquang', 'vẹo cột sống', 'chấn thương', 'mổ', 'phẫu thuật', 'điều trị',
+    'huyết áp', 'tim mạch', 'xquang', 'vẹo cột sống', 'chấn thương', 'phẫu thuật', 'điều trị',
     'hvt', 'học vấn thấp', 'hoc van thap', 'dưới lớp 8', 'duoi lop 8', 'văn hóa thấp', 'van hoa thap',
-    'học vấn'
+    'hoãn học vấn', 'hoãn sức khỏe', 'hoãn chính sách'
   ];
 
   if (/\bhvt\b/i.test(str)) return true;
@@ -83,6 +84,9 @@ export const isRecruitDeferred = (r: Recruit, sessionYear: number): boolean => {
     r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION || 
     r.status === RecruitmentStatus.EXEMPT_REGISTRATION || 
     r.status === RecruitmentStatus.FIRST_TIME_REGISTRATION || 
+    r.status === RecruitmentStatus.NOT_SELECTED_TT50 ||
+    r.status === RecruitmentStatus.KTC_KHONG_TUYEN_CHON ||
+    r.status === RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU ||
     r.status === RecruitmentStatus.REMOVED_FROM_SOURCE || 
     r.status === RecruitmentStatus.DELETED
   ) {
@@ -218,13 +222,70 @@ export const checkAge = (r: Recruit, sessionYear: number) => {
   return sessionYear - birthYear;
 };
 
+export const isEducationExpired = (r: Recruit, sessionYear: number): boolean => {
+  // 1. Kiểm tra niên khóa trong details.educationPeriod
+  const period = r.details?.educationPeriod;
+  if (period) {
+    const parts = period.split(/[-–—/]/);
+    const lastPart = parts[parts.length - 1].trim();
+    const yearMatch = lastPart.match(/\b(20\d{2})\b/);
+    if (yearMatch) {
+      const endYear = parseInt(yearMatch[1]);
+      if (endYear > 0 && endYear <= sessionYear) return true;
+    }
+  }
+
+  // 2. Kiểm tra niên khóa nằm trong defermentReason, legalReason, notes, details.note
+  const rAny = r as any;
+  const reasonText = [r.defermentReason, rAny.legalReason, rAny.notes, r.physical?.note, rAny.details?.note].filter(Boolean).join(' ');
+  const periodMatch = reasonText.match(/(?:20\d{2})\s*[-–—/]\s*(20\d{2})/);
+  if (periodMatch && periodMatch[1]) {
+    const endYear = parseInt(periodMatch[1]);
+    if (endYear > 0 && endYear <= sessionYear) return true;
+  }
+
+  // 3. Nếu đang ở trạng thái DEFERRED (Tạm hoãn) vì học vấn nhưng trình độ học vấn là Đại học, Cao đẳng, Trung cấp (đã tốt nghiệp)
+  const isDeferredEducation = (r.status === RecruitmentStatus.DEFERRED || isRecruitDeferred(r, sessionYear)) && getDefermentSubCategory(r) === 'EDUCATION';
+  if (isDeferredEducation) {
+    const edu = r.details?.education || '';
+    if (['Đại học', 'Cao đẳng', 'Trung cấp', 'Trên ĐH'].includes(edu)) {
+      return true; // Đã học xong nhưng chưa đưa về nguồn xem xét
+    }
+  }
+
+  return false;
+};
+
+export const isSentenceExpired = (r: Recruit, sessionYear: number): boolean => {
+  const period = r.details?.sentencePeriod;
+  if (period) {
+    const parts = period.split(/[-–—/]/);
+    const lastPart = parts[parts.length - 1].trim();
+    const yearMatch = lastPart.match(/\b(20\d{2})\b/);
+    if (yearMatch) {
+      const endYear = parseInt(yearMatch[1]);
+      if (endYear > 0 && endYear <= sessionYear) return true;
+    }
+  }
+
+  const rAny = r as any;
+  const text = [r.defermentReason, rAny.legalReason, rAny.notes, r.physical?.note, rAny.details?.note].filter(Boolean).join(' ');
+  const periodMatch = text.match(/(?:20\d{2})\s*[-–—/]\s*(20\d{2})/);
+  if (periodMatch && periodMatch[1]) {
+    const endYear = parseInt(periodMatch[1]);
+    if (endYear > 0 && endYear <= sessionYear) return true;
+  }
+
+  return false;
+};
+
 export const isExpiredInSession = (period: string | undefined, sessionYear: number) => {
   if (!period) return false;
-  const parts = period.split('-');
+  const parts = period.split(/[-–—/]/);
   const lastPart = parts[parts.length - 1].trim();
-  const yearStr = lastPart.includes('/') ? lastPart.split('/').pop() : lastPart;
-  const endYear = parseInt(yearStr || '0');
-  return endYear > 0 && endYear < sessionYear;
+  const yearMatch = lastPart.match(/\b(20\d{2})\b/);
+  const endYear = yearMatch ? parseInt(yearMatch[1]) : parseInt(lastPart || '0');
+  return endYear > 0 && endYear <= sessionYear;
 };
 
 export const isTotalSource = (r: Recruit, sessionYear: number) => {
@@ -253,6 +314,13 @@ export const getDefermentSubCategory = (r: {
     workAddress?: string;
     note?: string;
   };
+  physical?: {
+    height?: number;
+    weight?: number;
+    chest?: number;
+    bmi?: number;
+    healthGrade?: number;
+  };
 }): 'DQTT' | 'EDUCATION' | 'POLICY' | 'HEALTH' => {
   const reasonParts = [
     r.defermentReason,
@@ -263,13 +331,69 @@ export const getDefermentSubCategory = (r: {
   ].filter(Boolean);
   const text = reasonParts.join(' ').toLowerCase();
 
-  // 1. DQTT (8.4 - Hoãn về Dân quân thường trực)
+  // 1. HEALTH (8.1 - Hoãn về Sức khỏe / Thể lực / BMI / Vòng ngực / Chiều cao / Cân nặng / Bệnh tật)
+  // Ưu tiên kiểm tra sức khỏe trước để tránh bị nuốt bởi lý do chính sách
+  const isHealthPhysical = (
+    (r.physical?.height && r.physical.height < 157) ||
+    (r.physical?.weight && r.physical.weight < 43) ||
+    (r.physical?.chest && r.physical.chest < 75) ||
+    (r.physical?.bmi && (r.physical.bmi < 18.5 || r.physical.bmi > 29.9)) ||
+    (r.physical?.healthGrade && r.physical.healthGrade >= 4)
+  );
+
+  const isHealthKeyword = (
+    r.defermentReason === LEGAL_DEFERMENT_REASONS[0] ||
+    text.startsWith('1.') ||
+    text.includes('điều 41.1.a') ||
+    text.includes('khoản 1 điểm a') ||
+    text.includes('chưa đủ sức khỏe') ||
+    text.includes('chua du suc khoe') ||
+    text.includes('sức khỏe') ||
+    text.includes('sức khoẻ') ||
+    text.includes('suc khoe') ||
+    text.includes('thể lực') ||
+    text.includes('the luc') ||
+    text.includes('bmi') ||
+    text.includes('chiều cao') ||
+    text.includes('chieu cao') ||
+    text.includes('cân nặng') ||
+    text.includes('can nang') ||
+    text.includes('vòng ngực') ||
+    text.includes('vong nguc') ||
+    text.includes('lồng ngực') ||
+    text.includes('loại 3') ||
+    text.includes('loại 4') ||
+    text.includes('loại 5') ||
+    text.includes('loại 6') ||
+    text.includes('loai 3') ||
+    text.includes('loai 4') ||
+    text.includes('loai 5') ||
+    text.includes('loai 6') ||
+    text.includes('cận thị') ||
+    text.includes('viễn thị') ||
+    text.includes('loạn thị') ||
+    text.includes('khúc xạ') ||
+    text.includes('tai mũi họng') ||
+    text.includes('răng hàm mặt') ||
+    text.includes('tim mạch') ||
+    text.includes('huyết áp') ||
+    text.includes('xquang') ||
+    text.includes('vẹo cột sống') ||
+    text.includes('phẫu thuật') ||
+    text.includes('chấn thương') ||
+    text.includes('điều trị bệnh') ||
+    text.includes('chữa bệnh')
+  );
+
+  if (isHealthPhysical || isHealthKeyword) {
+    return 'HEALTH';
+  }
+
+  // 2. DQTT (8.4 - Hoãn về Dân quân thường trực)
   if (
     text.includes('dqtt') ||
     text.includes('dân quân thường trực') ||
     text.includes('dan quan thuong truc') ||
-    text.includes('dân quân') ||
-    text.includes('dan quan') ||
     text.startsWith('8.') ||
     text.includes('điều 41.1.h') ||
     text.includes('khoản 1 điểm h') ||
@@ -278,7 +402,7 @@ export const getDefermentSubCategory = (r: {
     return 'DQTT';
   }
 
-  // 2. EDUCATION (8.2 - Hoãn về học vấn / Cơ sở giáo dục)
+  // 3. EDUCATION (8.2 - Hoãn về học vấn / Cơ sở giáo dục)
   if (
     text.includes('đang học') ||
     text.includes('dang hoc') ||
@@ -294,8 +418,6 @@ export const getDefermentSubCategory = (r: {
     text.includes('hoc vien') ||
     text.includes('đào tạo') ||
     text.includes('dao tao') ||
-    text.includes('trường') ||
-    text.includes('truong') ||
     text.includes('phổ thông') ||
     text.includes('thpt') ||
     text.includes('thcs') ||
@@ -323,7 +445,7 @@ export const getDefermentSubCategory = (r: {
     return 'EDUCATION';
   }
 
-  // 3. POLICY (8.3 - Hoãn về chính sách / Gia cảnh / Thân nhân)
+  // 4. POLICY (8.3 - Hoãn về chính sách / Gia cảnh / Thân nhân)
   const policyReasons = [
     LEGAL_DEFERMENT_REASONS[1], 
     LEGAL_DEFERMENT_REASONS[2], 
@@ -350,18 +472,13 @@ export const getDefermentSubCategory = (r: {
     text.includes('di dân') ||
     text.includes('giãn dân') ||
     text.includes('đặc biệt khó khăn') ||
-    text.includes('hoàn cảnh') ||
     text.includes('hộ nghèo') ||
     text.includes('cận nghèo') ||
-    text.includes('anh trai') ||
-    text.includes('em trai') ||
+    text.includes('anh trai đang tại ngũ') ||
+    text.includes('em trai đang tại ngũ') ||
     text.includes('anh ruột') ||
     text.includes('em ruột') ||
     text.includes('chị ruột') ||
-    text.includes('tại ngũ') ||
-    text.includes('nhập ngũ') ||
-    text.includes('công an') ||
-    text.includes('cand') ||
     text.includes('thanh niên xung phong') ||
     text.includes('mồ côi') ||
     text.includes('con một') ||
@@ -377,7 +494,7 @@ export const getDefermentSubCategory = (r: {
     return 'POLICY';
   }
 
-  // 4. HEALTH (8.1 - Sức khỏe - Mặc định cho tất cả các lý do sức khỏe, thể lực, BMI, khám sơ tuyển, loại 3,4,5,6...)
+  // Mặc định còn lại
   return 'HEALTH';
 };
 
@@ -545,16 +662,16 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
       return r.status === RecruitmentStatus.DELETED;
 
     case 'EXPIRING_LIST':
-      return isTotalSource(r, sessionYear) && (
-        (r.status === RecruitmentStatus.DEFERRED && isExpiredInSession(r.details?.educationPeriod, sessionYear)) ||
-        (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInSession(r.details?.sentencePeriod, sessionYear))
+      return (
+        (r.status === RecruitmentStatus.DEFERRED && isEducationExpired(r, sessionYear)) ||
+        (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isSentenceExpired(r, sessionYear))
       );
 
     case 'EXPIRING_EDU':
-      return r.status === RecruitmentStatus.DEFERRED && isExpiredInSession(r.details?.educationPeriod, sessionYear);
+      return (r.status === RecruitmentStatus.DEFERRED || isRecruitDeferred(r, sessionYear)) && isEducationExpired(r, sessionYear);
 
     case 'EXPIRING_SENTENCE':
-      return r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isExpiredInSession(r.details?.sentencePeriod, sessionYear);
+      return r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isSentenceExpired(r, sessionYear);
 
     default:
       return true;
