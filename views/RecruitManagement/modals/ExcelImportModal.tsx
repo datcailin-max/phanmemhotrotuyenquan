@@ -193,13 +193,23 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             familyBgCol = colIdx;
           }
 
+          const isAddrHeader = cellStr.includes('thường trú') || cellStr.includes('nơi ở') || cellStr.includes('địa chỉ') || cellStr.includes('quê quán') || cellStr.includes('hktt') || cellStr.includes('thôn') || cellStr.includes('ấp');
+          const isFamBgHeader = cellStr.includes('thành phần') || cellStr.includes('dân tộc') || cellStr.includes('tôn giáo');
+
           if (
-            cellStr.includes('cha') || 
-            cellStr.includes('mẹ') || 
-            cellStr.includes('thân nhân') || 
-            cellStr.includes('phụ huynh') ||
-            cellStr.includes('ông, bà') ||
-            cellStr.includes('gia đình')
+            (
+              cellStr.includes('họ tên cha') || 
+              cellStr.includes('họ và tên cha') || 
+              cellStr.includes('họ tên mẹ') || 
+              cellStr.includes('họ và tên mẹ') || 
+              cellStr.includes('cha, mẹ') || 
+              cellStr.includes('cha mẹ') || 
+              cellStr.includes('thân nhân') || 
+              cellStr.includes('phụ huynh') ||
+              (cellStr.includes('cha') && !cellStr.includes('cháu')) ||
+              cellStr.includes('mẹ') ||
+              cellStr.includes('bố')
+            ) && !isAddrHeader && !isFamBgHeader
           ) {
             if (!parentColIndices.includes(colIdx)) parentColIndices.push(colIdx);
           }
@@ -434,7 +444,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         const rawStreetVal = addressCol >= 0 && row[addressCol] !== undefined ? String(row[addressCol]).trim() : '';
 
         const defaultFallbackVillage = item.sectionVillage || 'Ấp Mỹ An';
-        const parsedAddr = parseAddressInfo(rawStreetVal, rawVillageVal, defaultFallbackVillage);
+        const parsedAddr = parseAddressInfo(rawStreetVal, rawVillageVal, defaultFallbackVillage, userCommune, userProvince);
         village = parsedAddr.village;
         address = parsedAddr.street;
 
@@ -552,10 +562,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
           });
         }
 
-        // Quét bổ sung tất cả các ô còn lại chưa gán nếu thiếu thông tin năm sinh hoặc tên của cha/mẹ
+        // Nhận dạng thông tin cha mẹ từ các cột thân nhân đã phát hiện
         let parsedParents = parseParentInfo(parentTexts);
 
-        if (!parsedParents.father.birthYear || !parsedParents.mother.birthYear || !parsedParents.father.fullName || !parsedParents.mother.fullName) {
+        // Chỉ quét bổ sung các ô khác nếu không phát hiện cột thân nhân nào từ tiêu đề (parentColIndices rỗng)
+        // và chưa tìm được cả cha lẫn mẹ
+        if (parentColIndices.length === 0 && !parsedParents.father.fullName && !parsedParents.mother.fullName) {
           row.forEach((cell, cIdx) => {
             if (
               cIdx === nameCol || 
@@ -574,10 +586,20 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             const cellStr = String(cell).trim();
             if (!cellStr || parentTexts.includes(cellStr)) return;
 
+            const lowerCell = cellStr.toLowerCase();
+            if (
+              lowerCell.includes('thôn') || lowerCell.includes('ấp') || lowerCell.includes('xã') ||
+              lowerCell.includes('tỉnh') || lowerCell.includes('trung nông') || lowerCell.includes('bần nông') ||
+              lowerCell.includes('thành phần') || lowerCell.includes('kinh') || lowerCell.includes('đoàn') ||
+              lowerCell.includes('đảng')
+            ) {
+              return;
+            }
+
             parentTexts.push(cellStr);
           });
 
-          // Tái phân tích với đầy đủ dữ liệu hàng
+          // Tái phân tích với dữ liệu quét bổ sung
           parsedParents = parseParentInfo(parentTexts);
         }
 
@@ -776,7 +798,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             },
             details: {
               ...existing.details,
-              education: edu || existing.details?.education || '12/12',
+              education: edu || existing.details?.education || 'Lớp 12',
               job: job || existing.details?.job || 'Không'
             },
             family: {
@@ -848,7 +870,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               note: ''
             },
             details: {
-              education: edu || '12/12',
+              education: edu || 'Lớp 12',
               ethnicity: ethnicity || 'Kinh',
               religion: religion || 'Không',
               maritalStatus: 'Độc thân',

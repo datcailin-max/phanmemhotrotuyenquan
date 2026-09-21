@@ -21,7 +21,7 @@ export const parseEducationDegree = (rawStr: string): string => {
 
   const lower = str.toLowerCase();
 
-  // 1. Kiểm tra trình độ chuyên môn kỹ thuật (Đại học, Cao đẳng, Trung cấp)
+  // 1. Kiểm tra trình độ chuyên môn kỹ thuật (Đại học, Cao đẳng, Trung cấp, Trên ĐH)
   if (lower.includes('trên đh') || lower.includes('thạc sĩ') || lower.includes('tiến sĩ')) {
     return 'Trên ĐH';
   }
@@ -35,46 +35,41 @@ export const parseEducationDegree = (rawStr: string): string => {
     return 'Trung cấp';
   }
 
-  // 2. Kiểm tra lớp văn hóa phổ thông (12/12, 11/12, Lớp 12, Lớp 11...)
-  if (lower.includes('12/12') || /\blớp\s*12\b/i.test(str) || /\b12\b/.test(str)) {
-    return lower.includes('đang học') ? 'Đang học lớp 12' : 'Lớp 12';
-  }
-  if (lower.includes('11/12') || /\blớp\s*11\b/i.test(str) || /\b11\b/.test(str)) {
-    return lower.includes('đang học') ? 'Đang học lớp 11' : 'Lớp 11';
-  }
-  if (lower.includes('10/12') || /\blớp\s*10\b/i.test(str) || /\b10\b/.test(str)) {
-    return 'Lớp 10';
-  }
-  if (lower.includes('9/12') || /\blớp\s*9\b/i.test(str) || /\b9\b/.test(str)) {
-    return 'Lớp 9';
-  }
-  if (lower.includes('8/12') || /\blớp\s*8\b/i.test(str) || /\b8\b/.test(str)) {
-    return 'Lớp 8';
-  }
-  if (lower.includes('7/12') || /\blớp\s*7\b/i.test(str) || /\b7\b/.test(str)) {
-    return 'Lớp 7';
-  }
-  if (lower.includes('6/12') || /\blớp\s*6\b/i.test(str) || /\b6\b/.test(str)) {
-    return 'Lớp 6';
-  }
-  if (lower.includes('5/12') || /\blớp\s*5\b/i.test(str) || /\b5\b/.test(str)) {
-    return 'Lớp 5';
-  }
-  if (lower.includes('4/12') || /\blớp\s*4\b/i.test(str) || /\b4\b/.test(str)) {
-    return 'Lớp 4';
-  }
-  if (lower.includes('3/12') || /\blớp\s*3\b/i.test(str) || /\b3\b/.test(str)) {
-    return 'Lớp 3';
-  }
-  if (lower.includes('2/12') || /\blớp\s*2\b/i.test(str) || /\b2\b/.test(str)) {
-    return 'Lớp 2';
-  }
-  if (lower.includes('1/12') || /\blớp\s*1\b/i.test(str) || /\b1\b/.test(str)) {
-    return 'Lớp 1';
+  const isStudying = lower.includes('đang học');
+
+  // 2. Kiểm tra dạng phân số: 10/12, 11/12, 12/12, 9/12, 8/12, 7/12... (Ưu tiên khớp chính xác số lớp trước dấu /)
+  const fractionMatch = str.match(/\b([1-9]|1[0-2])\s*\/\s*(?:12|10)\b/);
+  if (fractionMatch) {
+    const gradeNum = parseInt(fractionMatch[1], 10);
+    if (gradeNum === 12) return isStudying ? 'Đang học lớp 12' : 'Lớp 12';
+    if (gradeNum === 11) return isStudying ? 'Đang học lớp 11' : 'Lớp 11';
+    if (gradeNum === 10) return isStudying ? 'Đang học lớp 10' : 'Lớp 10';
+    return `Lớp ${gradeNum}`;
   }
 
+  // 3. Kiểm tra dạng "Lớp X": Lớp 10, Lớp 11, Lớp 12, Lớp 9...
+  const classMatch = str.match(/\blớp\s*([1-9]|1[0-2])\b/i);
+  if (classMatch) {
+    const gradeNum = parseInt(classMatch[1], 10);
+    if (gradeNum === 12) return isStudying ? 'Đang học lớp 12' : 'Lớp 12';
+    if (gradeNum === 11) return isStudying ? 'Đang học lớp 11' : 'Lớp 11';
+    if (gradeNum === 10) return isStudying ? 'Đang học lớp 10' : 'Lớp 10';
+    return `Lớp ${gradeNum}`;
+  }
+
+  // 4. Nếu chuỗi đã khớp trực tiếp với danh mục EDUCATIONS
   if ((EDUCATIONS as readonly string[]).includes(str)) {
     return str;
+  }
+
+  // 5. Kiểm tra số đứng độc lập (vd: "10", "11", "12", "9") - không bị dính dấu /
+  const standaloneMatch = str.match(/(?:^|[^\d\/])([1-9]|1[0-2])(?=[^\d\/]|$)/);
+  if (standaloneMatch) {
+    const gradeNum = parseInt(standaloneMatch[1], 10);
+    if (gradeNum === 12) return isStudying ? 'Đang học lớp 12' : 'Lớp 12';
+    if (gradeNum === 11) return isStudying ? 'Đang học lớp 11' : 'Lớp 11';
+    if (gradeNum === 10) return isStudying ? 'Đang học lớp 10' : 'Lớp 10';
+    return `Lớp ${gradeNum}`;
   }
 
   return 'Lớp 12';
@@ -529,33 +524,60 @@ export interface ParsedAddress {
   street: string;
 }
 
+// Danh sách các tỉnh/thành phố để loại trừ khỏi thôn/ấp/địa chỉ chi tiết
+const COMMON_PROVINCE_NAMES = [
+  'đồng nai', 'bình phước', 'bình dương', 'an giang', 'hồ chí minh', 'hà nội', 'cần thơ', 'đà nẵng',
+  'hải phòng', 'bà rịa - vũng tàu', 'vũng tàu', 'bắc giang', 'bắc kạn', 'bạc liêu', 'bắc ninh', 'bến tre',
+  'bình định', 'bình thuận', 'cà mau', 'cao bằng', 'đắk lắk', 'đắk nông', 'điện biên', 'đồng tháp',
+  'gia lai', 'hà giang', 'hà nam', 'hà tĩnh', 'hải dương', 'hậu giang', 'hòa bình', 'hưng yên',
+  'khánh hòa', 'kiên giang', 'kon tum', 'lai châu', 'lâm đồng', 'lạng sơn', 'lào cai', 'long an',
+  'nam định', 'nghệ an', 'ninh bình', 'ninh thuận', 'phú thọ', 'phú yên', 'quảng bình', 'quảng nam',
+  'quảng ngãi', 'quảng ninh', 'quảng trị', 'sóc trăng', 'sơn la', 'tây ninh', 'thái bình', 'thái nguyên',
+  'thanh hóa', 'thừa thiên huế', 'tiền giang', 'trà vinh', 'tuyên quang', 'vĩnh long', 'vĩnh phúc', 'yên bái'
+];
+
 export const parseAddressInfo = (
   rawAddressText: string,
   rawVillageText?: string,
-  defaultVillage: string = 'Ấp Mỹ An'
+  defaultVillage: string = 'Ấp Mỹ An',
+  userCommune?: string,
+  userProvince?: string
 ): ParsedAddress => {
-  let village = (rawVillageText || '').trim();
-  let street = (rawAddressText || '').trim();
-
-  // Làm sạch xuống dòng
-  village = village.replace(/[\r\n]+/g, ', ').replace(/\s+/g, ' ').trim();
-  street = street.replace(/[\r\n]+/g, ', ').replace(/\s+/g, ' ').trim();
-
-  // Nếu street và village giống nhau hoàn toàn
-  if (street.toLowerCase() === village.toLowerCase()) {
-    street = '';
-  }
-
-  // Hàm loại bỏ thông tin hành chính cấp Xã/Phường/Huyện/Tỉnh thừa ở cuối chuỗi
-  const cleanAdminUnits = (str: string) => {
-    return str
-      .replace(/,\s*(xã|phường|thị trấn|huyện|thị xã|thành phố|tp|tỉnh)\s+[^,]+/gi, '')
-      .replace(/,\s*việt nam$/gi, '')
+  const cleanAdminUnits = (str: string): string => {
+    if (!str) return '';
+    let s = str
+      .replace(/[\r\n]+/g, ', ')
+      .replace(/\s+/g, ' ')
       .trim();
-  };
 
-  street = cleanAdminUnits(street);
-  village = cleanAdminUnits(village);
+    // 1. Cắt bỏ từ đoạn bắt đầu bằng Xã / Phường / Thị trấn trở về sau (vd: ", xã Bom Bo, Đồng Nai" -> bỏ toàn bộ)
+    s = s.replace(/,\s*(?:xã|phường|thị trấn)\b.*$/i, '').trim();
+
+    // 2. Cắt bỏ từ đoạn bắt đầu bằng Huyện / Quận / Thị xã trở về sau
+    s = s.replace(/,\s*(?:huyện|quận|thị xã|thành phố|tp)\b.*$/i, '').trim();
+
+    // 3. Cắt bỏ phần Tỉnh thừa ở cuối (vd: ", tỉnh Đồng Nai" hoặc ", Đồng Nai")
+    for (const prov of COMMON_PROVINCE_NAMES) {
+      const reg = new RegExp(`,\\s*(?:tỉnh\\s+)?${prov}$`, 'i');
+      if (reg.test(s)) {
+        s = s.replace(reg, '').trim();
+      }
+    }
+
+    if (userProvince) {
+      const pReg = new RegExp(`,\\s*(?:tỉnh\\s+)?${userProvince.trim()}$`, 'i');
+      s = s.replace(pReg, '').trim();
+    }
+    if (userCommune) {
+      const cReg = new RegExp(`,\\s*(?:xã|phường|thị trấn\\s+)?${userCommune.trim()}$`, 'i');
+      s = s.replace(cReg, '').trim();
+    }
+
+    s = s.replace(/,\s*việt nam$/gi, '').trim();
+    s = s.replace(/^[,;\-\s]+|[,;\-\s]+$/g, '').trim();
+
+    return s;
+  };
 
   // Helper kiểm tra xem chuỗi có CHỈ là tên Thôn/Ấp/Tổ/Khu phố mà KHÔNG có số nhà/đường không
   const isOnlyVillageInfo = (str: string): boolean => {
@@ -575,34 +597,79 @@ export const parseAddressInfo = (
     return /\b(tổ\s*\d*|khu\s*phố\s*\d*|kp\s*\d*|thôn\s*\d*|ấp\s*\d*|khóm\s*\d*|xóm\s*\d*|đội\s*\d*|buôn|sóc)\b/i.test(lower);
   };
 
-  // Trường hợp không có rawVillageText, nhưng rawAddressText chứa dữ liệu địa chỉ
-  if (!village && street) {
-    if (isOnlyVillageInfo(street)) {
-      // Ví dụ: "Tổ 10 kp Ninh Thịnh" hoặc "Thôn 5 Lộc Thuận"
-      village = street;
-      street = '';
-    } else {
-      // Ví dụ: "30 đường Lê Hoàn, tổ 10 kp Ninh Thịnh"
-      const villageMatch = street.match(/,\s*(\b(tổ\s*\d*|khu\s*phố\s*\d*|kp\s*\d*|thôn\s*\d*|ấp\s*\d*|khóm\s*\d*|xóm\s*\d*|đội\s*\d*)\b.*)/i);
-      if (villageMatch) {
-        village = villageMatch[1].trim();
-        street = street.replace(villageMatch[0], '').trim();
+  let village = '';
+  let street = '';
+
+  const processMultiline = (text: string) => {
+    const lines = normalizeMultilineText(text)
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) return;
+
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      // Bỏ qua dòng chỉ chứa đơn vị hành chính cấp xã, huyện, tỉnh (vd: "xã Bom Bo, Đồng Nai", "xã Bom Bo")
+      if (
+        /^(?:xã|phường|thị trấn|huyện|quận|thị xã|tỉnh|tp|thành phố)\b/i.test(lowerLine) ||
+        COMMON_PROVINCE_NAMES.some(p => lowerLine === p || lowerLine === `tỉnh ${p}`)
+      ) {
+        continue;
+      }
+
+      const cleanedLine = cleanAdminUnits(line);
+      if (!cleanedLine) continue;
+
+      if (isOnlyVillageInfo(cleanedLine)) {
+        if (!village) {
+          village = cleanedLine;
+        } else if (!street) {
+          street = cleanedLine;
+        }
+      } else {
+        if (!street) {
+          street = cleanedLine;
+        } else if (!village) {
+          village = cleanedLine;
+        }
       }
     }
+  };
+
+  if (rawVillageText) {
+    processMultiline(rawVillageText);
+  }
+  if (rawAddressText) {
+    processMultiline(rawAddressText);
   }
 
-  // Trường hợp đã có village, và street cũng có nội dung
+  // Fallback nếu chưa tách được
+  if (!village && !street) {
+    village = cleanAdminUnits(rawVillageText || rawAddressText);
+  }
+
+  village = cleanAdminUnits(village);
+  street = cleanAdminUnits(street);
+
+  // Loại bỏ tỉnh thừa khỏi village hoặc street nếu còn sót
+  for (const prov of COMMON_PROVINCE_NAMES) {
+    const reg = new RegExp(`[,\\s]+(?:tỉnh\\s+)?${prov}$`, 'i');
+    village = village.replace(reg, '').trim();
+    street = street.replace(reg, '').trim();
+  }
+
+  // Nếu street và village trùng nhau
+  if (street.toLowerCase() === village.toLowerCase() || isOnlyVillageInfo(street)) {
+    if (!village) village = street;
+    street = '';
+  }
+
   if (village && street) {
-    // Nếu street bằng village hoặc street chỉ là thông tin thôn/ấp
-    if (street.toLowerCase() === village.toLowerCase() || isOnlyVillageInfo(street)) {
-      street = '';
-    } else {
-      // Nếu street chứa village ở cuối, cắt village khỏi street
-      const lowerStreet = street.toLowerCase();
-      const lowerVillage = village.toLowerCase();
-      if (lowerStreet.endsWith(lowerVillage)) {
-        street = street.substring(0, street.length - village.length).replace(/,$/g, '').trim();
-      }
+    const lowerStreet = street.toLowerCase();
+    const lowerVillage = village.toLowerCase();
+    if (lowerStreet.endsWith(lowerVillage)) {
+      street = street.substring(0, street.length - village.length).replace(/,$/g, '').trim();
     }
   }
 
@@ -621,6 +688,14 @@ export const isNonPersonName = (str: string): boolean => {
   if (
     clean.includes('thành phần gia đình') ||
     clean.includes('thành phần bản thân') ||
+    clean.includes('thành phần') ||
+    clean.includes('trung nông') ||
+    clean.includes('bần nông') ||
+    clean.includes('cố nông') ||
+    clean.includes('phú nông') ||
+    clean.includes('tiểu nông') ||
+    clean.includes('địa chủ') ||
+    clean.includes('tiểu tư sản') ||
     clean.includes('thông tin cha') ||
     clean.includes('thông tin mẹ') ||
     clean.includes('họ và tên cha') ||
@@ -689,6 +764,8 @@ export const isNonPersonName = (str: string): boolean => {
     'đảng viên', 'đoàn viên', 'học sinh', 'sinh viên', 'thất nghiệp', 'tự do', 'lao động tự do',
     'công nhân', 'làm vườn', 'nội trợ', 'bộ đội', 'giáo viên', 'buôn bán', 'làm nông', 'kinh doanh', 'cán bộ',
     'chưa có', 'không nghề nghiệp', 'hộ khẩu', 'tạm trú', 'thường trú', 'quê quán',
+    'trung nông', 'bần nông', 'cố nông', 'phú nông', 'tiểu nông', 'địa chủ', 'tiểu tư sản',
+    'thôn 1', 'thôn 2', 'thôn 3', 'thôn 4', 'thôn 5', 'thôn 6', 'thôn 7', 'thôn 8', 'thôn 9', 'thôn 10',
     'ở nhà', 'làm mộc', 'làm ruộng', 'làm thuê', 'làm rẫy', 'thợ mộc', 'thợ xây', 'thợ sắt', 'thợ điện',
     'thợ cơ khí', 'lái xe', 'tài xế', 'bảo vệ', 'buôn bán nhỏ', 'chăn nuôi', 'trồng trọt', 'đã mất', 'qua đời',
     'đã chết', 'mất', 'chết', 'chủ hộ', 'cháu', 'cháu ngoại', 'cháu nội', 'ông', 'bà', 'anh', 'chị', 'em'
@@ -731,6 +808,17 @@ export const isParentDeceased = (str?: string): boolean => {
 export const cleanParentJob = (job?: string): string => {
   if (!job) return 'Không';
   let clean = job.trim();
+  const lower = clean.toLowerCase();
+
+  // Nếu nghề nghiệp bị lẫn tên thôn/ấp/xã hoặc thành phần gia đình
+  if (
+    /^(?:thôn|ấp|tổ|khu phố|kp|khóm|xóm|buôn|sóc|xã|phường|tỉnh|huyện)\b/i.test(lower) ||
+    /^(?:trung nông|bần nông|cố nông|phú nông|tiểu nông|địa chủ|tiểu tư sản)$/i.test(lower) ||
+    lower.includes('thành phần')
+  ) {
+    return 'Làm nông';
+  }
+
   if (isParentDeceased(clean)) {
     // Loại bỏ các từ chỉ tình trạng chết khỏi nghề nghiệp
     clean = clean
@@ -886,18 +974,22 @@ export const parseParentInfo = (textInputs: (string | undefined | null)[]): Pare
 
     if (!text) return { name: '', job: '' };
 
-    if (isNonPersonName(text)) {
-      return { name: '', job: text };
-    }
-
     const jobKeywords = [
       'công nhân', 'nông dân', 'làm ruộng', 'buôn bán', 'tự do', 'lao động tự do',
       'cán bộ', 'giáo viên', 'bộ đội', 'công chức', 'viên chức', 'hưu trí', 'nội trợ',
-      'làm vườn', 'kinh doanh', 'thất nghiệp', 'phụ giúp gia đình', 'bần nông', 'trung nông',
+      'làm vườn', 'kinh doanh', 'thất nghiệp', 'phụ giúp gia đình',
       'ở nhà', 'làm mộc', 'làm thuê', 'làm rẫy', 'làm nông', 'thợ mộc', 'thợ xây', 'thợ sắt',
       'thợ điện', 'thợ cơ khí', 'lái xe', 'tài xế', 'bảo vệ', 'buôn bán nhỏ', 'chăn nuôi',
       'trồng trọt', 'đã mất', 'qua đời', 'đã chết', 'mất', 'chết', 'liệt sĩ', 'liệt sỹ', 'từ trần'
     ];
+
+    if (isNonPersonName(text)) {
+      const lowerText = text.toLowerCase();
+      const isActualJob = jobKeywords.some(kw => lowerText === kw || lowerText.includes(kw)) &&
+        !lowerText.includes('thôn') && !lowerText.includes('ấp') && !lowerText.includes('xã') &&
+        !lowerText.includes('tỉnh') && !lowerText.includes('trung nông') && !lowerText.includes('bần nông');
+      return { name: '', job: isActualJob ? text : '' };
+    }
 
     let name = text;
     let job = '';
