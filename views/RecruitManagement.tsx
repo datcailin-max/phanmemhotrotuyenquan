@@ -54,6 +54,13 @@ const RecruitManagement: React.FC<RecruitManagementProps> = ({
   // Đồng bộ local state khi props thay đổi
   useEffect(() => { setRecruits(rawRecruits); }, [rawRecruits]);
 
+  // Đồng bộ tab danh sách đang chọn khi props thay đổi hoặc khôi phục từ localStorage
+  useEffect(() => {
+    if (initialTab && initialTab !== activeTabId) {
+      setActiveTabId(initialTab);
+    }
+  }, [initialTab]);
+
   const [filterProvince, setFilterProvince] = useState('');
   const [filterCommune, setFilterCommune] = useState('');
   const [filterVillage, setFilterVillage] = useState('');
