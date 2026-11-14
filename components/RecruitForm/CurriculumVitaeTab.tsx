@@ -102,7 +102,7 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
       {/* SECTION I FORM FIELDS */}
       <div className="space-y-6">
         <h4 className="text-xs font-black uppercase text-gray-500 tracking-wider border-b border-gray-200 pb-2 flex items-center gap-2">
-          <User size={16} className="text-blue-600" /> THÔNG TIN BẢN THÂN CÔNG DÂN
+          <User size={16} className="text-blue-600" /> I. THÔNG TIN BẢN THÂN CÔNG DÂN
         </h4>
 
         {/* Row 1: Full name & Alias */}
@@ -697,6 +697,34 @@ export const CurriculumVitaeTab: React.FC<CurriculumVitaeTabProps> = ({
             />
           </div>
         </div>
+      </div>
+
+      {/* SECTION II */}
+      <div className="space-y-3 pt-4 border-t border-gray-200">
+        <h4 className="text-xs font-black uppercase text-gray-700 tracking-wider">
+          II. TÌNH HÌNH KINH TẾ, CHÍNH TRỊ CỦA GIA ĐÌNH
+        </h4>
+        <textarea
+          rows={5}
+          readOnly={isReadOnly}
+          className="w-full rounded-xl border border-gray-300 p-3 text-sm text-gray-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-y leading-relaxed"
+          value={cv.familyEconomicPoliticalSituation || ''}
+          onChange={(e) => handleChange('familyEconomicPoliticalSituation', e.target.value)}
+        />
+      </div>
+
+      {/* SECTION III */}
+      <div className="space-y-3 pt-4 border-t border-gray-200">
+        <h4 className="text-xs font-black uppercase text-gray-700 tracking-wider">
+          III. TÌNH HÌNH KINH TẾ, CHÍNH TRỊ, QUÁ TRÌNH CÔNG TÁC CỦA BẢN THÂN
+        </h4>
+        <textarea
+          rows={5}
+          readOnly={isReadOnly}
+          className="w-full rounded-xl border border-gray-300 p-3 text-sm text-gray-800 bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-y leading-relaxed"
+          value={cv.personalEconomicPoliticalWorkHistory || ''}
+          onChange={(e) => handleChange('personalEconomicPoliticalWorkHistory', e.target.value)}
+        />
       </div>
     </div>
   );

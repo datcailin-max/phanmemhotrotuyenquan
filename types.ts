@@ -143,6 +143,8 @@ export interface CurriculumVitae {
   maleSiblings?: string; // ... trai
   femaleSiblings?: string; // ... gái
   siblingOrder?: string; // bản thân là con thứ ...
+  familyEconomicPoliticalSituation?: string; // II. Tình hình kinh tế, chính trị của gia đình
+  personalEconomicPoliticalWorkHistory?: string; // III. Tình hình kinh tế, chính trị, quá trình công tác của bản thân
 }
 
 export interface Recruit {

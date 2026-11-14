@@ -776,6 +776,34 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
             motherStatus: finalMotherDeceased ? 'Chết' : (existingCV.motherStatus || 'Sống')
           };
 
+          let resolvedStatus: RecruitmentStatus = targetStatus;
+          let resolvedReason = finalReason;
+
+          if (activeTabId === 'ALL') {
+            if (!isRealExempt && !isRealDefer) {
+              resolvedStatus = existing.status || targetStatus;
+              resolvedReason = existing.defermentReason || finalReason;
+            } else if (
+              existing.status === RecruitmentStatus.FIRST_TIME_REGISTRATION ||
+              existing.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION ||
+              existing.status === RecruitmentStatus.EXEMPT_REGISTRATION ||
+              existing.status === RecruitmentStatus.FINALIZED ||
+              existing.status === RecruitmentStatus.ENLISTED ||
+              existing.status === RecruitmentStatus.REMOVED_FROM_SOURCE ||
+              existing.status === RecruitmentStatus.DELETED
+            ) {
+              resolvedStatus = existing.status;
+              resolvedReason = existing.defermentReason || finalReason;
+            }
+          } else if (
+            existing.status === RecruitmentStatus.FINALIZED ||
+            existing.status === RecruitmentStatus.ENLISTED ||
+            existing.status === RecruitmentStatus.REMOVED_FROM_SOURCE
+          ) {
+            resolvedStatus = existing.status;
+            resolvedReason = existing.defermentReason || finalReason;
+          }
+
           const updatedRecruit: Recruit = {
             ...existing,
             citizenId: (cleanRawCccd && /^\d{9,12}$/.test(cleanRawCccd)) ? cleanRawCccd : (existing.citizenId || cleanRawCccd || ''),
@@ -818,8 +846,8 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
               children: existing.family?.children || ''
             },
             curriculumVitae: updatedCV,
-            status: targetStatus,
-            defermentReason: finalReason,
+            status: resolvedStatus,
+            defermentReason: resolvedReason,
             recruitmentYear: sessionYear,
             updatedAt: new Date().toISOString()
           };

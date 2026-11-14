@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Recruit, RecruitmentStatus, FamilyMember, User, RecruitAttachment, RecruitWordDocument } from '../types';
 import { X, Save, User as UserIcon, AlertTriangle, Camera, ShieldAlert, Globe, UserPlus, User as UserIconAlt, Trash2, FileText, UserCheck } from 'lucide-react';
 import { LEGAL_DEFERMENT_REASONS, LOW_EDUCATION_GRADES, removeVietnameseTones } from '../constants';
@@ -39,91 +39,126 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
   const emptyFamilyMember: FamilyMember = { fullName: '', job: '', phoneNumber: '', birthYear: '' };
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
-  const [formData, setFormData] = useState<Recruit>({
-    id: generateId(), citizenId: '', fullName: '', dob: '', phoneNumber: '', avatarUrl: '',
-    address: { province: user.unit.province, commune: user.unit.commune, village: '', street: '' },
-    hometown: { province: '', commune: '', village: '' },
-    physical: { height: 0, weight: 0, chest: 0, bmi: 0, healthGrade: 0, bloodPressure: '', note: '' },
-    details: { 
-      education: 'Lớp 12', ethnicity: 'Kinh', religion: 'Không', maritalStatus: 'Độc thân', 
-      job: '', workAddress: '', gradeGroup: '', salaryLevel: '',
-      politicalStatus: 'Doan_Vien', gifted: '',
-      familyComposition: 'Bần nông', personalComposition: 'Phụ thuộc',
-      proposedForSelection: false
-    },
-    family: { father: { ...emptyFamilyMember }, mother: { ...emptyFamilyMember }, wife: { ...emptyFamilyMember }, children: '' },
-    status: initialStatus || RecruitmentStatus.SOURCE,
-    recruitmentYear: sessionYear,
-    attachments: []
-  });
+  const buildMergedRecruit = (source?: Recruit): Recruit => {
+    if (!source) {
+      return {
+        id: generateId(), citizenId: '', fullName: '', dob: '', phoneNumber: '', avatarUrl: '',
+        address: { province: user.unit.province, commune: user.unit.commune, village: '', street: '' },
+        hometown: { province: '', commune: '', village: '' },
+        physical: { height: 0, weight: 0, chest: 0, bmi: 0, healthGrade: 0, bloodPressure: '', note: '' },
+        details: { 
+          education: 'Lớp 12', ethnicity: 'Kinh', religion: 'Không', maritalStatus: 'Độc thân', 
+          job: '', workAddress: '', gradeGroup: '', salaryLevel: '',
+          politicalStatus: 'Doan_Vien', gifted: '',
+          familyComposition: 'Bần nông', personalComposition: 'Phụ thuộc',
+          proposedForSelection: false
+        },
+        family: { father: { ...emptyFamilyMember }, mother: { ...emptyFamilyMember }, wife: { ...emptyFamilyMember }, children: '' },
+        status: initialStatus || RecruitmentStatus.SOURCE,
+        recruitmentYear: sessionYear,
+        attachments: []
+      };
+    }
+
+    const cv = source.curriculumVitae || {};
+    const fatherName = source.family?.father?.fullName || cv.fatherName || '';
+    const fatherBirthYear = source.family?.father?.birthYear || cv.fatherBirthDate || '';
+    const fatherJob = source.family?.father?.job || cv.fatherJob || '';
+    const fatherPhone = source.family?.father?.phoneNumber || '';
+
+    const motherName = source.family?.mother?.fullName || cv.motherName || '';
+    const motherBirthYear = source.family?.mother?.birthYear || cv.motherBirthDate || '';
+    const motherJob = source.family?.mother?.job || cv.motherJob || '';
+    const motherPhone = source.family?.mother?.phoneNumber || '';
+
+    const wifeName = source.family?.wife?.fullName || cv.spouseName || '';
+    const wifeBirthYear = source.family?.wife?.birthYear || cv.spouseBirthDate || '';
+    const wifeJob = source.family?.wife?.job || cv.spouseJob || '';
+
+    const height = source.physical?.height || 0;
+    const weight = source.physical?.weight || 0;
+    let bmi = source.physical?.bmi || 0;
+    if (height > 0 && weight > 0 && (!bmi || bmi === 0)) {
+      const h = height / 100;
+      bmi = parseFloat((weight / (h * h)).toFixed(2));
+    }
+
+    const mergedRecruit: Recruit = {
+      ...source,
+      physical: {
+        height,
+        weight,
+        chest: source.physical?.chest || 0,
+        bmi,
+        healthGrade: source.physical?.healthGrade || 0,
+        bloodPressure: source.physical?.bloodPressure || '',
+        note: source.physical?.note || ''
+      },
+      family: {
+        father: {
+          fullName: fatherName,
+          birthYear: fatherBirthYear,
+          job: fatherJob,
+          phoneNumber: fatherPhone,
+        },
+        mother: {
+          fullName: motherName,
+          birthYear: motherBirthYear,
+          job: motherJob,
+          phoneNumber: motherPhone,
+        },
+        wife: {
+          fullName: wifeName,
+          birthYear: wifeBirthYear,
+          job: wifeJob,
+          phoneNumber: source.family?.wife?.phoneNumber || '',
+        },
+        children: source.family?.children || cv.childrenCount || '',
+      },
+    };
+
+    const autoCV = helperAutoFillCV(mergedRecruit);
+    mergedRecruit.curriculumVitae = {
+      ...autoCV,
+      ...cv,
+      fatherName: fatherName || cv.fatherName || autoCV.fatherName,
+      fatherBirthDate: fatherBirthYear || cv.fatherBirthDate || autoCV.fatherBirthDate,
+      fatherJob: fatherJob || cv.fatherJob || autoCV.fatherJob,
+      motherName: motherName || cv.motherName || autoCV.motherName,
+      motherBirthDate: motherBirthYear || cv.motherBirthDate || autoCV.motherBirthDate,
+      motherJob: motherJob || cv.motherJob || autoCV.motherJob,
+      spouseName: wifeName || cv.spouseName || autoCV.spouseName,
+      spouseBirthDate: wifeBirthYear || cv.spouseBirthDate || autoCV.spouseBirthDate,
+      spouseJob: wifeJob || cv.spouseJob || autoCV.spouseJob,
+      childrenCount: mergedRecruit.family.children || autoCV.childrenCount,
+    };
+
+    return mergedRecruit;
+  };
+
+  const [formData, setFormData] = useState<Recruit>(() => buildMergedRecruit(initialData));
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [activeTab, setActiveTab] = useState<'PROFILE' | 'CURRICULUM_VITAE'>('PROFILE');
 
+  // Chỉ tự động xét chuyển trạng thái khi cán bộ chủ động sửa các trường thể lực hoặc học vấn
+  const physicalEditedByUserRef = useRef(false);
+  const educationEditedByUserRef = useRef(false);
+
   useEffect(() => {
+    physicalEditedByUserRef.current = false;
+    educationEditedByUserRef.current = false;
     if (initialData) {
-      const cv = initialData.curriculumVitae || {};
-      const fatherName = initialData.family?.father?.fullName || cv.fatherName || '';
-      const fatherBirthYear = initialData.family?.father?.birthYear || cv.fatherBirthDate || '';
-      const fatherJob = initialData.family?.father?.job || cv.fatherJob || '';
-      const fatherPhone = initialData.family?.father?.phoneNumber || '';
-
-      const motherName = initialData.family?.mother?.fullName || cv.motherName || '';
-      const motherBirthYear = initialData.family?.mother?.birthYear || cv.motherBirthDate || '';
-      const motherJob = initialData.family?.mother?.job || cv.motherJob || '';
-      const motherPhone = initialData.family?.mother?.phoneNumber || '';
-
-      const wifeName = initialData.family?.wife?.fullName || cv.spouseName || '';
-      const wifeBirthYear = initialData.family?.wife?.birthYear || cv.spouseBirthDate || '';
-      const wifeJob = initialData.family?.wife?.job || cv.spouseJob || '';
-
-      const mergedRecruit: Recruit = {
-        ...initialData,
-        family: {
-          father: {
-            fullName: fatherName,
-            birthYear: fatherBirthYear,
-            job: fatherJob,
-            phoneNumber: fatherPhone,
-          },
-          mother: {
-            fullName: motherName,
-            birthYear: motherBirthYear,
-            job: motherJob,
-            phoneNumber: motherPhone,
-          },
-          wife: {
-            fullName: wifeName,
-            birthYear: wifeBirthYear,
-            job: wifeJob,
-            phoneNumber: initialData.family?.wife?.phoneNumber || '',
-          },
-          children: initialData.family?.children || cv.childrenCount || '',
-        },
-      };
-
-      const autoCV = helperAutoFillCV(mergedRecruit);
-      mergedRecruit.curriculumVitae = {
-        ...autoCV,
-        ...cv,
-        fatherName: fatherName || cv.fatherName || autoCV.fatherName,
-        fatherBirthDate: fatherBirthYear || cv.fatherBirthDate || autoCV.fatherBirthDate,
-        fatherJob: fatherJob || cv.fatherJob || autoCV.fatherJob,
-        motherName: motherName || cv.motherName || autoCV.motherName,
-        motherBirthDate: motherBirthYear || cv.motherBirthDate || autoCV.motherBirthDate,
-        motherJob: motherJob || cv.motherJob || autoCV.motherJob,
-        spouseName: wifeName || cv.spouseName || autoCV.spouseName,
-        spouseBirthDate: wifeBirthYear || cv.spouseBirthDate || autoCV.spouseBirthDate,
-        spouseJob: wifeJob || cv.spouseJob || autoCV.spouseJob,
-        childrenCount: mergedRecruit.family.children || autoCV.childrenCount,
-      };
-
-      setFormData(mergedRecruit);
+      setFormData(buildMergedRecruit(initialData));
     }
   }, [initialData]);
 
   // Logic tự động tính BMI, xét hoãn sức khỏe và phân loại danh sách khám tuyển
   useEffect(() => {
+    if (!physicalEditedByUserRef.current) {
+      return;
+    }
+
     const { height, weight, chest, bmi, healthGrade } = formData.physical;
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason || '';
@@ -139,7 +174,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
       }
     }
 
-    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn cho DS 1, 2, 3 và Thông tư 50 (KTC, CGNN)
+    // Không áp dụng logic tự động Tạm hoãn cho DS 1, 2, 3, Thông tư 50 (KTC, CGNN), Sơ khám, Miễn gọi, Chốt hồ sơ, Nhập ngũ, Loại khỏi nguồn, Đã xóa
     const exemptFromAutoDeferStatus = [
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION,
@@ -147,6 +182,11 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
       RecruitmentStatus.NOT_SELECTED_TT50,
       RecruitmentStatus.KTC_KHONG_TUYEN_CHON,
       RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU,
+      RecruitmentStatus.PRE_CHECK_PASSED,
+      RecruitmentStatus.PRE_CHECK_FAILED,
+      RecruitmentStatus.EXEMPTED,
+      RecruitmentStatus.FINALIZED,
+      RecruitmentStatus.ENLISTED,
       RecruitmentStatus.REMOVED_FROM_SOURCE,
       RecruitmentStatus.DELETED
     ];
@@ -155,12 +195,13 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
         return;
     }
 
-    // 2. Logic Tự động Tạm hoãn về Sức khỏe (Chỉ áp dụng từ DS 4 trở đi)
+    // 2. Logic Tự động Tạm hoãn về Sức khỏe (Chỉ áp dụng từ DS 4 trở đi khi có chỉnh sửa chỉ số thể lực)
     const isUnderHeight = height > 0 && height < 157;
     const isUnderWeight = weight > 0 && weight < 43;
     const isUnderChest = chest > 0 && chest < 75;
     const isInvalidBmi = calculatedBmi > 0 && (calculatedBmi > 29.9 || calculatedBmi < 18.5);
     const isFailingHealthGrade = healthGrade !== undefined && healthGrade >= 4 && healthGrade <= 6;
+    const hasEnteredPhysicalData = height > 0 || weight > 0 || chest > 0 || calculatedBmi > 0 || (healthGrade !== undefined && healthGrade > 0);
 
     // Nếu công dân đang ở giai đoạn Khám tuyển (Đạt hoặc Không đạt khám tuyển)
     if (formData.status === RecruitmentStatus.MED_EXAM_PASSED || formData.status === RecruitmentStatus.MED_EXAM_FAILED) {
@@ -179,10 +220,11 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
         nextStatus = RecruitmentStatus.DEFERRED;
         nextReason = isFailingHealthGrade ? `Sức khỏe loại ${healthGrade}` : LEGAL_DEFERMENT_REASONS[0];
       } else if (
+        hasEnteredPhysicalData &&
         formData.status === RecruitmentStatus.DEFERRED && 
         (formData.defermentReason === LEGAL_DEFERMENT_REASONS[0] || formData.defermentReason?.startsWith('Sức khỏe loại '))
       ) {
-        // Khôi phục về Nguồn nếu trước đó bị tạm hoãn do sức khỏe nhưng nay thể lực/sức khỏe đã đạt
+        // Chỉ khôi phục về Nguồn khi cán bộ thực sự nhập lại chỉ số thể lực đạt yêu cầu
         nextStatus = RecruitmentStatus.SOURCE;
         nextReason = '';
       }
@@ -196,11 +238,15 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
 
   // LOGIC TỰ ĐỘNG XÉT TẠM HOÃN THEO HỌC VẤN
   useEffect(() => {
+    if (!educationEditedByUserRef.current) {
+      return;
+    }
+
     const edu = formData.details.education;
     let nextStatus = formData.status;
     let nextReason = formData.defermentReason;
 
-    // CHỈNH SỬA: Không áp dụng logic tự động Tạm hoãn cho DS 1, 2, 3 và Thông tư 50 (KTC, CGNN)
+    // Không áp dụng logic tự động Tạm hoãn cho DS 1, 2, 3, Thông tư 50 (KTC, CGNN), Sơ khám, Khám tuyển, Miễn gọi, Chốt hồ sơ, Nhập ngũ, Loại khỏi nguồn, Đã xóa
     const exemptFromAutoDeferStatus = [
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION,
@@ -208,6 +254,13 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
       RecruitmentStatus.NOT_SELECTED_TT50,
       RecruitmentStatus.KTC_KHONG_TUYEN_CHON,
       RecruitmentStatus.KTC_CHUA_GOI_NHAP_NGU,
+      RecruitmentStatus.PRE_CHECK_PASSED,
+      RecruitmentStatus.PRE_CHECK_FAILED,
+      RecruitmentStatus.MED_EXAM_PASSED,
+      RecruitmentStatus.MED_EXAM_FAILED,
+      RecruitmentStatus.EXEMPTED,
+      RecruitmentStatus.FINALIZED,
+      RecruitmentStatus.ENLISTED,
       RecruitmentStatus.REMOVED_FROM_SOURCE,
       RecruitmentStatus.DELETED
     ];
@@ -250,6 +303,17 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
   }, [formData.details.education, formData.details.proposedForSelection, user.isSpecialArea]);
 
   const handleChange = (field: string, value: any) => {
+    if (
+      field === 'physical.height' ||
+      field === 'physical.weight' ||
+      field === 'physical.chest' ||
+      field === 'physical.bmi' ||
+      field === 'physical.healthGrade'
+    ) {
+      physicalEditedByUserRef.current = true;
+    } else if (field === 'details.education' || field === 'details.proposedForSelection') {
+      educationEditedByUserRef.current = true;
+    }
     setFormData(prev => {
       const newData = { ...prev };
       const parts = field.split('.');
@@ -450,7 +514,9 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     const isSourceTab = ![
       RecruitmentStatus.NOT_ALLOWED_REGISTRATION, 
       RecruitmentStatus.EXEMPT_REGISTRATION, 
-      RecruitmentStatus.FIRST_TIME_REGISTRATION
+      RecruitmentStatus.FIRST_TIME_REGISTRATION,
+      RecruitmentStatus.REMOVED_FROM_SOURCE,
+      RecruitmentStatus.DELETED
     ].includes(formData.status);
 
     if (birthYear > 0 && isSourceTab && age < 18 && !isJanSpecialCase) {
@@ -500,14 +566,18 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
                    {formData.status !== RecruitmentStatus.SOURCE && !isReadOnly && (
                      <button
                        type="button"
-                       onClick={() => setFormData(prev => ({ 
-                         ...prev, 
-                         status: RecruitmentStatus.SOURCE, 
-                         defermentReason: '',
-                         enlistmentType: undefined,
-                         enlistmentUnit: undefined,
-                         enlistmentDate: undefined 
-                       }))}
+                       onClick={() => {
+                         if (window.confirm('Xác nhận chuyển công dân này về trạng thái Nguồn (DS 4)?')) {
+                           setFormData(prev => ({ 
+                             ...prev, 
+                             status: RecruitmentStatus.SOURCE, 
+                             defermentReason: '',
+                             enlistmentType: undefined,
+                             enlistmentUnit: undefined,
+                             enlistmentDate: undefined 
+                           }));
+                         }
+                       }}
                        className="text-[9px] bg-green-600 hover:bg-green-500 text-white font-black px-2 py-0.5 rounded uppercase border border-green-400 transition-colors shadow-sm cursor-pointer"
                        title="Chuyển công dân này về trạng thái Nguồn (DS 4)"
                      >
@@ -544,7 +614,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
             </div>
           )}
 
-          {/* TAB CHUYỂN ĐỔI GIỮA THÔNG TIN CHUNG VÀ SƠ YẾU LÝ LỊCH (MỤC I) */}
+          {/* TAB CHUYỂN ĐỔI GIỮA THÔNG TIN CHUNG VÀ SƠ YẾU LÝ LỊCH (MỤC I, II, III) */}
           <div className="flex items-center gap-3 mb-6 bg-gray-100 p-1.5 rounded-2xl border border-gray-200">
             <button
               type="button"
@@ -567,7 +637,7 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
                   : 'text-gray-600 hover:text-blue-700 hover:bg-blue-50/80'
               }`}
             >
-              <FileText size={18} /> Sơ yếu lý lịch (Mục I)
+              <FileText size={18} /> Sơ yếu lý lịch (Mục I, II, III)
             </button>
           </div>
 

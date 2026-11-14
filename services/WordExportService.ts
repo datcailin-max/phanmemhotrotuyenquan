@@ -13,12 +13,15 @@ import {
   AlignmentType, 
   WidthType, 
   TabStopType, 
+  LeaderType,
+  UnderlineType,
   Packer, 
   BorderStyle, 
   convertMillimetersToTwip 
 } from 'docx';
 import { Recruit, CurriculumVitae } from '../types';
 import { api } from '../api';
+import { removeVietnameseTones } from '../constants';
 
 // Precise dots tailored to cell widths in standard military resume tables (strictly prevents line breaks)
 const DOTS_FULL_ROW_SHORT_LABEL = '..............................................................'; // for Quê quán (~62 dots)
@@ -208,6 +211,8 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   const maleSiblingsNum = cv.maleSiblings ? String(cv.maleSiblings).padStart(2, '0') : '01';
   const femaleSiblingsNum = cv.femaleSiblings ? String(cv.femaleSiblings).padStart(2, '0') : '00';
   const siblingOrderNum = cv.siblingOrder ? String(cv.siblingOrder).padStart(2, '0') : '01';
+  const sectionIIVal = cv.familyEconomicPoliticalSituation?.trim() || '';
+  const sectionIIIVal = cv.personalEconomicPoliticalWorkHistory?.trim() || '';
 
   const data: Record<string, any> = {
     fullNameUpper: getVal(cv.fullNameUpper, recruit.fullName?.toUpperCase(), DOTS_HALF_ROW_LEFT_SHORT),
@@ -262,6 +267,8 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
     maleSiblings: maleSiblingsNum,
     femaleSiblings: femaleSiblingsNum,
     siblingOrder: siblingOrderNum,
+    familyEconomicPoliticalSituation: sectionIIVal,
+    personalEconomicPoliticalWorkHistory: sectionIIIVal,
 
     // COMPOSITE ROWS WITH PROPER TABS
     ROW_ETHNICITY_RELIGION_NATIONALITY: `Dân tộc: ${ethnicityVal};\tTôn giáo: ${religionVal};\tQuốc tịch: ${nationalityVal}`,
@@ -401,6 +408,15 @@ export const buildTemplateData = (recruit: Recruit, cv: CurriculumVitae): Record
   data.FEMALE_SIBLINGS = data.femaleSiblings;
   data.SIBLING_ORDER = data.siblingOrder;
   data.CON_THU = data.siblingOrder;
+  data.FAMILY_ECONOMIC_POLITICAL_SITUATION = sectionIIVal;
+  data.MUC_II = sectionIIVal;
+  data.TINH_HINH_GIA_DINH = sectionIIVal;
+  data.TINH_HINH_KINH_TE_CHINH_TRI_GIA_DINH = sectionIIVal;
+  data.PERSONAL_ECONOMIC_POLITICAL_WORK_HISTORY = sectionIIIVal;
+  data.MUC_III = sectionIIIVal;
+  data.TINH_HINH_BAN_THAN = sectionIIIVal;
+  data.TINH_HINH_KINH_TE_CHINH_TRI_BAN_THAN = sectionIIIVal;
+  data.QUA_TRINH_CONG_TAC = sectionIIIVal;
 
   return data;
 };
@@ -493,7 +509,371 @@ export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
     maleSiblings: existingCV.maleSiblings || '',
     femaleSiblings: existingCV.femaleSiblings || '',
     siblingOrder: recruit.details?.birthOrder || existingCV.siblingOrder || '1',
+    familyEconomicPoliticalSituation: existingCV.familyEconomicPoliticalSituation || '',
+    personalEconomicPoliticalWorkHistory: existingCV.personalEconomicPoliticalWorkHistory || '',
   };
+};
+
+const MUC_II_SENTINEL = '__NVQS_MUC_II_TAG__';
+const MUC_III_SENTINEL = '__NVQS_MUC_III_TAG__';
+
+const wrapTextToLines = (text: string, maxChars: number = 82): string[] => {
+  const normalized = text.replace(/\r\n/g, '\n');
+  const rawLines = normalized.split('\n');
+  const result: string[] = [];
+
+  for (const rawLine of rawLines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      result.push('');
+      continue;
+    }
+
+    const words = trimmed.split(/\s+/);
+    let current = '';
+
+    for (const word of words) {
+      if (!current) {
+        if (word.length <= maxChars) {
+          current = word;
+        } else {
+          for (let i = 0; i < word.length; i += maxChars) {
+            const slice = word.slice(i, i + maxChars);
+            if (slice.length === maxChars && i + maxChars < word.length) {
+              result.push(slice);
+            } else {
+              current = slice;
+            }
+          }
+        }
+      } else if (current.length + 1 + word.length <= maxChars) {
+        current += ' ' + word;
+      } else {
+        result.push(current);
+        if (word.length <= maxChars) {
+          current = word;
+        } else {
+          current = '';
+          for (let i = 0; i < word.length; i += maxChars) {
+            const slice = word.slice(i, i + maxChars);
+            if (slice.length === maxChars && i + maxChars < word.length) {
+              result.push(slice);
+            } else {
+              current = slice;
+            }
+          }
+        }
+      }
+    }
+
+    if (current) {
+      result.push(current);
+    }
+  }
+
+  return result;
+};
+
+const injectSectionsOntoDottedLinesInXml = (
+  xmlStr: string,
+  sectionIIText: string,
+  sectionIIIText: string
+): string => {
+  if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
+    return xmlStr;
+  }
+
+  const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const XML_NS = 'http://www.w3.org/XML/1998/namespace';
+
+  const xmlDoc = new DOMParser().parseFromString(xmlStr, 'application/xml');
+  if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+    return xmlStr;
+  }
+
+  const createW = (localName: string): Element => xmlDoc.createElementNS(W_NS, `w:${localName}`);
+
+  const getDirectChildren = (parent: Element, localName: string): Element[] => {
+    const out: Element[] = [];
+    for (let i = 0; i < parent.childNodes.length; i++) {
+      const node = parent.childNodes[i];
+      if (node.nodeType === 1) {
+        const el = node as Element;
+        if (el.localName === localName || el.nodeName === `w:${localName}`) {
+          out.push(el);
+        }
+      }
+    }
+    return out;
+  };
+
+  const getFirstDirectChild = (parent: Element, localName: string): Element | null => {
+    const list = getDirectChildren(parent, localName);
+    return list.length > 0 ? list[0] : null;
+  };
+
+  const getWAttr = (el: Element | null, attrName: string): string | null => {
+    if (!el) return null;
+    return el.getAttributeNS(W_NS, attrName) || el.getAttribute(`w:${attrName}`) || el.getAttribute(attrName);
+  };
+
+  const setWAttr = (el: Element, attrName: string, value: string) => {
+    el.setAttributeNS(W_NS, `w:${attrName}`, value);
+  };
+
+  const getParagraphText = (p: Element): string => {
+    const ts = p.getElementsByTagNameNS(W_NS, 't');
+    let txt = '';
+    for (let i = 0; i < ts.length; i++) {
+      txt += ts[i].textContent || '';
+    }
+    return txt;
+  };
+
+  const isDottedLineParagraph = (p: Element): boolean => {
+    const raw = getParagraphText(p);
+    const nonSpace = raw.replace(/[\s\u00A0\t]+/g, '');
+    if (nonSpace.length >= 5 && /^[.\u2026_\-]+$/.test(nonSpace)) {
+      return true;
+    }
+    if (nonSpace === '') {
+      const hasTab = p.getElementsByTagNameNS(W_NS, 'tab').length > 0;
+      if (hasTab) {
+        const pPr = getFirstDirectChild(p, 'pPr');
+        const tabs = pPr ? getFirstDirectChild(pPr, 'tabs') : null;
+        if (tabs) {
+          const tabDefs = getDirectChildren(tabs, 'tab');
+          if (tabDefs.some((t) => ['dot', 'middleDot', 'underscore'].includes(getWAttr(t, 'leader') || ''))) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  };
+
+  const normalizeHeading = (s: string): string =>
+    removeVietnameseTones(s).toLowerCase().replace(/\s+/g, ' ').trim();
+
+  // Compute default page printable width in twips from sectPr
+  let pagePrintableWidth = 9638; // default A4 170mm
+  const sectPrList = xmlDoc.getElementsByTagNameNS(W_NS, 'sectPr');
+  if (sectPrList.length > 0) {
+    const sectPr = sectPrList[sectPrList.length - 1];
+    const pgSz = getFirstDirectChild(sectPr, 'pgSz');
+    const pgMar = getFirstDirectChild(sectPr, 'pgMar');
+    const pgW = parseInt(getWAttr(pgSz, 'w') || '11906', 10);
+    const marL = parseInt(getWAttr(pgMar, 'left') || '1417', 10);
+    const marR = parseInt(getWAttr(pgMar, 'right') || '850', 10);
+    if (!isNaN(pgW) && !isNaN(marL) && !isNaN(marR) && pgW > marL + marR) {
+      pagePrintableWidth = pgW - marL - marR;
+    }
+  }
+
+  const getParagraphMetrics = (p: Element): { rightPos: number; maxChars: number } => {
+    let columnWidth = pagePrintableWidth;
+    let node: Node | null = p.parentNode;
+    while (node && node.nodeType === 1) {
+      const el = node as Element;
+      if (el.localName === 'tc' || el.nodeName === 'w:tc') {
+        const tcPr = getFirstDirectChild(el, 'tcPr');
+        const tcW = tcPr ? getFirstDirectChild(tcPr, 'tcW') : null;
+        const wType = getWAttr(tcW, 'type');
+        const wVal = parseInt(getWAttr(tcW, 'w') || '0', 10);
+        if (wVal > 500 && (!wType || wType === 'dxa')) {
+          columnWidth = wVal - 220;
+        }
+        break;
+      }
+      node = node.parentNode;
+    }
+
+    const pPr = getFirstDirectChild(p, 'pPr');
+    const ind = pPr ? getFirstDirectChild(pPr, 'ind') : null;
+    const indL = Math.max(0, parseInt(getWAttr(ind, 'left') || '0', 10) || 0);
+    const indR = Math.max(0, parseInt(getWAttr(ind, 'right') || '0', 10) || 0);
+    const rightPos = Math.max(2000, columnWidth - indR);
+    const textWidth = Math.max(1500, rightPos - indL);
+
+    const firstR = getFirstDirectChild(p, 'r');
+    const rPr = firstR ? getFirstDirectChild(firstR, 'rPr') : null;
+    const szEl = rPr ? getFirstDirectChild(rPr, 'sz') : null;
+    const szHalfPts = parseInt(getWAttr(szEl, 'val') || '26', 10) || 26;
+    const pts = szHalfPts / 2;
+    const widthPts = textWidth / 20;
+    const maxChars = Math.max(38, Math.floor(widthPts / (pts * 0.44)));
+
+    return { rightPos, maxChars };
+  };
+
+  const collectSectionDottedParagraphs = (
+    paragraphs: Element[],
+    sentinel: string,
+    isHeading: (normText: string) => boolean,
+    isStopHeading: (normText: string) => boolean
+  ): Element[] => {
+    const sentinelIdx = paragraphs.findIndex((p) => getParagraphText(p).includes(sentinel));
+    if (sentinelIdx !== -1) {
+      const collected: Element[] = [paragraphs[sentinelIdx]];
+      for (let i = sentinelIdx + 1; i < paragraphs.length; i++) {
+        if (isDottedLineParagraph(paragraphs[i])) {
+          collected.push(paragraphs[i]);
+        } else {
+          break;
+        }
+      }
+      return collected;
+    }
+
+    const headingIdx = paragraphs.findIndex((p) => isHeading(normalizeHeading(getParagraphText(p))));
+    if (headingIdx === -1) return [];
+
+    const collected: Element[] = [];
+    let foundFirstDot = false;
+
+    for (let i = headingIdx + 1; i < paragraphs.length; i++) {
+      const p = paragraphs[i];
+      const norm = normalizeHeading(getParagraphText(p));
+      if (!foundFirstDot) {
+        if (i - headingIdx > 10 || isStopHeading(norm)) {
+          break;
+        }
+        if (isDottedLineParagraph(p)) {
+          foundFirstDot = true;
+          collected.push(p);
+        }
+      } else {
+        if (isDottedLineParagraph(p)) {
+          collected.push(p);
+        } else {
+          break;
+        }
+      }
+    }
+
+    return collected;
+  };
+
+  const writeTextOntoDottedParagraph = (p: Element, lineText: string, rightPos: number) => {
+    const firstR = getFirstDirectChild(p, 'r');
+    const origRPr = firstR ? getFirstDirectChild(firstR, 'rPr') : null;
+    const baseRPr = origRPr ? (origRPr.cloneNode(true) as Element) : createW('rPr');
+
+    // Remove existing underline from baseRPr
+    for (const uEl of getDirectChildren(baseRPr, 'u')) {
+      baseRPr.removeChild(uEl);
+    }
+
+    // Ensure pPr & dot-leader right tab stop
+    let pPr = getFirstDirectChild(p, 'pPr');
+    if (!pPr) {
+      pPr = createW('pPr');
+      p.insertBefore(pPr, p.firstChild);
+    }
+    let tabs = getFirstDirectChild(pPr, 'tabs');
+    if (!tabs) {
+      tabs = createW('tabs');
+      pPr.appendChild(tabs);
+    }
+    for (const existingTab of getDirectChildren(tabs, 'tab')) {
+      if (getWAttr(existingTab, 'val') === 'right') {
+        tabs.removeChild(existingTab);
+      }
+    }
+    const rightTab = createW('tab');
+    setWAttr(rightTab, 'val', 'right');
+    setWAttr(rightTab, 'leader', 'dot');
+    setWAttr(rightTab, 'pos', String(rightPos));
+    tabs.appendChild(rightTab);
+
+    // Clear existing runs while preserving pPr and bookmarks
+    for (const oldR of getDirectChildren(p, 'r')) {
+      p.removeChild(oldR);
+    }
+    for (const oldHyper of getDirectChildren(p, 'hyperlink')) {
+      p.removeChild(oldHyper);
+    }
+
+    if (lineText) {
+      const textRun = createW('r');
+      const textRPr = baseRPr.cloneNode(true) as Element;
+      const uEl = createW('u');
+      setWAttr(uEl, 'val', 'dotted');
+      const langEl = getFirstDirectChild(textRPr, 'lang') || getFirstDirectChild(textRPr, 'rtl');
+      if (langEl) {
+        textRPr.insertBefore(uEl, langEl);
+      } else {
+        textRPr.appendChild(uEl);
+      }
+      textRun.appendChild(textRPr);
+
+      const tEl = createW('t');
+      tEl.setAttributeNS(XML_NS, 'xml:space', 'preserve');
+      tEl.textContent = lineText;
+      textRun.appendChild(tEl);
+      p.appendChild(textRun);
+    }
+
+    const tabRun = createW('r');
+    tabRun.appendChild(baseRPr.cloneNode(true));
+    tabRun.appendChild(createW('tab'));
+    p.appendChild(tabRun);
+  };
+
+  const applySection = (dotParas: Element[], rawText: string) => {
+    if (!rawText || dotParas.length === 0) return;
+
+    const { rightPos, maxChars } = getParagraphMetrics(dotParas[0]);
+    const wrapped = wrapTextToLines(rawText, maxChars);
+    if (wrapped.length === 0) return;
+
+    const lastDotTemplate = dotParas[dotParas.length - 1].cloneNode(true) as Element;
+    let anchor = dotParas[dotParas.length - 1];
+
+    while (dotParas.length < wrapped.length) {
+      const extraPara = lastDotTemplate.cloneNode(true) as Element;
+      if (anchor.parentNode) {
+        anchor.parentNode.insertBefore(extraPara, anchor.nextSibling);
+      }
+      dotParas.push(extraPara);
+      anchor = extraPara;
+    }
+
+    // Fill lines 0..wrapped.length-1 with underlined text + dot leader;
+    // leave dotParas[wrapped.length..end] completely untouched!
+    for (let i = 0; i < wrapped.length; i++) {
+      writeTextOntoDottedParagraph(dotParas[i], wrapped[i], rightPos);
+    }
+  };
+
+  const allParagraphs = Array.from(xmlDoc.getElementsByTagNameNS(W_NS, 'p'));
+
+  if (sectionIIText) {
+    const secIIDots = collectSectionDottedParagraphs(
+      allParagraphs,
+      MUC_II_SENTINEL,
+      (norm) =>
+        norm.includes('tinh hinh kinh te, chinh tri cua gia dinh') ||
+        (/\bii\./.test(norm) && norm.includes('gia dinh')),
+      (norm) => /\biii\./.test(norm) || norm.includes('qua trinh cong tac')
+    );
+    applySection(secIIDots, sectionIIText);
+  }
+
+  if (sectionIIIText) {
+    const updatedParagraphs = Array.from(xmlDoc.getElementsByTagNameNS(W_NS, 'p'));
+    const secIIIDots = collectSectionDottedParagraphs(
+      updatedParagraphs,
+      MUC_III_SENTINEL,
+      (norm) =>
+        norm.includes('qua trinh cong tac cua ban than') ||
+        (/\biii\./.test(norm) && norm.includes('ban than')),
+      (norm) => norm.includes('nguoi khai') || norm.includes('toi xin cam doan')
+    );
+    applySection(secIIIDots, sectionIIIText);
+  }
+
+  return new XMLSerializer().serializeToString(xmlDoc);
 };
 
 /**
@@ -530,6 +910,81 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
   };
 
   const communeUpper = (recruit.address?.commune ? `XÃ/PHƯỜNG ${recruit.address.commune.toUpperCase()}` : "CẤP XÃ/PHƯỜNG");
+  const RIGHT_MARGIN_TWIPS = convertMillimetersToTwip(170); // 210mm A4 - 25mm left - 15mm right
+
+  const buildSectionParagraphs = (
+    title: string,
+    subtitle: string,
+    defaultLineCount: number,
+    content?: string
+  ): Paragraph[] => {
+    const trimmed = content?.trim() || '';
+    const wrappedLines = trimmed ? wrapTextToLines(trimmed, 82) : [];
+    const totalLines = Math.max(defaultLineCount, wrappedLines.length);
+
+    const result: Paragraph[] = [
+      new Paragraph({
+        spacing: { before: 140, after: 40, line: 260 },
+        children: [
+          new TextRun({
+            text: title,
+            font: FONT_FAMILY,
+            size: FONT_SIZE_BODY,
+            bold: true,
+          }),
+        ],
+      }),
+      new Paragraph({
+        spacing: { after: 60, line: 260 },
+        children: [
+          new TextRun({
+            text: subtitle,
+            font: FONT_FAMILY,
+            size: 24, // 12pt italic guidance matching official form
+            italics: true,
+          }),
+        ],
+      }),
+    ];
+
+    for (let i = 0; i < totalLines; i++) {
+      const lineText = wrappedLines[i] || '';
+      const children: TextRun[] = [];
+      if (lineText) {
+        children.push(
+          new TextRun({
+            text: lineText,
+            font: FONT_FAMILY,
+            size: FONT_SIZE_BODY,
+            underline: { type: UnderlineType.DOTTED },
+          })
+        );
+      }
+      children.push(
+        new TextRun({
+          text: '\t',
+          font: FONT_FAMILY,
+          size: FONT_SIZE_BODY,
+        })
+      );
+
+      result.push(
+        new Paragraph({
+          tabStops: [
+            {
+              type: TabStopType.RIGHT,
+              position: RIGHT_MARGIN_TWIPS,
+              leader: LeaderType.DOT,
+            },
+          ],
+          spacing: { after: 50, line: 280 },
+          children,
+        })
+      );
+    }
+
+    return result;
+  };
 
   const doc = new Document({
     styles: {
@@ -815,6 +1270,20 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
             new TextRun(`Cha mẹ có ${data.totalSiblings} người con, ${data.maleSiblings} trai ${data.femaleSiblings} gái; bản thân là con thứ ${data.siblingOrder}`),
           ]),
 
+          // MỤC II & MỤC III (Giữ nguyên toàn bộ các dòng chấm, chữ hiển thị trên dòng chấm)
+          ...buildSectionParagraphs(
+            "II. TÌNH HÌNH KINH TẾ, CHÍNH TRỊ CỦA GIA ĐÌNH",
+            "(Của cha đẻ, mẹ đẻ hoặc người trực tiếp nuôi dưỡng của bản thân và của vợ hoặc chồng; anh chị em ruột; con đẻ, con nuôi theo quy định của pháp luật; nghề nghiệp, tình hình kinh tế, chính trị của từng người qua các thời kỳ).",
+            11,
+            cv.familyEconomicPoliticalSituation
+          ),
+          ...buildSectionParagraphs(
+            "III. TÌNH HÌNH KINH TẾ, CHÍNH TRỊ, QUÁ TRÌNH CÔNG TÁC CỦA BẢN THÂN",
+            "(Nêu thời gian, quá trình học tập, kết quả học tập, rèn luyện phấn đấu; thời gian, quá trình công tác, chấp hành pháp luật từ nhỏ đến thời điểm nhập ngũ)",
+            8,
+            cv.personalEconomicPoliticalWorkHistory
+          ),
+
           // LINE 27: Lời cam đoan
           new Paragraph({
             spacing: { before: 80, after: 120, line: 260 },
@@ -992,7 +1461,40 @@ export const generateCurriculumVitaeWordDoc = async (
     });
 
     const dataPayload = buildTemplateData(recruit, cv);
+    const rawSecII = cv.familyEconomicPoliticalSituation?.trim() || '';
+    const rawSecIII = cv.personalEconomicPoliticalWorkHistory?.trim() || '';
+    const FULL_DOTS_LINE = '..........................................................................................................';
+
+    const secIIKeys = [
+      'familyEconomicPoliticalSituation',
+      'FAMILY_ECONOMIC_POLITICAL_SITUATION',
+      'MUC_II',
+      'TINH_HINH_GIA_DINH',
+      'TINH_HINH_KINH_TE_CHINH_TRI_GIA_DINH'
+    ];
+    const secIIIKeys = [
+      'personalEconomicPoliticalWorkHistory',
+      'PERSONAL_ECONOMIC_POLITICAL_WORK_HISTORY',
+      'MUC_III',
+      'TINH_HINH_BAN_THAN',
+      'TINH_HINH_KINH_TE_CHINH_TRI_BAN_THAN',
+      'QUA_TRINH_CONG_TAC'
+    ];
+
+    for (const k of secIIKeys) {
+      dataPayload[k] = rawSecII ? MUC_II_SENTINEL : FULL_DOTS_LINE;
+    }
+    for (const k of secIIIKeys) {
+      dataPayload[k] = rawSecIII ? MUC_III_SENTINEL : FULL_DOTS_LINE;
+    }
+
     docxtpl.render(dataPayload);
+
+    if ((rawSecII || rawSecIII) && docxtpl.getZip().files['word/document.xml']) {
+      const renderedXml = docxtpl.getZip().files['word/document.xml'].asText();
+      const updatedXml = injectSectionsOntoDottedLinesInXml(renderedXml, rawSecII, rawSecIII);
+      docxtpl.getZip().file('word/document.xml', updatedXml);
+    }
 
     const outBlob = docxtpl.getZip().generate({
       type: 'blob',
