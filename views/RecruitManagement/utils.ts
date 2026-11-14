@@ -223,37 +223,65 @@ export const checkAge = (r: Recruit, sessionYear: number) => {
 };
 
 export const isEducationExpired = (r: Recruit, sessionYear: number): boolean => {
-  // 1. Kiểm tra niên khóa trong details.educationPeriod
+  const edu = (r.details?.education || '').trim();
+  const normEdu = edu.toLowerCase();
+
+  // Chỉ rà soát các trường hợp đang học (lớp 11, 12 hoặc Đang học Đại học / Đang học Cao đẳng có niên khóa học).
+  // Các trường hợp ghi rõ đã học xong (Lớp 1..12, Trung cấp, Cao đẳng, Đại học, Trên ĐH...) không rà soát nữa.
+  const isStudyingHighSchool11Or12 =
+    edu === 'Đang học lớp 11' ||
+    edu === 'Đang học lớp 12' ||
+    normEdu.includes('đang học lớp 11') ||
+    normEdu.includes('đang học lớp 12') ||
+    normEdu.includes('đang học 11') ||
+    normEdu.includes('đang học 12');
+
+  const isStudyingCollegeOrUni =
+    edu === 'Đang học ĐH' ||
+    edu === 'Đang học CĐ' ||
+    normEdu.includes('đang học đại học') ||
+    normEdu.includes('đang học cao đẳng') ||
+    normEdu.includes('đang học đh') ||
+    normEdu.includes('đang học cđ');
+
+  if (!isStudyingHighSchool11Or12 && !isStudyingCollegeOrUni) {
+    return false;
+  }
+
+  // Trích xuất năm kết thúc niên khóa từ details.educationPeriod hoặc lý do/ghi chú
+  let parsedEndYear: number | null = null;
   const period = r.details?.educationPeriod;
   if (period) {
     const parts = period.split(/[-–—/]/);
     const lastPart = parts[parts.length - 1].trim();
     const yearMatch = lastPart.match(/\b(20\d{2})\b/);
     if (yearMatch) {
-      const endYear = parseInt(yearMatch[1]);
-      if (endYear > 0 && endYear <= sessionYear) return true;
+      parsedEndYear = parseInt(yearMatch[1], 10);
     }
   }
 
-  // 2. Kiểm tra niên khóa nằm trong defermentReason, legalReason, notes, details.note
-  const rAny = r as any;
-  const reasonText = [r.defermentReason, rAny.legalReason, rAny.notes, r.physical?.note, rAny.details?.note].filter(Boolean).join(' ');
-  const periodMatch = reasonText.match(/(?:20\d{2})\s*[-–—/]\s*(20\d{2})/);
-  if (periodMatch && periodMatch[1]) {
-    const endYear = parseInt(periodMatch[1]);
-    if (endYear > 0 && endYear <= sessionYear) return true;
-  }
-
-  // 3. Nếu đang ở trạng thái DEFERRED (Tạm hoãn) vì học vấn nhưng trình độ học vấn là Đại học, Cao đẳng, Trung cấp (đã tốt nghiệp)
-  const isDeferredEducation = (r.status === RecruitmentStatus.DEFERRED || isRecruitDeferred(r, sessionYear)) && getDefermentSubCategory(r) === 'EDUCATION';
-  if (isDeferredEducation) {
-    const edu = r.details?.education || '';
-    if (['Đại học', 'Cao đẳng', 'Trung cấp', 'Trên ĐH'].includes(edu)) {
-      return true; // Đã học xong nhưng chưa đưa về nguồn xem xét
+  if (parsedEndYear === null) {
+    const rAny = r as any;
+    const reasonText = [r.defermentReason, rAny.legalReason, rAny.notes, r.physical?.note, rAny.details?.note]
+      .filter(Boolean)
+      .join(' ');
+    const periodMatch = reasonText.match(/(?:20\d{2})\s*[-–—/]\s*(20\d{2})/);
+    if (periodMatch && periodMatch[1]) {
+      parsedEndYear = parseInt(periodMatch[1], 10);
     }
   }
 
-  return false;
+  if (isStudyingCollegeOrUni) {
+    // Đang học Đại học / Cao đẳng cần có niên khóa học và chỉ rà soát khi đến/quá năm hết niên khóa
+    return parsedEndYear !== null && parsedEndYear > 0 && parsedEndYear <= sessionYear;
+  }
+
+  // Đang học lớp 11, 12: nếu có ghi niên khóa thì xét theo năm hết hạn; nếu không ghi niên khóa vẫn đưa vào diện cần rà soát
+  if (parsedEndYear !== null && parsedEndYear > 0) {
+    return parsedEndYear <= sessionYear;
+  }
+
+  return true;
 };
 
 export const isSentenceExpired = (r: Recruit, sessionYear: number): boolean => {
@@ -663,12 +691,20 @@ export const isRecruitInTab = (r: Recruit, tabId: string, sessionYear: number): 
 
     case 'EXPIRING_LIST':
       return (
-        (r.status === RecruitmentStatus.DEFERRED && isEducationExpired(r, sessionYear)) ||
+        ((r.status === RecruitmentStatus.DEFERRED ||
+          isRecruitDeferred(r, sessionYear) ||
+          (r.status === RecruitmentStatus.SOURCE && isTotalSource(r, sessionYear))) &&
+          isEducationExpired(r, sessionYear)) ||
         (r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isSentenceExpired(r, sessionYear))
       );
 
     case 'EXPIRING_EDU':
-      return (r.status === RecruitmentStatus.DEFERRED || isRecruitDeferred(r, sessionYear)) && isEducationExpired(r, sessionYear);
+      return (
+        (r.status === RecruitmentStatus.DEFERRED ||
+          isRecruitDeferred(r, sessionYear) ||
+          (r.status === RecruitmentStatus.SOURCE && isTotalSource(r, sessionYear))) &&
+        isEducationExpired(r, sessionYear)
+      );
 
     case 'EXPIRING_SENTENCE':
       return r.status === RecruitmentStatus.NOT_ALLOWED_REGISTRATION && isSentenceExpired(r, sessionYear);

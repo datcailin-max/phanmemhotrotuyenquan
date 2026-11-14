@@ -533,13 +533,14 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     onSubmit(formData);
   };
 
-  const isStudyingHigherEd = 
-    formData.details.education?.startsWith('Đang học') ||
-    ['Cao đẳng', 'Đang học CĐ', 'Đại học', 'Đang học ĐH', 'Trung cấp', 'Trên ĐH'].includes(formData.details.education) ||
-    formData.defermentReason?.toLowerCase().includes('đại học') ||
-    formData.defermentReason?.toLowerCase().includes('cao đẳng') ||
-    formData.defermentReason?.toLowerCase().includes('đào tạo') ||
-    Boolean(formData.details.educationPeriod);
+  const currentEduLower = (formData.details.education || '').toLowerCase();
+  const isStudyingHigherEd =
+    formData.details.education === 'Đang học ĐH' ||
+    formData.details.education === 'Đang học CĐ' ||
+    currentEduLower.includes('đang học đại học') ||
+    currentEduLower.includes('đang học cao đẳng') ||
+    currentEduLower.includes('đang học đh') ||
+    currentEduLower.includes('đang học cđ');
   const isDS3 = formData.status === RecruitmentStatus.FIRST_TIME_REGISTRATION;
 
   return (

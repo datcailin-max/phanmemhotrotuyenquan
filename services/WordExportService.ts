@@ -14,9 +14,10 @@ import {
   WidthType, 
   TabStopType, 
   LeaderType,
-  UnderlineType,
   Packer, 
   BorderStyle, 
+  HeightRule,
+  LineRuleType,
   convertMillimetersToTwip 
 } from 'docx';
 import { Recruit, CurriculumVitae } from '../types';
@@ -517,67 +518,16 @@ export const helperAutoFillCV = (recruit: Recruit): CurriculumVitae => {
 const MUC_II_SENTINEL = '__NVQS_MUC_II_TAG__';
 const MUC_III_SENTINEL = '__NVQS_MUC_III_TAG__';
 
-const wrapTextToLines = (text: string, maxChars: number = 82): string[] => {
-  const normalized = text.replace(/\r\n/g, '\n');
-  const rawLines = normalized.split('\n');
-  const result: string[] = [];
-
-  for (const rawLine of rawLines) {
-    const trimmed = rawLine.trim();
-    if (!trimmed) {
-      result.push('');
-      continue;
-    }
-
-    const words = trimmed.split(/\s+/);
-    let current = '';
-
-    for (const word of words) {
-      if (!current) {
-        if (word.length <= maxChars) {
-          current = word;
-        } else {
-          for (let i = 0; i < word.length; i += maxChars) {
-            const slice = word.slice(i, i + maxChars);
-            if (slice.length === maxChars && i + maxChars < word.length) {
-              result.push(slice);
-            } else {
-              current = slice;
-            }
-          }
-        }
-      } else if (current.length + 1 + word.length <= maxChars) {
-        current += ' ' + word;
-      } else {
-        result.push(current);
-        if (word.length <= maxChars) {
-          current = word;
-        } else {
-          current = '';
-          for (let i = 0; i < word.length; i += maxChars) {
-            const slice = word.slice(i, i + maxChars);
-            if (slice.length === maxChars && i + maxChars < word.length) {
-              result.push(slice);
-            } else {
-              current = slice;
-            }
-          }
-        }
-      }
-    }
-
-    if (current) {
-      result.push(current);
-    }
-  }
-
-  return result;
+const splitPreservingUserLines = (rawText: string): string[] => {
+  const normalized = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n+$/, '');
+  return normalized.split('\n');
 };
 
-const injectSectionsOntoDottedLinesInXml = (
+const replaceSectionsWithBorderlessBoxesInXml = (
   xmlStr: string,
   sectionIIText: string,
-  sectionIIIText: string
+  sectionIIIText: string,
+  stylesXmlStr?: string
 ): string => {
   if (typeof DOMParser === 'undefined' || typeof XMLSerializer === 'undefined') {
     return xmlStr;
@@ -632,7 +582,7 @@ const injectSectionsOntoDottedLinesInXml = (
 
   const isDottedLineParagraph = (p: Element): boolean => {
     const raw = getParagraphText(p);
-    const nonSpace = raw.replace(/[\s\u00A0\t]+/g, '');
+    const nonSpace = raw.replace(/[\s\u00A0\u200B\t]+/g, '');
     if (nonSpace.length >= 5 && /^[.\u2026_\-]+$/.test(nonSpace)) {
       return true;
     }
@@ -655,6 +605,56 @@ const injectSectionsOntoDottedLinesInXml = (
   const normalizeHeading = (s: string): string =>
     removeVietnameseTones(s).toLowerCase().replace(/\s+/g, ' ').trim();
 
+  // Read fallback spacing/font size from word/styles.xml if available
+  let defaultSz = 26; // 13pt
+  let defaultLine = 240;
+  let defaultLineRule = 'auto';
+  let defaultAfter = 0;
+  let defaultBefore = 0;
+  const styleMap = new Map<string, { sz?: number; line?: number; lineRule?: string; after?: number; before?: number }>();
+
+  if (stylesXmlStr) {
+    const stylesDoc = new DOMParser().parseFromString(stylesXmlStr, 'application/xml');
+    if (stylesDoc.getElementsByTagName('parsererror').length === 0) {
+      const docDefList = stylesDoc.getElementsByTagNameNS(W_NS, 'docDefaults');
+      if (docDefList.length > 0) {
+        const dd = docDefList[0];
+        const szEl = dd.getElementsByTagNameNS(W_NS, 'sz')[0];
+        const szVal = parseInt(getWAttr(szEl || null, 'val') || '0', 10);
+        if (szVal > 0) defaultSz = szVal;
+
+        const spEl = dd.getElementsByTagNameNS(W_NS, 'spacing')[0];
+        if (spEl) {
+          const l = parseInt(getWAttr(spEl, 'line') || '0', 10);
+          const lr = getWAttr(spEl, 'lineRule');
+          const af = parseInt(getWAttr(spEl, 'after') || '0', 10);
+          const bf = parseInt(getWAttr(spEl, 'before') || '0', 10);
+          if (l > 0) defaultLine = l;
+          if (lr) defaultLineRule = lr;
+          if (!isNaN(af)) defaultAfter = af;
+          if (!isNaN(bf)) defaultBefore = bf;
+        }
+      }
+
+      const styleNodes = Array.from(stylesDoc.getElementsByTagNameNS(W_NS, 'style'));
+      for (const st of styleNodes) {
+        const stId = getWAttr(st, 'styleId');
+        if (!stId) continue;
+        const pPr = getFirstDirectChild(st, 'pPr');
+        const rPr = getFirstDirectChild(st, 'rPr');
+        const spEl = pPr ? getFirstDirectChild(pPr, 'spacing') : null;
+        const szEl = rPr ? getFirstDirectChild(rPr, 'sz') : null;
+        styleMap.set(stId, {
+          sz: szEl ? parseInt(getWAttr(szEl, 'val') || '0', 10) || undefined : undefined,
+          line: spEl ? parseInt(getWAttr(spEl, 'line') || '0', 10) || undefined : undefined,
+          lineRule: spEl ? getWAttr(spEl, 'lineRule') || undefined : undefined,
+          after: spEl && getWAttr(spEl, 'after') !== null ? parseInt(getWAttr(spEl, 'after') || '0', 10) : undefined,
+          before: spEl && getWAttr(spEl, 'before') !== null ? parseInt(getWAttr(spEl, 'before') || '0', 10) : undefined,
+        });
+      }
+    }
+  }
+
   // Compute default page printable width in twips from sectPr
   let pagePrintableWidth = 9638; // default A4 170mm
   const sectPrList = xmlDoc.getElementsByTagNameNS(W_NS, 'sectPr');
@@ -670,7 +670,7 @@ const injectSectionsOntoDottedLinesInXml = (
     }
   }
 
-  const getParagraphMetrics = (p: Element): { rightPos: number; maxChars: number } => {
+  const getColumnWidth = (p: Element): number => {
     let columnWidth = pagePrintableWidth;
     let node: Node | null = p.parentNode;
     while (node && node.nodeType === 1) {
@@ -681,29 +681,58 @@ const injectSectionsOntoDottedLinesInXml = (
         const wType = getWAttr(tcW, 'type');
         const wVal = parseInt(getWAttr(tcW, 'w') || '0', 10);
         if (wVal > 500 && (!wType || wType === 'dxa')) {
-          columnWidth = wVal - 220;
+          columnWidth = Math.max(1500, wVal - 220);
         }
         break;
       }
       node = node.parentNode;
     }
+    return columnWidth;
+  };
 
+  const measureParagraphHeightTwips = (p: Element): { before: number; lineH: number; after: number } => {
     const pPr = getFirstDirectChild(p, 'pPr');
-    const ind = pPr ? getFirstDirectChild(pPr, 'ind') : null;
-    const indL = Math.max(0, parseInt(getWAttr(ind, 'left') || '0', 10) || 0);
-    const indR = Math.max(0, parseInt(getWAttr(ind, 'right') || '0', 10) || 0);
-    const rightPos = Math.max(2000, columnWidth - indR);
-    const textWidth = Math.max(1500, rightPos - indL);
+    const pStyleEl = pPr ? getFirstDirectChild(pPr, 'pStyle') : null;
+    const styleId = getWAttr(pStyleEl, 'val') || 'Normal';
+    const st = styleMap.get(styleId) || styleMap.get('Normal') || {};
 
     const firstR = getFirstDirectChild(p, 'r');
-    const rPr = firstR ? getFirstDirectChild(firstR, 'rPr') : null;
+    const rPr = firstR ? getFirstDirectChild(firstR, 'rPr') : (pPr ? getFirstDirectChild(pPr, 'rPr') : null);
     const szEl = rPr ? getFirstDirectChild(rPr, 'sz') : null;
-    const szHalfPts = parseInt(getWAttr(szEl, 'val') || '26', 10) || 26;
-    const pts = szHalfPts / 2;
-    const widthPts = textWidth / 20;
-    const maxChars = Math.max(38, Math.floor(widthPts / (pts * 0.44)));
+    const szHalfPts = parseInt(getWAttr(szEl, 'val') || '0', 10) || st.sz || defaultSz || 26;
 
-    return { rightPos, maxChars };
+    const spEl = pPr ? getFirstDirectChild(pPr, 'spacing') : null;
+    const lineVal = (spEl ? parseInt(getWAttr(spEl, 'line') || '0', 10) : 0) || st.line || defaultLine || 240;
+    const lineRule = (spEl ? getWAttr(spEl, 'lineRule') : null) || st.lineRule || defaultLineRule || 'auto';
+    const before =
+      spEl && getWAttr(spEl, 'before') !== null
+        ? parseInt(getWAttr(spEl, 'before') || '0', 10) || 0
+        : (st.before ?? defaultBefore);
+    const after =
+      spEl && getWAttr(spEl, 'after') !== null
+        ? parseInt(getWAttr(spEl, 'after') || '0', 10) || 0
+        : (st.after ?? defaultAfter);
+
+    const pts = szHalfPts / 2;
+    const singleLineTwips = pts * 20 * 1.15;
+    const lineH =
+      lineRule === 'exact' || lineRule === 'atLeast'
+        ? lineVal
+        : Math.round(singleLineTwips * (lineVal / 240));
+
+    return { before, lineH, after };
+  };
+
+  const computeTotalParagraphsHeight = (paras: Element[]): number => {
+    let total = 0;
+    let prevAfter = 0;
+    for (let i = 0; i < paras.length; i++) {
+      const m = measureParagraphHeightTwips(paras[i]);
+      total += (i === 0 ? m.before : Math.max(prevAfter, m.before)) + m.lineH;
+      prevAfter = m.after;
+    }
+    total += prevAfter;
+    return Math.max(360, Math.round(total));
   };
 
   const collectSectionDottedParagraphs = (
@@ -754,101 +783,159 @@ const injectSectionsOntoDottedLinesInXml = (
     return collected;
   };
 
-  const writeTextOntoDottedParagraph = (p: Element, lineText: string, rightPos: number) => {
-    const firstR = getFirstDirectChild(p, 'r');
+  const createCleanBaseProps = (templatePara: Element): { cleanPPr: Element | null; cleanRPr: Element } => {
+    const origPPr = getFirstDirectChild(templatePara, 'pPr');
+    const cleanPPr = origPPr ? (origPPr.cloneNode(true) as Element) : null;
+    if (cleanPPr) {
+      for (const nodeName of ['tabs', 'pBdr']) {
+        for (const el of getDirectChildren(cleanPPr, nodeName)) {
+          cleanPPr.removeChild(el);
+        }
+      }
+      const pPrRPr = getFirstDirectChild(cleanPPr, 'rPr');
+      if (pPrRPr) {
+        for (const uEl of getDirectChildren(pPrRPr, 'u')) {
+          pPrRPr.removeChild(uEl);
+        }
+      }
+    }
+
+    const firstR = getFirstDirectChild(templatePara, 'r');
     const origRPr = firstR ? getFirstDirectChild(firstR, 'rPr') : null;
-    const baseRPr = origRPr ? (origRPr.cloneNode(true) as Element) : createW('rPr');
-
-    // Remove existing underline from baseRPr
-    for (const uEl of getDirectChildren(baseRPr, 'u')) {
-      baseRPr.removeChild(uEl);
+    const cleanRPr = origRPr ? (origRPr.cloneNode(true) as Element) : createW('rPr');
+    for (const uEl of getDirectChildren(cleanRPr, 'u')) {
+      cleanRPr.removeChild(uEl);
     }
 
-    // Ensure pPr & dot-leader right tab stop
-    let pPr = getFirstDirectChild(p, 'pPr');
-    if (!pPr) {
-      pPr = createW('pPr');
-      p.insertBefore(pPr, p.firstChild);
-    }
-    let tabs = getFirstDirectChild(pPr, 'tabs');
-    if (!tabs) {
-      tabs = createW('tabs');
-      pPr.appendChild(tabs);
-    }
-    for (const existingTab of getDirectChildren(tabs, 'tab')) {
-      if (getWAttr(existingTab, 'val') === 'right') {
-        tabs.removeChild(existingTab);
-      }
-    }
-    const rightTab = createW('tab');
-    setWAttr(rightTab, 'val', 'right');
-    setWAttr(rightTab, 'leader', 'dot');
-    setWAttr(rightTab, 'pos', String(rightPos));
-    tabs.appendChild(rightTab);
+    return { cleanPPr, cleanRPr };
+  };
 
-    // Clear existing runs while preserving pPr and bookmarks
-    for (const oldR of getDirectChildren(p, 'r')) {
-      p.removeChild(oldR);
+  const buildTextParagraph = (lineText: string, cleanPPr: Element | null, cleanRPr: Element): Element => {
+    const p = createW('p');
+    if (cleanPPr) {
+      p.appendChild(cleanPPr.cloneNode(true));
     }
-    for (const oldHyper of getDirectChildren(p, 'hyperlink')) {
-      p.removeChild(oldHyper);
-    }
-
-    if (lineText) {
-      const textRun = createW('r');
-      const textRPr = baseRPr.cloneNode(true) as Element;
-      const uEl = createW('u');
-      setWAttr(uEl, 'val', 'dotted');
-      const langEl = getFirstDirectChild(textRPr, 'lang') || getFirstDirectChild(textRPr, 'rtl');
-      if (langEl) {
-        textRPr.insertBefore(uEl, langEl);
-      } else {
-        textRPr.appendChild(uEl);
-      }
-      textRun.appendChild(textRPr);
-
-      const tEl = createW('t');
-      tEl.setAttributeNS(XML_NS, 'xml:space', 'preserve');
-      tEl.textContent = lineText;
-      textRun.appendChild(tEl);
-      p.appendChild(textRun);
-    }
-
-    const tabRun = createW('r');
-    tabRun.appendChild(baseRPr.cloneNode(true));
-    tabRun.appendChild(createW('tab'));
-    p.appendChild(tabRun);
+    const r = createW('r');
+    r.appendChild(cleanRPr.cloneNode(true));
+    const t = createW('t');
+    t.setAttributeNS(XML_NS, 'xml:space', 'preserve');
+    t.textContent = lineText;
+    r.appendChild(t);
+    p.appendChild(r);
+    return p;
   };
 
   const applySection = (dotParas: Element[], rawText: string) => {
-    if (!rawText || dotParas.length === 0) return;
+    if (!rawText.trim() || dotParas.length === 0) return;
 
-    const { rightPos, maxChars } = getParagraphMetrics(dotParas[0]);
-    const wrapped = wrapTextToLines(rawText, maxChars);
-    if (wrapped.length === 0) return;
+    const firstPara = dotParas[0];
+    const parent = firstPara.parentNode as Element | null;
+    if (!parent) return;
 
-    const lastDotTemplate = dotParas[dotParas.length - 1].cloneNode(true) as Element;
-    let anchor = dotParas[dotParas.length - 1];
+    const lines = splitPreservingUserLines(rawText);
+    const { cleanPPr, cleanRPr } = createCleanBaseProps(firstPara);
 
-    while (dotParas.length < wrapped.length) {
-      const extraPara = lastDotTemplate.cloneNode(true) as Element;
-      if (anchor.parentNode) {
-        anchor.parentNode.insertBefore(extraPara, anchor.nextSibling);
+    // If template only had a single {TAG} placeholder without dotted lines, just replace with clean paragraphs
+    if (dotParas.length === 1 && !isDottedLineParagraph(firstPara)) {
+      for (const lineText of lines) {
+        parent.insertBefore(buildTextParagraph(lineText, cleanPPr, cleanRPr), firstPara);
       }
-      dotParas.push(extraPara);
-      anchor = extraPara;
+      parent.removeChild(firstPara);
+      return;
     }
 
-    // Fill lines 0..wrapped.length-1 with underlined text + dot leader;
-    // leave dotParas[wrapped.length..end] completely untouched!
-    for (let i = 0; i < wrapped.length; i++) {
-      writeTextOntoDottedParagraph(dotParas[i], wrapped[i], rightPos);
+    // Reserve exact vertical height of all dotted lines inside a completely borderless 1x1 table
+    // so Mục III & signature never shift/collapse, while all horizontal lines are hidden and
+    // text wraps naturally inside Word without wrong JS line breaks.
+    const totalHeightTwips = computeTotalParagraphsHeight(dotParas);
+    const columnWidth = getColumnWidth(firstPara);
+
+    const tbl = createW('tbl');
+    const tblPr = createW('tblPr');
+
+    const tblW = createW('tblW');
+    setWAttr(tblW, 'w', '5000');
+    setWAttr(tblW, 'type', 'pct');
+    tblPr.appendChild(tblW);
+
+    const tblBorders = createW('tblBorders');
+    for (const side of ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']) {
+      const b = createW(side);
+      setWAttr(b, 'val', 'none');
+      setWAttr(b, 'sz', '0');
+      setWAttr(b, 'space', '0');
+      setWAttr(b, 'color', 'auto');
+      tblBorders.appendChild(b);
+    }
+    tblPr.appendChild(tblBorders);
+
+    const tblCellMar = createW('tblCellMar');
+    for (const side of ['top', 'left', 'bottom', 'right']) {
+      const m = createW(side);
+      setWAttr(m, 'w', '0');
+      setWAttr(m, 'type', 'dxa');
+      tblCellMar.appendChild(m);
+    }
+    tblPr.appendChild(tblCellMar);
+    tbl.appendChild(tblPr);
+
+    const tblGrid = createW('tblGrid');
+    const gridCol = createW('gridCol');
+    setWAttr(gridCol, 'w', String(columnWidth));
+    tblGrid.appendChild(gridCol);
+    tbl.appendChild(tblGrid);
+
+    const tr = createW('tr');
+    const trPr = createW('trPr');
+    const trHeight = createW('trHeight');
+    setWAttr(trHeight, 'val', String(totalHeightTwips));
+    setWAttr(trHeight, 'hRule', 'atLeast');
+    trPr.appendChild(trHeight);
+    tr.appendChild(trPr);
+
+    const tc = createW('tc');
+    const tcPr = createW('tcPr');
+    const tcW = createW('tcW');
+    setWAttr(tcW, 'w', '5000');
+    setWAttr(tcW, 'type', 'pct');
+    tcPr.appendChild(tcW);
+    tc.appendChild(tcPr);
+
+    for (const lineText of lines) {
+      tc.appendChild(buildTextParagraph(lineText, cleanPPr, cleanRPr));
+    }
+
+    tr.appendChild(tc);
+    tbl.appendChild(tr);
+
+    parent.insertBefore(tbl, firstPara);
+    for (const dp of dotParas) {
+      if (dp.parentNode === parent) {
+        parent.removeChild(dp);
+      }
+    }
+
+    // OOXML requires any <w:tc> to end with a <w:p> rather than a nested <w:tbl>
+    if (parent.localName === 'tc' || parent.nodeName === 'w:tc') {
+      const lastEl = parent.lastElementChild;
+      if (lastEl && (lastEl.localName === 'tbl' || lastEl.nodeName === 'w:tbl')) {
+        const trailingP = createW('p');
+        const trailingPPr = createW('pPr');
+        const trailingSp = createW('spacing');
+        setWAttr(trailingSp, 'before', '0');
+        setWAttr(trailingSp, 'after', '0');
+        setWAttr(trailingSp, 'line', '20');
+        setWAttr(trailingSp, 'lineRule', 'exact');
+        trailingPPr.appendChild(trailingSp);
+        trailingP.appendChild(trailingPPr);
+        parent.appendChild(trailingP);
+      }
     }
   };
 
   const allParagraphs = Array.from(xmlDoc.getElementsByTagNameNS(W_NS, 'p'));
 
-  if (sectionIIText) {
+  if (sectionIIText.trim()) {
     const secIIDots = collectSectionDottedParagraphs(
       allParagraphs,
       MUC_II_SENTINEL,
@@ -860,7 +947,7 @@ const injectSectionsOntoDottedLinesInXml = (
     applySection(secIIDots, sectionIIText);
   }
 
-  if (sectionIIIText) {
+  if (sectionIIIText.trim()) {
     const updatedParagraphs = Array.from(xmlDoc.getElementsByTagNameNS(W_NS, 'p'));
     const secIIIDots = collectSectionDottedParagraphs(
       updatedParagraphs,
@@ -912,17 +999,17 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
   const communeUpper = (recruit.address?.commune ? `XÃ/PHƯỜNG ${recruit.address.commune.toUpperCase()}` : "CẤP XÃ/PHƯỜNG");
   const RIGHT_MARGIN_TWIPS = convertMillimetersToTwip(170); // 210mm A4 - 25mm left - 15mm right
 
+  const LINE_HEIGHT_TWIPS = 360;
+
   const buildSectionParagraphs = (
     title: string,
     subtitle: string,
     defaultLineCount: number,
     content?: string
-  ): Paragraph[] => {
-    const trimmed = content?.trim() || '';
-    const wrappedLines = trimmed ? wrapTextToLines(trimmed, 82) : [];
-    const totalLines = Math.max(defaultLineCount, wrappedLines.length);
+  ): (Paragraph | Table)[] => {
+    const hasContent = Boolean(content && content.trim());
 
-    const result: Paragraph[] = [
+    const result: (Paragraph | Table)[] = [
       new Paragraph({
         spacing: { before: 140, after: 40, line: 260 },
         children: [
@@ -947,27 +1034,52 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
       }),
     ];
 
-    for (let i = 0; i < totalLines; i++) {
-      const lineText = wrappedLines[i] || '';
-      const children: TextRun[] = [];
-      if (lineText) {
-        children.push(
-          new TextRun({
-            text: lineText,
-            font: FONT_FAMILY,
-            size: FONT_SIZE_BODY,
-            underline: { type: UnderlineType.DOTTED },
-          })
-        );
-      }
-      children.push(
-        new TextRun({
-          text: '\t',
-          font: FONT_FAMILY,
-          size: FONT_SIZE_BODY,
+    if (hasContent && content) {
+      const lines = splitPreservingUserLines(content);
+      result.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+          },
+          rows: [
+            new TableRow({
+              height: {
+                value: defaultLineCount * LINE_HEIGHT_TWIPS,
+                rule: HeightRule.ATLEAST,
+              },
+              children: [
+                new TableCell({
+                  width: { size: 100, type: WidthType.PERCENTAGE },
+                  margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                  children: lines.map(
+                    (lineText) =>
+                      new Paragraph({
+                        spacing: { before: 0, after: 60, line: 280 },
+                        children: [
+                          new TextRun({
+                            text: lineText,
+                            font: FONT_FAMILY,
+                            size: FONT_SIZE_BODY,
+                          }),
+                        ],
+                      })
+                  ),
+                }),
+              ],
+            }),
+          ],
         })
       );
+      return result;
+    }
 
+    for (let i = 0; i < defaultLineCount; i++) {
       result.push(
         new Paragraph({
           tabStops: [
@@ -977,8 +1089,14 @@ export const generateStandardLyLichNVQSDocx = async (recruit: Recruit, cv: Curri
               leader: LeaderType.DOT,
             },
           ],
-          spacing: { after: 50, line: 280 },
-          children,
+          spacing: { before: 0, after: 0, line: LINE_HEIGHT_TWIPS, lineRule: LineRuleType.EXACT },
+          children: [
+            new TextRun({
+              text: '\t',
+              font: FONT_FAMILY,
+              size: FONT_SIZE_BODY,
+            }),
+          ],
         })
       );
     }
@@ -1461,8 +1579,10 @@ export const generateCurriculumVitaeWordDoc = async (
     });
 
     const dataPayload = buildTemplateData(recruit, cv);
-    const rawSecII = cv.familyEconomicPoliticalSituation?.trim() || '';
-    const rawSecIII = cv.personalEconomicPoliticalWorkHistory?.trim() || '';
+    const rawSecII = cv.familyEconomicPoliticalSituation || '';
+    const rawSecIII = cv.personalEconomicPoliticalWorkHistory || '';
+    const hasSecII = Boolean(rawSecII.trim());
+    const hasSecIII = Boolean(rawSecIII.trim());
     const FULL_DOTS_LINE = '..........................................................................................................';
 
     const secIIKeys = [
@@ -1482,17 +1602,18 @@ export const generateCurriculumVitaeWordDoc = async (
     ];
 
     for (const k of secIIKeys) {
-      dataPayload[k] = rawSecII ? MUC_II_SENTINEL : FULL_DOTS_LINE;
+      dataPayload[k] = hasSecII ? MUC_II_SENTINEL : FULL_DOTS_LINE;
     }
     for (const k of secIIIKeys) {
-      dataPayload[k] = rawSecIII ? MUC_III_SENTINEL : FULL_DOTS_LINE;
+      dataPayload[k] = hasSecIII ? MUC_III_SENTINEL : FULL_DOTS_LINE;
     }
 
     docxtpl.render(dataPayload);
 
-    if ((rawSecII || rawSecIII) && docxtpl.getZip().files['word/document.xml']) {
+    if ((hasSecII || hasSecIII) && docxtpl.getZip().files['word/document.xml']) {
       const renderedXml = docxtpl.getZip().files['word/document.xml'].asText();
-      const updatedXml = injectSectionsOntoDottedLinesInXml(renderedXml, rawSecII, rawSecIII);
+      const stylesXml = docxtpl.getZip().files['word/styles.xml']?.asText();
+      const updatedXml = replaceSectionsWithBorderlessBoxesInXml(renderedXml, rawSecII, rawSecIII, stylesXml);
       docxtpl.getZip().file('word/document.xml', updatedXml);
     }
 

@@ -142,7 +142,11 @@ export const RecruitTable: React.FC<RecruitTableProps> = ({
                       <div className="flex items-center gap-1.5 text-gray-600">
                         <GraduationCap size={12} className="text-military-400"/> 
                         {recruit.details.education}
-                        {expiring && recruit.status === RecruitmentStatus.DEFERRED && <span className="text-red-600 bg-red-50 px-1 rounded ml-1">ĐÃ HỌC XONG</span>}
+                        {expiring && (recruit.status === RecruitmentStatus.DEFERRED || recruit.status === RecruitmentStatus.SOURCE) && (
+                          <span className="text-red-600 bg-red-50 px-1 rounded ml-1">
+                            {(recruit.details.education === 'Đang học ĐH' || recruit.details.education === 'Đang học CĐ') ? 'HẾT NIÊN KHÓA' : 'CẦN RÀ SOÁT'}
+                          </span>
+                        )}
                         {isProposedL7 && <span className="text-amber-700 bg-amber-100 px-1 rounded ml-1">ĐỀ XUẤT</span>}
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-600">
