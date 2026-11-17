@@ -151,15 +151,24 @@ function App() {
     }
   }, [user]);
 
-  const handleUpdateRecruit = async (updated: Recruit) => {
-    const isExisting = recruits.some(r => r.id === updated.id);
-    const res = isExisting ? await api.updateRecruit(updated) : await api.createRecruit(updated);
-    if (res) {
-        setRecruits(prev => {
-            const exists = prev.some(r => r.id === res.id);
-            if (exists) return prev.map(r => r.id === res.id ? res : r);
-            return [...prev, res];
-        });
+  const handleUpdateRecruit = async (updated: Recruit): Promise<boolean> => {
+    try {
+      const isExisting = recruits.some(r => r.id === updated.id);
+      const res = isExisting ? await api.updateRecruit(updated) : await api.createRecruit(updated);
+      if (res) {
+          setRecruits(prev => {
+              const exists = prev.some(r => r.id === res.id);
+              if (exists) return prev.map(r => r.id === res.id ? res : r);
+              return [...prev, res];
+          });
+          return true;
+      }
+      alert('Không thể lưu hồ sơ công dân lên máy chủ. Vui lòng thử lại.');
+      return false;
+    } catch (err: any) {
+      console.error('Lỗi khi lưu hồ sơ công dân:', err);
+      alert(`Lưu hồ sơ công dân thất bại: ${err?.message || 'Lỗi kết nối máy chủ'}`);
+      return false;
     }
   };
 

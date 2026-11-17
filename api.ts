@@ -27,8 +27,23 @@ export const api = {
   syncAccount: async (d: any) => { if (isDemoMode()) return; try { await fetch(`${API_URL}/users/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); } catch {} },
 
   getRecruits: async () => { if (isDemoMode()) return getLocal('demo_recruits'); try { const res = await fetch(`${API_URL}/recruits`); const data = await res.json(); return Array.isArray(data) ? data : []; } catch { return []; } },
-  createRecruit: async (d: any) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); const newData = { ...d, createdAt: new Date().toISOString() }; list.push(newData); setLocal('demo_recruits', list); return newData; }
-    try { const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) }); return res.ok ? await res.json() : null; } catch { return null; } },
+  createRecruit: async (d: any) => {
+    if (isDemoMode()) {
+      const list = getLocal('demo_recruits');
+      const newData = { ...d, createdAt: new Date().toISOString() };
+      list.push(newData);
+      try {
+        setLocal('demo_recruits', list);
+      } catch {
+        throw new Error('Bộ nhớ trình duyệt (chế độ DEMO) đã đầy. Vui lòng giảm dung lượng ảnh/PDF hoặc xóa bớt dữ liệu cũ.');
+      }
+      return newData;
+    }
+    const res = await fetch(`${API_URL}/recruits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+    if (res.ok) return await res.json();
+    const errData = await res.json().catch(() => null);
+    throw new Error(errData?.message || `Không thể tạo hồ sơ (HTTP ${res.status})`);
+  },
   updateRecruit: async (d: any) => { 
     if (isDemoMode()) { 
       const list = getLocal('demo_recruits'); 
@@ -39,20 +54,31 @@ export const api = {
       } else {
         list.push(updatedItem);
       }
-      setLocal('demo_recruits', list); 
+      try {
+        setLocal('demo_recruits', list); 
+      } catch {
+        throw new Error('Bộ nhớ trình duyệt (chế độ DEMO) đã đầy. Vui lòng giảm dung lượng ảnh/PDF hoặc xóa bớt dữ liệu cũ.');
+      }
       return updatedItem; 
     }
-    try { 
-      const payload = { ...d };
-      delete payload._id;
-      const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
-      if (res.ok) return await res.json();
-      console.error("Lỗi khi cập nhật công dân:", res.status, await res.text());
-      return d;
-    } catch (e) { 
-      console.error("Lỗi kết nối khi cập nhật công dân:", e);
-      return d; 
-    } 
+    const payload = { ...d };
+    delete payload._id;
+    const res = await fetch(`${API_URL}/recruits/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); 
+    if (res.ok) {
+      const saved = await res.json();
+      if (!saved) throw new Error('Máy chủ trả về dữ liệu trống khi lưu hồ sơ.');
+      return saved;
+    }
+    const errText = await res.text().catch(() => '');
+    let errMsg = `Lỗi máy chủ (HTTP ${res.status})`;
+    try {
+      const parsed = JSON.parse(errText);
+      if (parsed?.message) errMsg = parsed.message;
+    } catch {
+      if (res.status === 413) errMsg = 'Dữ liệu hồ sơ (ảnh/PDF) vượt quá dung lượng cho phép.';
+    }
+    console.error("Lỗi khi cập nhật công dân:", res.status, errText);
+    throw new Error(errMsg);
   },
   deleteRecruit: async (id: string) => { if (isDemoMode()) { const list = getLocal('demo_recruits'); setLocal('demo_recruits', list.filter((r: any) => r.id !== id)); return true; } try { const res = await fetch(`${API_URL}/recruits/${id}`, { method: 'DELETE' }); return res.ok; } catch { return false; } },
   deleteYearData: async (year: number, unit?: { province?: string; commune?: string }) => { 

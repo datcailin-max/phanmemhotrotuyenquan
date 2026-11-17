@@ -9,7 +9,10 @@ export default defineConfig({
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
   },
   server: {
-    host: true // Cho phép truy cập qua mạng LAN
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true,
+    hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
   },
   build: {
     // Tăng giới hạn cảnh báo lên 2000kb (2MB) để không bị hiện chữ vàng

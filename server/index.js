@@ -191,7 +191,38 @@ app.post('/api/recruits/bulk', async (req, res) => {
   }
 });
 app.post('/api/recruits', async (req, res) => { try { res.status(201).json(await new Recruit(req.body).save()); } catch (e) { res.status(400).json({ message: e.message }); } });
-app.put('/api/recruits/:id', async (req, res) => { try { const updateData = { ...req.body }; delete updateData._id; res.json(await Recruit.findOneAndUpdate({ id: req.params.id }, updateData, { new: true })); } catch (e) { res.status(400).json({ message: e.message }); } });
+app.put('/api/recruits/:id', async (req, res) => {
+  try {
+    const updateData = { ...req.body };
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+
+    let updated = await Recruit.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated && mongoose.Types.ObjectId.isValid(req.params.id)) {
+      updated = await Recruit.findByIdAndUpdate(
+        req.params.id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      );
+    }
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Không tìm thấy hồ sơ công dân trong cơ sở dữ liệu.' });
+    }
+
+    res.json(updated);
+  } catch (e) {
+    console.error('❌ PUT /api/recruits/:id Error:', e);
+    res.status(400).json({ message: e.message });
+  }
+});
 app.delete('/api/recruits/year/:year', async (req, res) => {
   try {
     const year = Number(req.params.year);

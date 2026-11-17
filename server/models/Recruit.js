@@ -1,6 +1,13 @@
 
 import mongoose from 'mongoose';
 
+const attachmentSchema = new mongoose.Schema({
+  name: String,
+  url: String,
+  type: { type: String },
+  uploadDate: String
+}, { _id: false });
+
 const recruitSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true }, // Keep existing ID logic for compatibility
   citizenId: String,
@@ -47,21 +54,29 @@ const recruitSchema = new mongoose.Schema({
     familyComposition: String,
     personalComposition: String,
     registrationMethod: String, // Bổ sung trường này để lưu 'DIRECT' hoặc 'ONLINE'
+    siblingCount: String,
+    birthOrder: String,
+    parentPolicyStatus: String,
+    rewards: String,
+    disciplines: String,
     proposedForSelection: { type: Boolean, default: false }
   },
   family: {
     father: {
       fullName: String,
+      birthYear: String,
       job: String,
       phoneNumber: String
     },
     mother: {
       fullName: String,
+      birthYear: String,
       job: String,
       phoneNumber: String
     },
     wife: {
       fullName: String,
+      birthYear: String,
       job: String,
       phoneNumber: String
     },
@@ -76,12 +91,7 @@ const recruitSchema = new mongoose.Schema({
   enlistmentDate: String,
   enlistmentType: String, // 'OFFICIAL' or 'RESERVE'
   recruitmentYear: { type: Number, required: true },
-  attachments: [{
-    name: String,
-    url: String,
-    type: String,
-    uploadDate: String
-  }],
+  attachments: [attachmentSchema],
   wordDocument: {
     name: String,
     url: String,

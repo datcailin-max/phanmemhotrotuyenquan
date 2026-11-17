@@ -4,48 +4,60 @@ import { Paperclip, Eye, Trash2, FileText } from 'lucide-react';
 import { RecruitAttachment } from '../../types';
 import { api } from '../../api';
 
-const AttachmentFields = ({ attachments, isReadOnly, onUpload, onDelete }: any) => {
+const AttachmentFields = ({ attachments, isReadOnly, onUpload, onDelete, onUploadingChange }: any) => {
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      const file = e.target.files[0];
-      if (file.type !== 'application/pdf') {
-        alert("Hệ thống chỉ chấp nhận định dạng PDF để đảm bảo tính pháp lý.");
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Dung lượng file quá lớn (Vượt quá 5MB).");
-        return;
-      }
-      
-      setIsUploading(true);
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const base64 = ev.target?.result as string;
-        try {
-          const url = await api.uploadFile(base64, 'documents');
-          const newAttach: RecruitAttachment = {
-            name: file.name,
-            url: url,
-            type: 'application/pdf',
-            uploadDate: new Date().toISOString()
-          };
-          onUpload(newAttach);
-        } catch (err: any) {
-          alert(`Không thể tải file lên Cloudinary: ${err.message || err}. Hệ thống sẽ lưu tạm dưới dạng cục bộ.`);
-          const newAttach: RecruitAttachment = {
-            name: file.name,
-            url: base64,
-            type: 'application/pdf',
-            uploadDate: new Date().toISOString()
-          };
-          onUpload(newAttach);
-        } finally {
-          setIsUploading(false);
-        }
-      };
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = (ev) => reject(ev);
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      alert("Hệ thống chỉ chấp nhận định dạng PDF để đảm bảo tính pháp lý.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Dung lượng file quá lớn (Vượt quá 5MB).");
+      return;
+    }
+
+    setIsUploading(true);
+    onUploadingChange?.(true);
+    try {
+      const url = await api.uploadFile(file, 'documents');
+      const newAttach: RecruitAttachment = {
+        name: file.name,
+        url,
+        type: 'application/pdf',
+        uploadDate: new Date().toISOString()
+      };
+      onUpload(newAttach);
+    } catch (err: any) {
+      try {
+        const base64 = await readFileAsBase64(file);
+        alert(`Không thể tải file lên Cloudinary: ${err.message || err}. Hệ thống sẽ lưu tạm dưới dạng cục bộ.`);
+        const newAttach: RecruitAttachment = {
+          name: file.name,
+          url: base64,
+          type: 'application/pdf',
+          uploadDate: new Date().toISOString()
+        };
+        onUpload(newAttach);
+      } catch {
+        alert(`Lỗi đọc file PDF: ${err?.message || err}`);
+      }
+    } finally {
+      setIsUploading(false);
+      onUploadingChange?.(false);
     }
   };
 

@@ -20,7 +20,7 @@ interface RecruitFormProps {
   initialData?: Recruit;
   initialStatus?: RecruitmentStatus;
   user: User;
-  onSubmit: (data: Recruit) => void;
+  onSubmit: (data: Recruit) => Promise<boolean | void> | boolean | void;
   onClose: () => void;
   sessionYear: number;
   existingRecruits: Recruit[];
@@ -139,6 +139,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
   const [formData, setFormData] = useState<Recruit>(() => buildMergedRecruit(initialData));
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'PROFILE' | 'CURRICULUM_VITAE'>('PROFILE');
 
   // Chỉ tự động xét chuyển trạng thái khi cán bộ chủ động sửa các trường thể lực hoặc học vấn
@@ -440,28 +442,39 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     });
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Ảnh quá lớn (vượt quá 2MB). Vui lòng chọn ảnh nhẹ hơn.");
-        return;
-      }
-      setIsUploadingAvatar(true);
+  const readImageAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const base64 = ev.target?.result as string;
-        try {
-          const url = await api.uploadFile(base64, 'avatar');
-          handleChange('avatarUrl', url);
-        } catch (err: any) {
-          alert(`Không thể tải ảnh lên Cloudinary: ${err.message || err}. Hệ thống sẽ lưu tạm dưới dạng ảnh cục bộ.`);
-          handleChange('avatarUrl', base64);
-        } finally {
-          setIsUploadingAvatar(false);
-        }
-      };
+      reader.onload = (ev) => resolve(ev.target?.result as string);
+      reader.onerror = (ev) => reject(ev);
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Ảnh quá lớn (vượt quá 2MB). Vui lòng chọn ảnh nhẹ hơn.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const url = await api.uploadFile(file, 'avatar');
+      handleChange('avatarUrl', url);
+    } catch (err: any) {
+      try {
+        const base64 = await readImageAsBase64(file);
+        alert(`Không thể tải ảnh lên Cloudinary: ${err.message || err}. Hệ thống sẽ lưu tạm dưới dạng ảnh cục bộ.`);
+        handleChange('avatarUrl', base64);
+      } catch {
+        alert(`Lỗi đọc tệp ảnh: ${err?.message || err}`);
+      }
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -473,9 +486,13 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
     setFormData(prev => ({ ...prev, attachments: prev.attachments?.filter((_, i) => i !== index) }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isReadOnly) return;
+    if (isReadOnly || isSaving) return;
+    if (isUploadingAvatar || isUploadingAttachment) {
+      alert("Hệ thống đang tải lên ảnh hoặc tệp PDF, vui lòng đợi hoàn tất trước khi lưu.");
+      return;
+    }
 
     // --- KIỂM TRA TRÙNG LẶP DỮ LIỆU ---
     const cleanCitizenId = formData.citizenId?.trim();
@@ -530,7 +547,12 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
         return;
     }
 
-    onSubmit(formData);
+    setIsSaving(true);
+    try {
+      await onSubmit(formData);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const currentEduLower = (formData.details.education || '').toLowerCase();
@@ -820,7 +842,8 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
                         attachments={formData.attachments} 
                         isReadOnly={isReadOnly} 
                         onUpload={handleAddAttachment} 
-                        onDelete={handleRemoveAttachment} 
+                        onDelete={handleRemoveAttachment}
+                        onUploadingChange={setIsUploadingAttachment}
                      />
                    </div>
                 </div>
@@ -840,9 +863,10 @@ const RecruitForm: React.FC<RecruitFormProps> = ({
               <button 
                 type="submit" 
                 onClick={handleSubmit}
-                className="flex-1 md:flex-none px-10 py-2.5 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-2 hover:bg-military-800 transition-all active:scale-95"
+                disabled={isSaving || isUploadingAvatar || isUploadingAttachment}
+                className="flex-1 md:flex-none px-10 py-2.5 bg-military-700 text-white rounded-xl font-black uppercase text-xs shadow-xl flex items-center justify-center gap-2 hover:bg-military-800 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Save size={18} /> Lưu hồ sơ công dân
+                <Save size={18} /> {isSaving ? 'Đang lưu...' : (isUploadingAvatar || isUploadingAttachment) ? 'Đang tải tệp...' : 'Lưu hồ sơ công dân'}
               </button>
             )}
           </div>
